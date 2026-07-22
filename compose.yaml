@@ -1,0 +1,45 @@
+name: povod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: povod
+      POSTGRES_USER: povod
+      POSTGRES_PASSWORD: povod_local_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U povod -d povod"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      PORT: "8080"
+      HOST: 0.0.0.0
+      CORS_ORIGIN: http://localhost:5173
+      DATABASE_URL: postgresql://povod:povod_local_password@postgres:5432/povod
+      DATABASE_SSL: "false"
+      ENABLE_EXTERNAL_EVENTS: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8080/
+    depends_on:
+      - backend
+    ports:
+      - "5173:8080"
+
+volumes:
+  postgres_data:

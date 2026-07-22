@@ -11,11 +11,15 @@ let pool: Pool | null = null;
 
 function getPool(): Pool {
   if (!pool) {
-    const isLocal = /localhost|127\.0\.0\.1/.test(config.databaseUrl);
+    const hostname = new URL(config.databaseUrl).hostname;
+    const isLocal = ["localhost", "127.0.0.1", "::1", "postgres", "db"].includes(hostname);
+    const useSsl = config.databaseSsl === "true"
+      || (config.databaseSsl !== "false" && !isLocal);
+
     pool = new Pool({
       connectionString: config.databaseUrl,
       // Облачные Postgres (Neon/Render/Supabase) требуют SSL
-      ssl: isLocal ? false : { rejectUnauthorized: false },
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
     });
   }
   return pool;

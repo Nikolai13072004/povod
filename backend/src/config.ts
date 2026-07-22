@@ -16,6 +16,8 @@ export const config = {
   vkAppId: process.env.VK_APP_ID || "",
   /** Строка подключения к PostgreSQL. Если задана — данные хранятся в БД; иначе in-memory/JSON. */
   databaseUrl: process.env.DATABASE_URL || "",
+  /** Режим TLS для PostgreSQL: `true`, `false` или `auto` (по умолчанию). */
+  databaseSsl: process.env.DATABASE_SSL || "auto",
   /** Подмешивать реальные концерты/фестивали из KudaGo в ленту (по умолчанию вкл). */
   externalEvents: process.env.ENABLE_EXTERNAL_EVENTS !== "false",
 } as const;
