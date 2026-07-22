@@ -1,0 +1,39 @@
+# ============================================================================
+# .gitlab-ci.yml — backend (командный репозиторий)
+# ============================================================================
+# Аналог фронтенд-конфига: подключает платформенный workflow и задаёт
+# переменные backend-репозитория.
+#
+# ВНИМАНИЕ: точные имена платформенного workflow и переменной включения
+# (ENABLE_BACKEND и путь workflows/backend.yml) уточните у наставников/DevOps —
+# здесь приведён ожидаемый по аналогии с frontend.yml вариант.
+# ============================================================================
+
+include:
+  - project: "hackathon-2026/platform"
+    ref: "main"
+    file: "workflows/backend.yml"
+
+variables:
+  # 1. СЕРВИС
+  SERVICE_NAME: "backend"
+  COMPOSE_FILE: ".platform/compose/backend.yml"
+  IMAGE_NAME_SUFFIX: "backend"
+  DOCKERFILE_PATH: "./Dockerfile"
+
+  # 2. RUNTIME
+  CONTAINER_PORT: "8080"
+  HEALTHCHECK_PATH: "/health"
+
+  # 3. СЦЕНАРИЙ BACKEND
+  #   true  - backend собирается и деплоится
+  #   false - build/deploy jobs пропускаются, verify остаётся
+  ENABLE_BACKEND: "true"
+
+  # 4. RUNTIME-НАСТРОЙКИ ПРИЛОЖЕНИЯ
+  #   Прокидываются в контейнер как переменные окружения.
+  PORT: "8080"
+  PERSIST: "false"
+  CORS_ORIGIN: "https://team-5.hack.kam-dev.ru"
+
+# Jobs полностью даёт подключённый workflow backend.yml.

@@ -1,0 +1,32 @@
+/* index.css — светлая палитра по умолчанию (VKUI и кастомные формы/модалки) */
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
+  --bg-color: #ebf2fa;
+  --text-color: #1d1d1d;
+  --accent-color: #2d81e0;
+}
+
+body,
+html,
+#root {
+  background: #ebf2fa !important;
+  color: var(--text-color);
+}
+
+/* #chat .vkuiGroup {
+  background-color: #ffffff !important;
+} */
+
+.vkui--force-custom-colors,
+:root {
+  --vkui--color_background_primary: #ebf2fa !important;
+  --vkui--color_background_secondary: #ffffff !important;
+  --vkui--color_background_tertiary: #ebf2fa !important;
+  --vkui--color_background_content: #ffffff !important;
+  --vkui--color_text_primary: #1d1d1d !important;
+  --vkui--color_text_secondary: #6b7a99 !important;
+  --vkui--color_text_tertiary: #818c99 !important;
+  --vkui--color_separator_primary: rgba(0, 0, 0, 0.08) !important;
+  --vkui--color_separator_primary_alpha: rgba(0, 0, 0, 0.08) !important;
+}
