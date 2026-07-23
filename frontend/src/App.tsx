@@ -68,10 +68,6 @@ const App = observer(() => {
           <AppContainer isWhiteBg={isChatPage}>
             {showAppChrome && <THeader />}
 
-            {rootStore.error && (
-              <div style={{ color: "red", padding: "0 24px" }}>{rootStore.error}</div>
-            )}
-
             <MainContent>
               <SplitLayout style={{ justifyContent: "center" }}>
                 <SplitCol maxWidth="100%">

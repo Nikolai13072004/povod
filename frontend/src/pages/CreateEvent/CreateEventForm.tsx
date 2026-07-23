@@ -270,6 +270,14 @@ const SubmitSection = styled.div`
   margin-top: 8px;
 `;
 
+const SubmitError = styled.div`
+  margin-bottom: 12px;
+  color: var(--vkui--color_text_negative, #e64646);
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+`;
+
 const SegmentedControlWrapper = styled(Section)`
   display: flex;
   padding: 8px;
@@ -331,6 +339,7 @@ export default function CreateEventForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeType, setActiveType] = useState<"exact" | "idea">("idea");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     title: "",
@@ -395,7 +404,11 @@ export default function CreateEventForm() {
 
   const handleSubmit = async () => {
     if (submitting) return;
-    if (!formData.title || !formData.date) return;
+    setSubmitError(null);
+    if (!formData.title || !formData.date || !formData.location) {
+      setSubmitError("Заполните название, дату и место события.");
+      return;
+    }
     setSubmitting(true);
 
     const timezone = browserTimezone();
@@ -403,7 +416,7 @@ export default function CreateEventForm() {
     try {
       startsAt = localDateTimeToIso(formData.date, formData.timeFrom, timezone);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Некорректные дата и время");
+      setSubmitError(error instanceof Error ? error.message : "Некорректные дата и время");
       setSubmitting(false);
       return;
     }
@@ -422,7 +435,11 @@ export default function CreateEventForm() {
     });
 
     setSubmitting(false);
-    if (created) navigate("/events");
+    if (created) {
+      navigate("/events");
+    } else {
+      setSubmitError(eventStore.actionError ?? "Не удалось создать событие");
+    }
   };
 
   return (
@@ -588,7 +605,16 @@ export default function CreateEventForm() {
       </Section>
 
       <SubmitSection>
-        <Button fullWidth size="lg" variant="primary" type="button" onClick={handleSubmit}>
+        {submitError && <SubmitError role="alert">{submitError}</SubmitError>}
+        <Button
+          fullWidth
+          size="lg"
+          variant="primary"
+          type="button"
+          onClick={handleSubmit}
+          loading={submitting}
+          disabled={submitting}
+        >
           <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
             <Icon28UsersOutline width={24} height={24} />
             Отправить повод

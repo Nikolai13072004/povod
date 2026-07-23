@@ -10,7 +10,6 @@ interface BackendStatus {
 class RootStore {
   pingData: { message?: string } | null = null;
   healthData: BackendStatus | null = null;
-  error: string | null = null;
   isLoading = false;
 
   constructor() {

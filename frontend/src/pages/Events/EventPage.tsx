@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import { eventStore } from "../../stores/EventStore";
@@ -17,7 +17,6 @@ import {
   Title,
   Spacing,
   Separator,
-  Spinner,
   Avatar,
 } from "@vkontakte/vkui";
 import {
@@ -28,6 +27,7 @@ import {
   Icon28ShareOutline,
 } from "@vkontakte/icons";
 import { EventMap } from "../../components/EventMap/EventMap";
+import { AsyncContent } from "../../components/AsyncContent";
 import "@vkontakte/vkui/dist/vkui.css";
 import styled from "@emotion/styled";
 
@@ -71,57 +71,91 @@ function EventPageComponent() {
   const [loading, setLoading] = useState(false);
 
   const [comments, setComments] = useState<ApiComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [posting, setPosting] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   useEffect(() => {
-    eventStore.fetchEvents();
-  }, []);
-
-  useEffect(() => {
-    if (!id) return;
-    commentsAPI.getByEvent(id).then((res) => {
-      if (res.data) setComments(res.data);
-    });
+    if (id) void eventStore.fetchEventById(id);
+    return () => eventStore.clearActionError();
   }, [id]);
 
+  const loadComments = useCallback(async () => {
+    if (!id) return;
+    setCommentsLoading(true);
+    setCommentsError(null);
+    const response = await commentsAPI.getByEvent(id);
+    if (response.error || !response.data) {
+      setCommentsError(response.error ?? "Сервер вернул пустой ответ");
+    } else {
+      setComments(response.data);
+    }
+    setCommentsLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    void loadComments();
+  }, [loadComments]);
+
   const eventData = id ? eventStore.getById(id) : undefined;
+  const detailLoading = id ? eventStore.isEventDetailLoading(id) : false;
+  const detailLoaded = id ? eventStore.isEventDetailLoaded(id) : true;
+  const detailNotFound = id ? eventStore.isEventDetailNotFound(id) : true;
+  const detailError = id ? eventStore.getEventDetailError(id) : null;
 
   const isJoined = eventData
     ? eventData.participantIds?.includes(sessionStore.user.id) ||
       eventStore.acceptedEvents.some((item) => item.id === eventData.id)
     : false;
 
-  // Пока лента грузится и события ещё нет — показываем спиннер
-  if (!eventData && eventStore.isLoading) {
+  if (!eventData && (!detailLoaded || detailLoading)) {
     return (
       <Panel id="loading">
         <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
         <Group>
-          <div style={{ padding: 48, display: "flex", justifyContent: "center" }}>
-            <Spinner size="l" />
-          </div>
+          <AsyncContent loading empty={false} loadingTitle="Загружаем событие…" />
         </Group>
       </Panel>
     );
   }
 
-  if (!eventData) {
+  if (!eventData && detailError) {
     return (
       <Panel id="error">
-        <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Ошибка</PanelHeader>
+        <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
         <Group>
-          <div style={{ padding: 20, textAlign: "center" }}>
-            <Title level="2">Событие не найдено</Title>
-            <Spacing size={16} />
-            <Button size="l" onClick={() => navigate(-1)}>
-              Вернуться к списку
-            </Button>
-          </div>
+          <AsyncContent
+            loading={false}
+            error={detailError}
+            empty={false}
+            emptyTitle=""
+            errorTitle="Не удалось открыть событие"
+            onRetry={() => id && eventStore.fetchEventById(id, true)}
+          />
         </Group>
       </Panel>
     );
   }
+
+  if (!eventData && detailNotFound) {
+    return (
+      <Panel id="not-found">
+        <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
+        <Group>
+          <AsyncContent
+            loading={false}
+            empty
+            emptyTitle="Событие не найдено"
+            emptyDescription="Возможно, оно было удалено или доступ к нему ограничен."
+          />
+        </Group>
+      </Panel>
+    );
+  }
+
+  if (!eventData) return null;
 
   const participants = eventData.participants ?? 0;
 
@@ -166,10 +200,13 @@ function EventPageComponent() {
     const text = commentText.trim();
     if (!text || posting || !id) return;
     setPosting(true);
+    setCommentError(null);
     const res = await commentsAPI.create({ text, eventId: id });
     if (res.data) {
       setComments((prev) => [...prev, res.data as ApiComment]);
       setCommentText("");
+    } else {
+      setCommentError(res.error ?? "Не удалось отправить комментарий");
     }
     setPosting(false);
   };
@@ -245,6 +282,19 @@ function EventPageComponent() {
             </>
           )}
 
+          {eventStore.actionError && (
+            <Text
+              role="alert"
+              style={{
+                color: "var(--vkui--color_text_negative)",
+                marginTop: 10,
+                textAlign: "center",
+              }}
+            >
+              {eventStore.actionError}
+            </Text>
+          )}
+
           <div style={{ height: 8 }} />
           <Button
             size="l"
@@ -264,30 +314,38 @@ function EventPageComponent() {
             Комментарии ({comments.length})
           </Title>
 
-          {comments.map((c) => (
-            <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-              <Avatar size={36} src={c.author?.avatar} initials={c.author?.name?.[0]} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{c.author?.name ?? "Гость"}</div>
-                <Text style={{ fontSize: 14 }}>{c.text}</Text>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--vkui--color_text_secondary)",
-                    marginTop: 2,
-                  }}
-                >
-                  {formatCommentDate(c.createdAt)}
+          <AsyncContent
+            loading={commentsLoading}
+            error={commentsError}
+            empty={comments.length === 0}
+            loadingTitle="Загружаем комментарии…"
+            errorTitle="Не удалось загрузить комментарии"
+            emptyTitle="Пока нет комментариев"
+            emptyDescription="Будьте первым, кто начнёт обсуждение."
+            onRetry={loadComments}
+            compact
+          >
+            {comments.map((c) => (
+              <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+                <Avatar size={36} src={c.author?.avatar} initials={c.author?.name?.[0]} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    {c.author?.name ?? "Гость"}
+                  </div>
+                  <Text style={{ fontSize: 14 }}>{c.text}</Text>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--vkui--color_text_secondary)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {formatCommentDate(c.createdAt)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-
-          {comments.length === 0 && (
-            <Text style={{ color: "var(--vkui--color_text_secondary)" }}>
-              Пока нет комментариев — будь первым!
-            </Text>
-          )}
+            ))}
+          </AsyncContent>
 
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <CommentInput
@@ -302,6 +360,14 @@ function EventPageComponent() {
               Отправить
             </Button>
           </div>
+          {commentError && (
+            <Text
+              role="alert"
+              style={{ color: "var(--vkui--color_text_negative)", marginTop: 8 }}
+            >
+              {commentError}
+            </Text>
+          )}
         </div>
       </Group>
     </Panel>

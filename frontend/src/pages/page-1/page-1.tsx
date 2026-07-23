@@ -1,7 +1,7 @@
 import styled from "@emotion/styled";
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { Button, Spinner } from "@vkontakte/vkui";
+import { Button } from "@vkontakte/vkui";
 import {
   Icon28CalendarOutline,
   Icon28ClockOutline,
@@ -11,6 +11,7 @@ import {
 import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
+import { AsyncContent } from "../../components/AsyncContent";
 import {
   eventDateKey,
   eventTimeKey,
@@ -144,16 +145,6 @@ const EventActions = styled.div`
   display: flex;
   gap: 8px;
   margin-top: 8px;
-`;
-
-const StateBox = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 48px 16px;
-  color: var(--vkui--color_text_secondary);
-  text-align: center;
 `;
 
 const ResultCount = styled.div`
@@ -326,23 +317,20 @@ function FirstPageComponent() {
         )}
       </FiltersContainer>
 
-      {isInitialLoading && (
-        <StateBox>
-          <Spinner size="l" />
-          <span>Загружаем поводы…</span>
-        </StateBox>
-      )}
-
-      {!isInitialLoading && eventStore.error && (
-        <StateBox>
-          <span>⚠️ {eventStore.error}</span>
-          <Button size="m" mode="secondary" onClick={() => eventStore.fetchEvents(true)}>
-            Повторить
-          </Button>
-        </StateBox>
-      )}
-
-      {!isInitialLoading && !eventStore.error && (
+      <AsyncContent
+        loading={isInitialLoading}
+        error={eventStore.error}
+        empty={!isInitialLoading && filteredEvents.length === 0}
+        loadingTitle="Загружаем поводы…"
+        errorTitle="Не удалось загрузить ленту"
+        emptyTitle={hasActiveFilters ? "По выбранным фильтрам ничего нет" : "Пока нет поводов"}
+        emptyDescription={
+          hasActiveFilters
+            ? "Попробуйте изменить параметры поиска или сбросить фильтры."
+            : "Новые события появятся здесь после публикации."
+        }
+        onRetry={() => eventStore.fetchEvents(true)}
+      >
         <>
           {hasActiveFilters && (
             <ResultCount>Найдено поводов: {filteredEvents.length}</ResultCount>
@@ -395,14 +383,9 @@ function FirstPageComponent() {
             </EventCard>
           ))}
 
-          {filteredEvents.length === 0 && (
-            <StateBox>
-              <span>Поводы не найдены</span>
-            </StateBox>
-          )}
           </EventsList>
         </>
-      )}
+      </AsyncContent>
 
       <InterestsFilter
         isOpen={activeModal === "interests"}

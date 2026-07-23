@@ -10,6 +10,7 @@ interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   disabled?: boolean;
+  loading?: boolean;
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
   fullWidth?: boolean;
@@ -41,6 +42,7 @@ const Button = observer(
     variant = "primary",
     size = "md",
     disabled = false,
+    loading = false,
     onClick,
     type = "button",
     fullWidth = false,
@@ -52,6 +54,7 @@ const Button = observer(
         size={sizeMap[size]}
         stretched={fullWidth}
         disabled={disabled}
+        loading={loading}
         onClick={onClick}
         type={type}
       >

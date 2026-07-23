@@ -14,11 +14,10 @@ import {
   TimeFilter,
   type FilterOption,
 } from "../../components/Filters";
-import NavMenu from "../../components/NavMenu";
 import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
-import { Button, Spinner } from "@vkontakte/vkui";
+import { AsyncContent } from "../../components/AsyncContent";
 import {
   eventDateKey,
   eventTimeKey,
@@ -338,63 +337,52 @@ function SignUpEventsPage() {
           </FilterWrapper>
         </FiltersContainer>
 
-        {eventStore.isMyEventsLoading && allEvents.length === 0 && (
-          <div style={{ display: "grid", placeItems: "center", gap: 12, padding: 32 }}>
-            <Spinner size="l" />
-            <span style={{ color: "#818c99" }}>Загружаем ваши поводы…</span>
-          </div>
-        )}
+        <AsyncContent
+          loading={eventStore.isMyEventsLoading && allEvents.length === 0}
+          error={eventStore.myEventsError}
+          empty={filteredEvents.length === 0}
+          loadingTitle="Загружаем ваши поводы…"
+          errorTitle="Не удалось загрузить ваши события"
+          emptyTitle={allEvents.length === 0 ? "У вас пока нет событий" : "События не найдены"}
+          emptyDescription={
+            allEvents.length === 0
+              ? "Создайте новый повод или запишитесь на событие из общей ленты."
+              : "Попробуйте изменить параметры поиска или фильтры."
+          }
+          onRetry={() => eventStore.fetchMyEvents(true)}
+        >
+          {filteredEvents.map((event) => (
+            <Card key={event.id}>
+              <EventImage src={event.image ?? ""} alt={event.title} />
+              <EventInfo>
+                <div>
+                  {eventStore.acceptedEvents.some((accepted) => accepted.id === event.id) && (
+                    <StatusTag>Записан</StatusTag>
+                  )}
+                  <EventTitle>{event.title}</EventTitle>
+                  <DateContainer>
+                    <DetailRow>
+                      <Icon28CalendarOutline width={16} height={16} />{" "}
+                      {formatEventDate(event.startsAt, event.timezone)}
+                    </DetailRow>
+                    <DetailRow>
+                      <Icon28ClockOutline width={16} height={16} />{" "}
+                      {formatEventTime(event.startsAt, event.timezone)}
+                    </DetailRow>
+                    <DetailRow>
+                      <Icon28PlaceOutline width={16} height={16} />{" "}
+                      {event.location || event.place}
+                    </DetailRow>
+                  </DateContainer>
+                </div>
 
-        {!eventStore.isMyEventsLoading && eventStore.myEventsError && (
-          <div style={{ display: "grid", placeItems: "center", gap: 12, padding: 32 }}>
-            <span style={{ color: "#818c99" }}>{eventStore.myEventsError}</span>
-            <Button
-              mode="secondary"
-              onClick={() => eventStore.fetchMyEvents(true)}
-            >
-              Повторить
-            </Button>
-          </div>
-        )}
-
-        {!eventStore.myEventsError && filteredEvents.map((event) => (
-          <Card key={event.id}>
-            <EventImage src={event.image ?? ""} alt={event.title} />
-            <EventInfo>
-              <div>
-                {eventStore.acceptedEvents.some((accepted) => accepted.id === event.id) && (
-                  <StatusTag>Записан</StatusTag>
-                )}
-                <EventTitle>{event.title}</EventTitle>
-                <DateContainer>
-                  <DetailRow>
-                    <Icon28CalendarOutline width={16} height={16} />{" "}
-                    {formatEventDate(event.startsAt, event.timezone)}
-                  </DetailRow>
-                  <DetailRow>
-                    <Icon28ClockOutline width={16} height={16} />{" "}
-                    {formatEventTime(event.startsAt, event.timezone)}
-                  </DetailRow>
-                  <DetailRow>
-                    <Icon28PlaceOutline width={16} height={16} /> {event.location || event.place}
-                  </DetailRow>
-                </DateContainer>
-              </div>
-
-              <ActionButton onClick={() => navigate(`/page-1/${event.id}`)}>
-                Перейти к поводу
-              </ActionButton>
-            </EventInfo>
-          </Card>
-        ))}
-
-        {!eventStore.isMyEventsLoading &&
-          !eventStore.myEventsError &&
-          filteredEvents.length === 0 && (
-          <div style={{ textAlign: "center", color: "#818c99", marginTop: "20px" }}>
-            Поводы не найдены
-          </div>
-        )}
+                <ActionButton onClick={() => navigate(`/page-1/${event.id}`)}>
+                  Перейти к поводу
+                </ActionButton>
+              </EventInfo>
+            </Card>
+          ))}
+        </AsyncContent>
       </ContentPadding>
 
       <InterestsFilter
@@ -422,7 +410,6 @@ function SignUpEventsPage() {
         onSave={handleApplyLocation}
       />
 
-      <NavMenu />
     </PageContainer>
   );
 }

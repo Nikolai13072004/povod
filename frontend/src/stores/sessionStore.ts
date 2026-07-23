@@ -10,6 +10,25 @@ import {
 } from "../services/api";
 import { eventStore } from "./EventStore";
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(
+      () => reject(new Error("Platform response timeout")),
+      timeoutMs,
+    );
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
 class SessionStore {
   user: User = CURRENT_USER;
   city = "";
@@ -45,8 +64,13 @@ class SessionStore {
       setSessionToken();
     }
 
+    const launchParams = window.location.search.replace(/^\?/, "");
+    const hasVkLaunch = /(?:^|&)vk_user_id=/.test(launchParams);
+
     try {
-      const info = (await bridge.send("VKWebAppGetUserInfo")) as {
+      if (!hasVkLaunch) return;
+
+      const info = (await withTimeout(bridge.send("VKWebAppGetUserInfo"), 3000)) as {
         id: number;
         first_name?: string;
         last_name?: string;
@@ -56,21 +80,17 @@ class SessionStore {
       };
       const name = [info.first_name, info.last_name].filter(Boolean).join(" ");
       const avatar = info.photo_200 || info.photo_100;
-      const launchParams = window.location.search.replace(/^\?/, "");
-
       runInAction(() => {
         this.isVK = true;
         this.city = info.city?.title || "";
       });
 
-      if (/(?:^|&)vk_user_id=/.test(launchParams)) {
-        const response = await authAPI.vk(launchParams, { name, avatar });
-        if (response.data) this.applySession(response.data);
-        else {
-          runInAction(() => {
-            this.error = response.error ?? "Не удалось подтвердить вход через VK";
-          });
-        }
+      const response = await authAPI.vk(launchParams, { name, avatar });
+      if (response.data) this.applySession(response.data);
+      else {
+        runInAction(() => {
+          this.error = response.error ?? "Не удалось подтвердить вход через VK";
+        });
       }
     } catch {
       // Обычный браузер: пользователь войдёт через форму POVOD.
