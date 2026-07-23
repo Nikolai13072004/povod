@@ -29,6 +29,7 @@
 
 ### Документация
 
+- Переписаны `frontend/README.md` и `backend/README.md` под актуальный POVOD: удалены хакатонные, GitLab и team-5 упоминания, обновлены package name/description, lock-файл и `index.html` (title и `lang`) (DOC-001).
 - Добавлен подробный `docs/CONTRIBUTOR_BACKLOG.md` с правилами отдельных веток и Pull Request, Definition of Done и приоритизированными задачами от архитектуры и безопасности до дизайна, CI/CD и портфолио.
 - Созданы единый журнал изменений, описание архитектуры, roadmap и правила совместной работы для frontend и backend, включая инструкции для AI-агентов.
 

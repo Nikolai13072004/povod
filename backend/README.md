@@ -1,113 +1,70 @@
 # POVOD — Backend API
 
-Бэкенд для VK Mini App **«ПОВОД»** (хакатон, команда team-5, май 2026).
-Реализует REST API, который уже ожидает фронтенд в
-[`VK_POVOD_Hackathon_2026/src/services/api.ts`](../VK_POVOD_Hackathon_2026/src/services/api.ts):
-события (поводы), пользователи, друзья, комментарии, health-проверки.
+Серверная часть [POVOD](../README.md): платформенно-независимый REST API на **Express + TypeScript** с нормализованной **PostgreSQL**, собственной аутентификацией и отзываемыми серверными сессиями.
 
 ## Стек
 
-- **Node.js 20 + Express 4 + TypeScript** (запуск через `tsx`, без шага сборки)
-- **Zod** — валидация входных данных
-- Хранилище — **in-memory + снапшот в `data/db.json`** (слой изолирован в `src/store.ts`,
-  замена на Postgres/Prisma затрагивает только его)
-- **CORS**, **morgan** (логи), health/ping под `rootStore` фронтенда
-- **Docker** (non-root, healthcheck) + `env.example` + GitLab CI
+- **Node.js + Express 4 + TypeScript** (запуск через `tsx`, без отдельного шага сборки)
+- **Zod** — валидация конфигурации и входных данных
+- **PostgreSQL** — нормализованное хранение с нумерованными миграциями; для локальной разработки доступны in-memory и JSON-адаптеры
+- **CORS**, **morgan**, health/readiness-проверки
+- **Docker** (non-root, healthcheck)
 
-## Запуск локально
+## Локальный запуск
 
 ```bash
-npm install
-npm run dev      # http://localhost:8080, авто-перезапуск (tsx watch)
-# или
-npm start        # без watch
+cp env.example .env
+npm ci
+npm run dev        # http://localhost:8080, авто-перезапуск (tsx watch)
+# либо
+npm start          # без watch
 npm run typecheck  # проверка типов (tsc --noEmit)
+npm test           # unit- и API-тесты
 ```
 
-Сервер сидится тестовыми данными из макетов фронта (волейбол / караоке / пикник).
-
-## Эндпоинты
-
-Базовый префикс ресурсов — `/api`. Пути в PascalCase, как у фронта (роутинг регистронезависим).
-
-### Health
-| Метод | Путь | Ответ |
-|------|------|-------|
-| GET | `/health` | `{ service, status, database_enabled, timestamp }` |
-| GET | `/api/ping` | `{ message: "pong", ... }` |
-| GET | `/api/db/time` | `{ time, now }` |
-
-### Events (поводы)
-| Метод | Путь | Описание |
-|------|------|----------|
-| GET | `/api/Events` | список (фильтры: `?search=&category=&date=&author=`) |
-| GET | `/api/Events/active` | ещё не прошедшие |
-| GET | `/api/Events/upcoming` | будущие, по возрастанию даты |
-| GET | `/api/Events/author/:authorId` | события автора |
-| GET | `/api/Events/:id` | один повод |
-| POST | `/api/Events` | создать |
-| PUT | `/api/Events/:id` | обновить |
-| DELETE | `/api/Events/:id` | удалить (+ его комментарии) |
-| POST | `/api/Events/:id/join` | присоединиться (`{ userId? }`) |
-| POST | `/api/Events/:id/leave` | выйти (`{ userId? }`) |
-
-### Users
-| Метод | Путь | Описание |
-|------|------|----------|
-| GET | `/api/Users` | список |
-| GET | `/api/Users/:id` | пользователь |
-| DELETE | `/api/Users/:id` | удалить |
-| GET | `/api/Users/:id/friends` | друзья |
-| POST | `/api/Users/:id/friends` | добавить друга (`{ friendId }`) |
-| DELETE | `/api/Users/:id/friends/:friendId` | убрать друга |
-
-### Comments
-| Метод | Путь | Описание |
-|------|------|----------|
-| GET | `/api/Comments/event/:eventId` | комментарии события |
-| POST | `/api/Comments` | создать (`{ text, eventId, author? }`) |
-| DELETE | `/api/Comments/:id` | удалить |
-
-## Подключение фронтенда
-
-Фронт берёт базовый URL из `VITE_API_URL` и **дописывает endpoint без ведущего слеша**
-(`${VITE_API_URL}api/Events`), поэтому база должна оканчиваться слешем:
-
-```env
-# .env фронтенда (VK_POVOD_Hackathon_2026)
-VITE_API_URL=http://localhost:8080/
-```
-
-> Сейчас страницы фронта работают на локальных моках (`INITIAL_EVENTS`, закомментированный
-> `loadBackendStatus`). Чтобы они реально ходили в это API, нужно мелко доработать
-> `services/api.ts` / сторы / страницы — готов сделать отдельным шагом.
+Без заданного `DATABASE_URL` данные хранятся в `data/db.json` (или полностью in-memory при `PERSIST=false`). Запуск с PostgreSQL и всем стеком — через Docker Compose из [корневого README](../README.md).
 
 ## Конфигурация
 
-См. [`env.example`](./env.example): `PORT`, `HOST`, `CORS_ORIGIN`, `PERSIST`, `SERVICE_NAME`.
+Переменные окружения (см. [`env.example`](./env.example)) валидируются через Zod **до** запуска; небезопасная production-конфигурация (wildcard CORS, включённый демо-вход, VK-вход без секрета) останавливает старт с понятной ошибкой. Ключевые: `PORT`, `HOST`, `CORS_ORIGIN`, `PERSIST`, `DATABASE_URL`, `DEMO_AUTH_ENABLED`, `VK_APP_SECRET`.
 
-## Docker
+## API
+
+Базовый префикс — `/api` (пути в PascalCase, роутинг регистронезависим). Полный контракт и правила — в [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+- `/health`, `/api/ping` — служебные проверки
+- `/api/Auth/register`, `/api/Auth/login`, `/api/Auth/session`, `/api/Auth/logout` — собственная учётная запись и жизненный цикл серверной сессии
+- `/api/Auth/vk` — вход через launch-параметры VK
+- `/api/Events`, `/api/Events/:id`, `/api/Events/author/:userId`, `/api/Events/participant/:userId` — события, создание и изменение, запись и отмена записи
+- `/api/Users` — пользователи и друзья
+- `/api/Comments` — комментарии к событиям
+
+Автор события и комментария определяется сервером; приватные события и email пользователей не раскрываются посторонним. Время события хранится и отдаётся как ISO 8601 `startsAt` с IANA `timezone`.
+
+## Проверки
+
+Полная проверка monorepo — из корня репозитория: `npm run check`. Smoke-проверка контракта уже запущенного API:
 
 ```bash
-docker build -t povod-backend .
-docker run -p 8080:8080 povod-backend   # PERSIST=false, stateless
+API_URL=http://localhost:8080 npm run check:api
 ```
+
+Авторизованная часть контракта включается переменными `CONTRACT_AUTH_EMAIL` и `CONTRACT_AUTH_PASSWORD`.
 
 ## Структура
 
 ```text
 src/
-├── index.ts          # bootstrap + listen
-├── app.ts            # сборка Express, middleware, монтаж роутов
-├── config.ts         # конфиг из ENV
-├── types.ts          # модели Event / User / Comment
-├── store.ts          # in-memory хранилище + персист в data/db.json
-├── seed.ts           # стартовые данные
-├── validation.ts     # Zod-схемы
-├── middleware.ts     # asyncHandler, HttpError, errorHandler, notFound
-└── routes/
-    ├── health.ts
-    ├── events.ts
-    ├── users.ts
-    └── comments.ts
+├── index.ts, app.ts      # bootstrap, сборка Express и монтаж роутов
+├── config.ts             # валидация конфигурации (Zod)
+├── auth/                 # регистрация/вход, сессии, пароли, rate limit
+├── db/                   # PostgreSQL-адаптер, миграции, работа с датами
+├── repositories/         # слой доступа к данным (PostgreSQL / in-memory)
+├── routes/               # HTTP-роутеры (auth, events, users, comments, health)
+├── seed.ts, kudago.ts    # стартовые данные и импорт публичных событий из KudaGo
+└── validation, middleware, presenters, types, vk, store
 ```
+
+## Документация
+
+Общие документы (идентичны в `frontend/` и `backend/`): [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`ROADMAP.md`](./ROADMAP.md), [`CHANGELOG.md`](./CHANGELOG.md), [`CONTRIBUTING.md`](./CONTRIBUTING.md), [`AGENTS.md`](./AGENTS.md). Пул задач для участников — [`docs/CONTRIBUTOR_BACKLOG.md`](../docs/CONTRIBUTOR_BACKLOG.md).
