@@ -11,6 +11,7 @@ const WhitePanel = styled(Panel)`
 const ChatContainer = styled.div`
   background-color: #ffffff;
   min-height: 100vh;
+  min-height: 100dvh;
 `;
 
 const EmptyWrap = styled.div`
@@ -24,7 +25,7 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyEmoji = styled.div`
-  font-size: 56px;
+  font-size: clamp(40px, 12vw, 64px);
   line-height: 1;
 `;
 

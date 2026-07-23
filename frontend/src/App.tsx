@@ -12,6 +12,7 @@ import { ContentWidth } from "./components/Layout/ContentWidth";
 
 const AppContainer = styled.div<{ isWhiteBg?: boolean }>`
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   /* Проверка пропса + !important, чтобы перебить index.css */

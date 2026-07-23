@@ -47,6 +47,7 @@ const SearchContainer = styled.div`
 
 const SearchInput = styled.input`
   flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   font-size: 15px;
@@ -82,6 +83,7 @@ const EventImage = styled.img`
 `;
 const EventInfo = styled.div`
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -117,7 +119,6 @@ const ActionButton = styled.button`
   font-weight: 400;
   margin-top: 8px;
   cursor: pointer;
-  margin-right: 5px;
 
   &:active {
     opacity: 0.8;
@@ -133,7 +134,8 @@ const DetailRow = styled.div`
   margin-bottom: 2px;
   padding-top: 4px;
   margin-left: 0px;
-  margin-right: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 `;
 
 const FiltersContainer = styled.div`
@@ -169,7 +171,7 @@ const FilterButton = styled.span`
 `;
 const DateContainer = styled.div`
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
 `;
 
 interface EventItem {
@@ -309,15 +311,17 @@ function SignUpEventsPage() {
 
   return (
     <PageContainer>
-      <SearchContainer>
-        <Icon28SearchOutline />
-        <SearchInput
-          type="text"
-          placeholder="Поиск..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </SearchContainer>
+      <ContentPadding>
+        <SearchContainer>
+          <Icon28SearchOutline />
+          <SearchInput
+            type="text"
+            placeholder="Поиск..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </SearchContainer>
+      </ContentPadding>
 
       <ContentPadding style={{ marginTop: "16px" }}>
         <FiltersContainer>

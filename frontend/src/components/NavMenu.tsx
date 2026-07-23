@@ -21,6 +21,8 @@ const Nav = styled("nav", { shouldForwardProp })`
   display: flex;
   justify-content: center;
   width: 100%;
+  max-width: var(--povod-content-max, 1080px);
+  margin: 0 auto;
   height: 60px;
   padding: 0 10px 20px 10px;
   background: #ffffff;

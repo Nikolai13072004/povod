@@ -16,6 +16,7 @@ import {
 
 const FormContainer = styled.div`
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 16px;
   /* Светло-голубой фон как на макете */
   background: #ebf2fa;
@@ -525,7 +526,7 @@ export default function CreateEventForm() {
         </PhotoSection>
 
         {formData.photoData && (
-          <div style={{ marginTop: 12, borderRadius: 12, overflow: "hidden", height: 150 }}>
+          <div style={{ marginTop: 12, borderRadius: 12, overflow: "hidden", width: "100%", aspectRatio: "16 / 9" }}>
             <img
               src={formData.photoData}
               alt="Preview"
