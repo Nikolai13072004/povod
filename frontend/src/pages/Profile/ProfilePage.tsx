@@ -269,7 +269,8 @@ const UserProfile = () => {
     navigate(-1);
   };
 
-  const handleExit = () => {
+  const handleExit = async () => {
+    await sessionStore.logout();
     localStorage.removeItem("isAuth");
     localStorage.removeItem("onboarded");
     navigate("/", { replace: true });

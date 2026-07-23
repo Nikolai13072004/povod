@@ -87,7 +87,8 @@ function EventPageComponent() {
   const eventData = id ? eventStore.getById(id) : undefined;
 
   const isJoined = eventData
-    ? eventStore.acceptedEvents.some((item) => item.id === eventData.id)
+    ? eventData.participantIds?.includes(sessionStore.user.id) ||
+      eventStore.acceptedEvents.some((item) => item.id === eventData.id)
     : false;
 
   // Пока лента грузится и события ещё нет — показываем спиннер
@@ -164,7 +165,7 @@ function EventPageComponent() {
     const text = commentText.trim();
     if (!text || posting || !id) return;
     setPosting(true);
-    const res = await commentsAPI.create({ text, eventId: id, author: sessionStore.user });
+    const res = await commentsAPI.create({ text, eventId: id });
     if (res.data) {
       setComments((prev) => [...prev, res.data as ApiComment]);
       setCommentText("");

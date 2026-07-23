@@ -1,7 +1,7 @@
 import styled from "@emotion/styled";
 import { Button } from "@vkontakte/vkui";
 import "@vkontakte/vkui/dist/vkui.css";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useNavigate } from "react-router";
 import { sessionStore } from "../../stores/sessionStore";
@@ -132,6 +132,42 @@ const EnterButton = styled(Button)`
     background-color: #0062d4 !important;
   }
 `;
+const AuthForm = styled.form`
+  display: grid;
+  gap: 10px;
+  width: 100%;
+`;
+
+const AuthInput = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d7d8d9;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #ffffff;
+  color: #1d1d1f;
+  font-size: 15px;
+  outline: none;
+
+  &:focus {
+    border-color: #2d81e0;
+    box-shadow: 0 0 0 3px rgba(45, 129, 224, 0.12);
+  }
+`;
+
+const AuthModeButton = styled.button`
+  border: 0;
+  background: transparent;
+  color: #2d81e0;
+  cursor: pointer;
+  font-size: 14px;
+`;
+
+const AuthError = styled.div`
+  color: #e64646;
+  font-size: 13px;
+  line-height: 1.35;
+`;
 const TopIcon = styled.img`
   width: 148px;
   height: 44px;
@@ -142,17 +178,28 @@ const TopIcon = styled.img`
 
 export const MyLoginForm = observer(() => {
   const navigate = useNavigate();
+  const demoAuthEnabled = import.meta.env.VITE_DEMO_AUTH_ENABLED === "true";
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState(demoAuthEnabled ? "elmira@povod.app" : "");
+  const [password, setPassword] = useState(demoAuthEnabled ? "povod-demo" : "");
 
   useEffect(() => {
-    // Уже прошёл онбординг — сразу в ленту, минуя вход и выбор интересов
+    if (!sessionStore.initialized || !sessionStore.authenticated) return;
     if (localStorage.getItem("onboarded") === "true") {
       navigate("/page-1", { replace: true });
-    } else if (localStorage.getItem("isAuth") === "true") {
+    } else {
       navigate("/SelectInterestPage", { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, sessionStore.initialized, sessionStore.authenticated]);
 
-  const handleLogin = () => {
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const success =
+      mode === "login"
+        ? await sessionStore.login(email, password)
+        : await sessionStore.register(name, email, password);
+    if (!success) return;
     localStorage.setItem("isAuth", "true");
     navigate("/SelectInterestPage", { replace: true });
   };
@@ -183,9 +230,58 @@ export const MyLoginForm = observer(() => {
         )}
 
         <ActionButtonWrapper>
-          <EnterButton size="l" stretched onClick={handleLogin}>
-            {isVK ? `Продолжить как ${firstName}` : "Войти через VK ID"}
-          </EnterButton>
+          {isVK && sessionStore.authenticated ? (
+            <EnterButton size="l" stretched onClick={() => navigate("/SelectInterestPage")}>
+              Продолжить как {firstName}
+            </EnterButton>
+          ) : (
+            <AuthForm onSubmit={handleSubmit}>
+              {mode === "register" && (
+                <AuthInput
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Ваше имя"
+                  autoComplete="name"
+                  required
+                />
+              )}
+              <AuthInput
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Email"
+                autoComplete="email"
+                required
+              />
+              <AuthInput
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Пароль"
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                minLength={8}
+                required
+              />
+              {sessionStore.error && <AuthError>{sessionStore.error}</AuthError>}
+              <EnterButton
+                size="l"
+                stretched
+                type="submit"
+                loading={sessionStore.isLoading}
+                disabled={sessionStore.isLoading}
+              >
+                {mode === "login" ? "Войти в POVOD" : "Создать аккаунт"}
+              </EnterButton>
+              <AuthModeButton
+                type="button"
+                onClick={() => setMode(mode === "login" ? "register" : "login")}
+              >
+                {mode === "login"
+                  ? "Нет аккаунта? Зарегистрироваться"
+                  : "Уже есть аккаунт? Войти"}
+              </AuthModeButton>
+            </AuthForm>
+          )}
         </ActionButtonWrapper>
       </TextCard>
 

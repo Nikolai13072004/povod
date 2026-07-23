@@ -9,6 +9,23 @@ interface ApiResponse<T> {
   status: number;
 }
 
+export interface AuthSession {
+  token: string;
+  expiresAt: string;
+  user: User;
+}
+
+const SESSION_TOKEN_KEY = "povod.sessionToken";
+
+export function getSessionToken(): string {
+  return sessionStorage.getItem(SESSION_TOKEN_KEY) ?? "";
+}
+
+export function setSessionToken(token?: string): void {
+  if (token) sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+  else sessionStorage.removeItem(SESSION_TOKEN_KEY);
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -31,7 +48,7 @@ export interface Event {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   avatar?: string;
   interests?: string[];
 }
@@ -44,22 +61,43 @@ export interface Comment {
   eventId: string;
 }
 
+export type EventWrite = Omit<
+  Event,
+  "id" | "author" | "authorId" | "participants" | "participantIds" | "createdAt"
+>;
+
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   try {
     const url = `${API_BASE_URL}${endpoint}`;
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
+        ...(getSessionToken()
+          ? { Authorization: `Bearer ${getSessionToken()}` }
+          : {}),
         ...options.headers,
       },
       ...options,
     });
 
     if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      const isCredentialAttempt =
+        endpoint === "api/Auth/login" ||
+        endpoint === "api/Auth/register" ||
+        endpoint === "api/Auth/vk";
+      if (response.status === 401 && !isCredentialAttempt) {
+        setSessionToken();
+        window.dispatchEvent(new Event("povod:unauthorized"));
+      }
       return {
-        error: `API Error: ${response.status}`,
+        error: payload?.error ?? `API Error: ${response.status}`,
         status: response.status,
       };
+    }
+
+    if (response.status === 204) {
+      return { status: response.status };
     }
 
     const data = await response.json();
@@ -80,7 +118,7 @@ export const eventsAPI = {
 
   getById: (id: string) => fetchApi<Event>(`api/Events/${id}`),
 
-  create: (event: Omit<Event, "id">) =>
+  create: (event: EventWrite) =>
     fetchApi<Event>("api/Events", {
       method: "POST",
       body: JSON.stringify(event),
@@ -103,13 +141,19 @@ export const eventsAPI = {
 
   getByAuthor: (authorId: string) => fetchApi<Event[]>(`api/Events/author/${authorId}`),
 
+  getByParticipant: (userId: string) =>
+    fetchApi<Event[]>(`api/Events/participant/${userId}`),
+
+  getMine: () =>
+    fetchApi<{ created: Event[]; attending: Event[] }>("api/Events/mine"),
+
   join: (eventId: string) =>
-    fetchApi<void>(`api/Events/${eventId}/join`, {
+    fetchApi<Event>(`api/Events/${eventId}/join`, {
       method: "POST",
     }),
 
   leave: (eventId: string) =>
-    fetchApi<void>(`api/Events/${eventId}/leave`, {
+    fetchApi<Event>(`api/Events/${eventId}/leave`, {
       method: "POST",
     }),
 };
@@ -141,7 +185,7 @@ export const usersAPI = {
 export const commentsAPI = {
   getByEvent: (eventId: string) => fetchApi<Comment[]>(`api/Comments/event/${eventId}`),
 
-  create: (comment: Omit<Comment, "id" | "createdAt">) =>
+  create: (comment: { text: string; eventId: string }) =>
     fetchApi<Comment>("api/Comments", {
       method: "POST",
       body: JSON.stringify(comment),
@@ -154,15 +198,34 @@ export const commentsAPI = {
 };
 
 export const healthAPI = {
-  ping: () => fetchApi<{ status: string }>("api/ping"),
+  ping: () => fetchApi<{ message: string; service?: string; timestamp?: string }>("api/ping"),
 
   health: () => fetchApi<{ status: string }>("health"),
 };
 
 export const authAPI = {
+  register: (payload: { name: string; email: string; password: string }) =>
+    fetchApi<AuthSession>("api/Auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  login: (payload: { email: string; password: string }) =>
+    fetchApi<AuthSession>("api/Auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  session: () => fetchApi<{ user: User }>("api/Auth/session"),
+
+  logout: () =>
+    fetchApi<void>("api/Auth/logout", {
+      method: "POST",
+    }),
+
   // Авторизация VK Mini App: бэкенд проверяет подпись launch-параметров и upsert-ит пользователя
   vk: (launchParams: string, profile?: { name?: string; avatar?: string }) =>
-    fetchApi<User>("api/Auth/vk", {
+    fetchApi<AuthSession>("api/Auth/vk", {
       method: "POST",
       body: JSON.stringify({ launchParams, profile }),
     }),

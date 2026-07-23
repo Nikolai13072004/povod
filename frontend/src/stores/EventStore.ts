@@ -1,5 +1,9 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import { eventsAPI, type Event as ApiEvent } from "../services/api";
+import {
+  eventsAPI,
+  type Event as ApiEvent,
+  type EventWrite,
+} from "../services/api";
 
 /**
  * Внутренняя модель события. Расширена полем `place` (алиас `location`),
@@ -17,7 +21,12 @@ export interface IEvent {
   image?: string | null;
   coords?: [number, number];
   participants?: number;
+  participantIds?: string[];
   author?: string;
+  authorId?: string;
+  tags?: string[];
+  format?: "public" | "private";
+  createdAt?: string;
 }
 
 /** API-модель -> внутренняя модель (раскладываем location в place для UI). */
@@ -34,7 +43,12 @@ function normalize(e: ApiEvent): IEvent {
     image: e.image ?? null,
     coords: e.coords,
     participants: e.participants,
+    participantIds: e.participantIds,
     author: e.author,
+    authorId: e.authorId,
+    tags: e.tags,
+    format: e.format,
+    createdAt: e.createdAt,
   };
 }
 
@@ -45,6 +59,9 @@ class EventStore {
   isLoading = false;
   loaded = false;
   error: string | null = null;
+  isMyEventsLoading = false;
+  myEventsLoaded = false;
+  myEventsError: string | null = null;
 
   constructor() {
     makeAutoObservable(this);
@@ -71,6 +88,32 @@ class EventStore {
       runInAction(() => {
         this.error = e instanceof Error ? e.message : "Не удалось загрузить события";
         this.isLoading = false;
+      });
+    }
+  };
+
+  fetchMyEvents = async (force = false): Promise<void> => {
+    if (this.isMyEventsLoading || (this.myEventsLoaded && !force)) return;
+    runInAction(() => {
+      this.isMyEventsLoading = true;
+      this.myEventsError = null;
+    });
+    try {
+      const response = await eventsAPI.getMine();
+      if (response.error || !response.data) {
+        throw new Error(response.error ?? "Не удалось загрузить мои события");
+      }
+      runInAction(() => {
+        this.createdEvents = response.data!.created.map(normalize);
+        this.acceptedEvents = response.data!.attending.map(normalize);
+        this.myEventsLoaded = true;
+        this.isMyEventsLoading = false;
+      });
+    } catch (error) {
+      runInAction(() => {
+        this.myEventsError =
+          error instanceof Error ? error.message : "Не удалось загрузить мои события";
+        this.isMyEventsLoading = false;
       });
     }
   };
@@ -104,20 +147,15 @@ class EventStore {
     image?: string | null;
     coords?: [number, number];
     format?: "public" | "private";
-    author?: string;
-    authorId?: string;
   }): Promise<IEvent | null> => {
     try {
-      const body: Omit<ApiEvent, "id"> = {
+      const body: EventWrite = {
         title: payload.title,
         description: payload.description ?? "",
         date: payload.date,
         time: payload.time ?? "",
         location: payload.location ?? "",
         category: payload.category,
-        author: payload.author ?? "Гость",
-        authorId: payload.authorId,
-        participants: 1,
         image: payload.image ?? undefined,
         coords: payload.coords,
         format: payload.format,
@@ -140,29 +178,43 @@ class EventStore {
 
   /** Записаться на событие: оптимистично обновляем UI, затем синхронизируем с API. */
   join = async (event: IEvent): Promise<void> => {
-    runInAction(() => {
-      if (!this.acceptedEvents.some((x) => x.id === event.id)) this.acceptedEvents.push(event);
-      const target = this.events.find((x) => x.id === event.id);
-      if (target) target.participants = (target.participants ?? 0) + 1;
-    });
     try {
-      await eventsAPI.join(event.id);
-    } catch {
-      /* офлайн: локальное состояние уже обновлено */
+      const response = await eventsAPI.join(event.id);
+      if (response.error || !response.data) {
+        throw new Error(response.error ?? "Не удалось записаться на событие");
+      }
+      const updated = normalize(response.data);
+      runInAction(() => {
+        const index = this.events.findIndex((item) => item.id === event.id);
+        if (index !== -1) this.events[index] = updated;
+        const acceptedIndex = this.acceptedEvents.findIndex((item) => item.id === event.id);
+        if (acceptedIndex === -1) this.acceptedEvents.push(updated);
+        else this.acceptedEvents[acceptedIndex] = updated;
+      });
+    } catch (error) {
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : "Не удалось записаться";
+      });
     }
   };
 
   /** Отписаться от события. */
   leave = async (event: IEvent): Promise<void> => {
-    runInAction(() => {
-      this.acceptedEvents = this.acceptedEvents.filter((x) => x.id !== event.id);
-      const target = this.events.find((x) => x.id === event.id);
-      if (target && target.participants) target.participants -= 1;
-    });
     try {
-      await eventsAPI.leave(event.id);
-    } catch {
-      /* ignore */
+      const response = await eventsAPI.leave(event.id);
+      if (response.error || !response.data) {
+        throw new Error(response.error ?? "Не удалось отменить запись");
+      }
+      const updated = normalize(response.data);
+      runInAction(() => {
+        const index = this.events.findIndex((item) => item.id === event.id);
+        if (index !== -1) this.events[index] = updated;
+        this.acceptedEvents = this.acceptedEvents.filter((item) => item.id !== event.id);
+      });
+    } catch (error) {
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : "Не удалось отменить запись";
+      });
     }
   };
 
@@ -175,6 +227,16 @@ class EventStore {
   }
   removeAcceptedEvent(event: IEvent) {
     this.acceptedEvents = this.acceptedEvents.filter((item) => item.id !== event.id);
+  }
+
+  resetSessionState(): void {
+    this.events = [];
+    this.acceptedEvents = [];
+    this.createdEvents = [];
+    this.loaded = false;
+    this.myEventsLoaded = false;
+    this.error = null;
+    this.myEventsError = null;
   }
 }
 

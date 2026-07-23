@@ -159,7 +159,7 @@ export function NotificationsPage() {
   const handleAccept = (notification: Notification) => {
     setAccepted((prev) => new Set([...prev, notification.id]));
     eventStore.addAcceptedEvent({
-      id: notification.id,
+      id: String(notification.id),
       title: notification.title,
       date: notification.date,
       time: notification.time,

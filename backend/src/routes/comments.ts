@@ -1,64 +1,76 @@
 import { Router } from "express";
-import { db, save, newId } from "../store";
+import { getRepository, newId } from "../store";
 import { asyncHandler, HttpError } from "../middleware";
 import { commentCreateSchema } from "../validation";
-import type { Comment, User } from "../types";
+import {
+  getAuthUser,
+  optionalAuth,
+  requireAuth,
+  type AuthLocals,
+} from "../auth/middleware";
+import { presentComment } from "../presenters";
 
 export const commentsRouter = Router();
 
-const guest: User = {
-  id: "guest",
-  name: "Гость",
-  email: "guest@povod.app",
-  createdAt: new Date(0).toISOString(),
-};
-
-// GET /api/Comments/event/:eventId
 commentsRouter.get(
   "/event/:eventId",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    res.json(db.comments.filter((c) => c.eventId === req.params.eventId));
+    const event = await getRepository().getEvent(req.params.eventId);
+    if (!event) throw new HttpError(404, "Event not found");
+    const userId = (res.locals as AuthLocals).authUser?.id;
+    if (
+      event.format === "private" &&
+      event.authorId !== userId &&
+      !Boolean(userId && event.participantIds.includes(userId))
+    ) {
+      throw new HttpError(404, "Event not found");
+    }
+    res.json((await getRepository().listComments(event.id)).map(presentComment));
   }),
 );
 
-// POST /api/Comments  { text, eventId, author? }
 commentsRouter.post(
   "/",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const data = commentCreateSchema.parse(req.body);
-
-    let author: User = guest;
-    if (data.author && typeof data.author === "object") {
-      author = { ...guest, ...(data.author as Partial<User>) } as User;
-    } else if (typeof data.author === "string") {
-      author =
-        db.users.find((u) => u.id === data.author || u.name === data.author) ?? {
-          ...guest,
-          name: data.author,
-        };
+    const repository = getRepository();
+    const event = await repository.getEvent(data.eventId);
+    if (!event) throw new HttpError(404, "Event not found");
+    const author = getAuthUser(res.locals as AuthLocals);
+    if (
+      event.format === "private" &&
+      event.authorId !== author.id &&
+      !event.participantIds.includes(author.id)
+    ) {
+      throw new HttpError(403, "Invitation required");
     }
-
-    const comment: Comment = {
-      id: newId(),
-      text: data.text,
-      author,
-      eventId: data.eventId,
-      createdAt: new Date().toISOString(),
-    };
-    db.comments.push(comment);
-    save();
-    res.status(201).json(comment);
+    res.status(201).json(
+      presentComment(await repository.createComment({
+        id: newId(),
+        text: data.text,
+        eventId: event.id,
+        authorId: author.id,
+        createdAt: new Date().toISOString(),
+      })),
+    );
   }),
 );
 
-// DELETE /api/Comments/:id
 commentsRouter.delete(
   "/:id",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const i = db.comments.findIndex((c) => c.id === req.params.id);
-    if (i === -1) throw new HttpError(404, "Comment not found");
-    db.comments.splice(i, 1);
-    save();
+    const repository = getRepository();
+    const comment = await repository.getComment(req.params.id);
+    if (!comment) throw new HttpError(404, "Comment not found");
+    const event = await repository.getEvent(comment.eventId);
+    const userId = getAuthUser(res.locals as AuthLocals).id;
+    if (comment.author.id !== userId && event?.authorId !== userId) {
+      throw new HttpError(403, "Only the comment or event author can delete it");
+    }
+    await repository.deleteComment(comment.id);
     res.status(204).send();
   }),
 );

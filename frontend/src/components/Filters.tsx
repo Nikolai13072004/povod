@@ -293,14 +293,6 @@ const Chip = styled.button<{ $selected: boolean }>`
   }
 `;
 
-interface InterestsFilterProps {
-  isOpen: boolean;
-  onClose: () => void;
-  //   onSave: () => void;
-  options: FilterOption[];
-  onToggle: (id: string) => void;
-}
-
 export const InterestsFilter = ({ options, onToggle, onApply, ...props }: any) => {
   return (
     <FilterBottomSheet {...props} title="Выберите свои интересы" onApply={onApply || props.onClose}>

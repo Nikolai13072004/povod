@@ -1,180 +1,214 @@
 import { Router } from "express";
-import { db, save, newId } from "../store";
+import { getRepository, newId } from "../store";
 import { asyncHandler, HttpError } from "../middleware";
 import { eventCreateSchema, eventUpdateSchema } from "../validation";
 import { config } from "../config";
 import { getExternalEvents, findExternalEvent } from "../kudago";
 import type { Event } from "../types";
+import {
+  getAuthUser,
+  optionalAuth,
+  requireAuth,
+  type AuthLocals,
+} from "../auth/middleware";
 
 export const eventsRouter = Router();
 
-/** Парсит дату события ("DD/MM/YY", "DD.MM.YYYY" или ISO) в timestamp. */
-function parseEventDate(date: string, time = "00:00"): number {
-  const m = date.match(/^(\d{1,2})[./](\d{1,2})[./](\d{2,4})$/);
-  if (m) {
-    const day = Number(m[1]);
-    const month = Number(m[2]);
-    let year = Number(m[3]);
-    if (year < 100) year += 2000;
-    const [hh, mm] = (time || "00:00").split(":").map(Number);
-    return new Date(year, month - 1, day, hh || 0, mm || 0).getTime();
-  }
-  const t = Date.parse(date);
-  return Number.isNaN(t) ? 0 : t;
+function canViewEvent(event: Event, userId?: string): boolean {
+  return (
+    event.format !== "private" ||
+    event.authorId === userId ||
+    Boolean(userId && event.participantIds.includes(userId))
+  );
 }
 
-// GET /api/Events — список (+ опц. фильтры ?search= &category= &date= &author=)
 eventsRouter.get(
   "/",
+  optionalAuth,
   asyncHandler(async (req, res) => {
     const { search, category, date, author } = req.query as Record<string, string>;
+    const viewerId = (res.locals as AuthLocals).authUser?.id;
+    const local = await getRepository().listEvents({
+      search,
+      category,
+      date,
+      author,
+      viewerId,
+    });
     const external = config.externalEvents ? await getExternalEvents() : [];
-    let items = [...db.events, ...external];
-    if (search) {
-      const q = search.toLowerCase();
-      items = items.filter(
-        (e) => e.title.toLowerCase().includes(q) || e.description.toLowerCase().includes(q),
-      );
-    }
-    if (category) items = items.filter((e) => (e.category ?? "").toLowerCase() === category.toLowerCase());
-    if (date) items = items.filter((e) => e.date === date);
-    if (author) items = items.filter((e) => e.authorId === author || e.author === author);
-    res.json(items);
+    res.json([...local, ...external]);
   }),
 );
 
-// GET /api/Events/active — события, которые ещё не прошли (с запасом в сутки)
 eventsRouter.get(
   "/active",
+  optionalAuth,
   asyncHandler(async (_req, res) => {
-    const cutoff = Date.now() - 24 * 3600 * 1000;
-    res.json(db.events.filter((e) => parseEventDate(e.date, e.time) >= cutoff));
+    const activeAfter = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    res.json(
+      await getRepository().listEvents({
+        activeAfter,
+        viewerId: (res.locals as AuthLocals).authUser?.id,
+      }),
+    );
   }),
 );
 
-// GET /api/Events/upcoming — будущие события по возрастанию даты
 eventsRouter.get(
   "/upcoming",
+  optionalAuth,
   asyncHandler(async (_req, res) => {
-    const now = Date.now();
-    const items = db.events
-      .filter((e) => parseEventDate(e.date, e.time) >= now)
-      .sort((a, b) => parseEventDate(a.date, a.time) - parseEventDate(b.date, b.time));
-    res.json(items);
+    res.json(
+      await getRepository().listEvents({
+        activeAfter: new Date(),
+        sort: "asc",
+        viewerId: (res.locals as AuthLocals).authUser?.id,
+      }),
+    );
   }),
 );
 
-// GET /api/Events/author/:authorId
+eventsRouter.get(
+  "/mine",
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    const user = getAuthUser(res.locals as AuthLocals);
+    const repository = getRepository();
+    const [created, attending] = await Promise.all([
+      repository.listEvents({ author: user.id, viewerId: user.id }),
+      repository.listEvents({ participant: user.id, viewerId: user.id }),
+    ]);
+    res.json({ created, attending });
+  }),
+);
+
 eventsRouter.get(
   "/author/:authorId",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    const { authorId } = req.params;
-    res.json(db.events.filter((e) => e.authorId === authorId || e.author === authorId));
+    res.json(
+      await getRepository().listEvents({
+        author: req.params.authorId,
+        viewerId: (res.locals as AuthLocals).authUser?.id,
+      }),
+    );
   }),
 );
 
-// GET /api/Events/:id
+eventsRouter.get(
+  "/participant/:userId",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = getAuthUser(res.locals as AuthLocals);
+    if (user.id !== req.params.userId) throw new HttpError(403, "Forbidden");
+    res.json(
+      await getRepository().listEvents({
+        participant: user.id,
+        viewerId: user.id,
+      }),
+    );
+  }),
+);
+
 eventsRouter.get(
   "/:id",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    let ev = db.events.find((e) => e.id === req.params.id);
-    if (!ev && config.externalEvents) {
-      ev =
+    let event = await getRepository().getEvent(req.params.id);
+    if (!event && config.externalEvents) {
+      event =
         findExternalEvent(req.params.id) ??
-        (await getExternalEvents()).find((e) => e.id === req.params.id);
+        (await getExternalEvents()).find((item) => item.id === req.params.id);
     }
-    if (!ev) throw new HttpError(404, "Event not found");
-    res.json(ev);
+    if (!event) throw new HttpError(404, "Event not found");
+    const viewerId = (res.locals as AuthLocals).authUser?.id;
+    if (!canViewEvent(event, viewerId)) throw new HttpError(404, "Event not found");
+    res.json(event);
   }),
 );
 
-// POST /api/Events
 eventsRouter.post(
   "/",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const data = eventCreateSchema.parse(req.body);
-    const ev: Event = {
+    const author = getAuthUser(res.locals as AuthLocals);
+    const event: Event = {
       id: newId(),
       title: data.title,
-      description: data.description ?? "",
+      description: data.description,
       date: data.date,
-      time: data.time ?? "",
-      location: data.location ?? "",
+      time: data.time,
+      location: data.location,
       category: data.category,
-      author: data.author ?? "Гость",
-      authorId: data.authorId ?? "guest",
-      participants: data.participants ?? 1,
-      participantIds: data.authorId ? [data.authorId] : [],
+      author: author.name,
+      authorId: author.id,
+      participants: 1,
+      participantIds: [author.id],
       image: data.image,
       tags: data.tags,
       coords: data.coords,
       format: data.format ?? "public",
       createdAt: new Date().toISOString(),
     };
-    db.events.unshift(ev);
-    save();
-    res.status(201).json(ev);
+    res.status(201).json(await getRepository().createEvent(event));
   }),
 );
 
-// PUT /api/Events/:id
 eventsRouter.put(
   "/:id",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const ev = db.events.find((e) => e.id === req.params.id);
-    if (!ev) throw new HttpError(404, "Event not found");
-    const data = eventUpdateSchema.parse(req.body);
-    Object.assign(ev, data);
-    save();
-    res.json(ev);
+    const repository = getRepository();
+    const current = await repository.getEvent(req.params.id);
+    if (!current) throw new HttpError(404, "Event not found");
+    if (current.authorId !== getAuthUser(res.locals as AuthLocals).id) {
+      throw new HttpError(403, "Only the event author can edit it");
+    }
+    const event = await repository.updateEvent(
+      req.params.id,
+      eventUpdateSchema.parse(req.body),
+    );
+    res.json(event);
   }),
 );
 
-// DELETE /api/Events/:id
 eventsRouter.delete(
   "/:id",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const idx = db.events.findIndex((e) => e.id === req.params.id);
-    if (idx === -1) throw new HttpError(404, "Event not found");
-    const [removed] = db.events.splice(idx, 1);
-    db.comments = db.comments.filter((c) => c.eventId !== removed.id);
-    save();
+    const repository = getRepository();
+    const event = await repository.getEvent(req.params.id);
+    if (!event) throw new HttpError(404, "Event not found");
+    if (event.authorId !== getAuthUser(res.locals as AuthLocals).id) {
+      throw new HttpError(403, "Only the event author can delete it");
+    }
+    await repository.deleteEvent(event.id);
     res.status(204).send();
   }),
 );
 
-// POST /api/Events/:id/join
 eventsRouter.post(
   "/:id/join",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const ev = db.events.find((e) => e.id === req.params.id);
-    if (!ev) throw new HttpError(404, "Event not found");
-    const userId = (req.body?.userId as string | undefined) ?? undefined;
-    if (userId) {
-      if (!ev.participantIds.includes(userId)) {
-        ev.participantIds.push(userId);
-        ev.participants += 1;
-      }
-    } else {
-      ev.participants += 1;
-    }
-    save();
-    res.json(ev);
+    const repository = getRepository();
+    const user = getAuthUser(res.locals as AuthLocals);
+    const current = await repository.getEvent(req.params.id);
+    if (!current) throw new HttpError(404, "Event not found");
+    if (!canViewEvent(current, user.id)) throw new HttpError(403, "Invitation required");
+    const event = await repository.joinEvent(current.id, user.id);
+    res.json(event);
   }),
 );
 
-// POST /api/Events/:id/leave
 eventsRouter.post(
   "/:id/leave",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const ev = db.events.find((e) => e.id === req.params.id);
-    if (!ev) throw new HttpError(404, "Event not found");
-    const userId = (req.body?.userId as string | undefined) ?? undefined;
-    if (userId && ev.participantIds.includes(userId)) {
-      ev.participantIds = ev.participantIds.filter((id) => id !== userId);
-    }
-    ev.participants = Math.max(0, ev.participants - 1);
-    save();
-    res.json(ev);
+    const user = getAuthUser(res.locals as AuthLocals);
+    const event = await getRepository().leaveEvent(req.params.id, user.id);
+    if (!event) throw new HttpError(404, "Event not found");
+    res.json(event);
   }),
 );

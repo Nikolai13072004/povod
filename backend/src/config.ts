@@ -18,6 +18,12 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || "",
   /** Режим TLS для PostgreSQL: `true`, `false` или `auto` (по умолчанию). */
   databaseSsl: process.env.DATABASE_SSL || "auto",
+  authSessionDays: Number(process.env.AUTH_SESSION_DAYS) || 30,
+  demoAuthEnabled:
+    process.env.DEMO_AUTH_ENABLED === "true" ||
+    (process.env.DEMO_AUTH_ENABLED !== "false" &&
+      (process.env.NODE_ENV || "development") !== "production"),
+  demoAuthPassword: process.env.DEMO_AUTH_PASSWORD || "povod-demo",
   /** Подмешивать реальные концерты/фестивали из KudaGo в ленту (по умолчанию вкл). */
   externalEvents: process.env.ENABLE_EXTERNAL_EVENTS !== "false",
 } as const;

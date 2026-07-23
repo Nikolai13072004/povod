@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import { Button, Title, Text, Input } from "@vkontakte/vkui";
 import { Icon16Place } from "@vkontakte/icons";

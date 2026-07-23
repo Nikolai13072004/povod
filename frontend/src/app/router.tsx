@@ -10,6 +10,7 @@ import SignUpEventsPage from "../pages/page-3/page-3";
 import ChatPage from "../pages/chat/ChatPage";
 import CreateEventForm from "../pages/CreateEvent/CreateEventForm";
 import { NotificationsPage } from "../components/Notification/NotificationsPage";
+import { RequireAuth } from "./RequireAuth";
 
 export const router = createBrowserRouter([
   {
@@ -18,15 +19,20 @@ export const router = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       { index: true, element: <MyLoginForm /> },
-      { path: "page-1", element: <FirstPage /> },
-      { path: "page-1/:id", element: <EventPage /> },
-      { path: "home", element: <Navigate to="/page-1" replace /> },
-      { path: "add", element: <CreateEventForm /> },
-      { path: "events", element: <SignUpEventsPage /> },
-      { path: "SelectInterestPage", element: <SelectInterestPage /> },
-      { path: "Profile", element: <UserProfile /> },
-      { path: "chats", element: <ChatPage /> },
-      { path: "notifications", element: <NotificationsPage /> },
+      {
+        element: <RequireAuth />,
+        children: [
+          { path: "page-1", element: <FirstPage /> },
+          { path: "page-1/:id", element: <EventPage /> },
+          { path: "home", element: <Navigate to="/page-1" replace /> },
+          { path: "add", element: <CreateEventForm /> },
+          { path: "events", element: <SignUpEventsPage /> },
+          { path: "SelectInterestPage", element: <SelectInterestPage /> },
+          { path: "Profile", element: <UserProfile /> },
+          { path: "chats", element: <ChatPage /> },
+          { path: "notifications", element: <NotificationsPage /> },
+        ],
+      },
     ],
   },
 ]);

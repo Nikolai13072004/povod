@@ -9,7 +9,6 @@ import {
 } from "@vkontakte/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
-import { sessionStore } from "../../stores/sessionStore";
 
 const FormContainer = styled.div`
   min-height: 100vh;
@@ -410,8 +409,6 @@ export default function CreateEventForm() {
         formData.photoData ||
         "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&q=80",
       format: formData.format,
-      author: sessionStore.user.name,
-      authorId: sessionStore.user.id,
     });
 
     setSubmitting(false);

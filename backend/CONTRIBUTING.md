@@ -24,6 +24,7 @@ Backend:
 
 ```bash
 npm run typecheck
+npm test
 ```
 
 Frontend:

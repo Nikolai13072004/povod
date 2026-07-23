@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import {
   Icon28CalendarOutline,
@@ -18,6 +18,7 @@ import NavMenu from "../../components/NavMenu";
 import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
+import { Button, Spinner } from "@vkontakte/vkui";
 
 const PageContainer = styled.div`
   background-color: transparent;
@@ -161,7 +162,7 @@ const DateContainer = styled.div`
 `;
 
 interface EventItem {
-  id: number;
+  id: string;
   title: string;
   date: string;
   time: string;
@@ -208,6 +209,10 @@ function SignUpEventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
+  useEffect(() => {
+    eventStore.fetchMyEvents();
+  }, []);
+
   const [filters, setFilters] = useState({
     date: "",
     location: "",
@@ -252,11 +257,14 @@ function SignUpEventsPage() {
 
   const selectedInterests = interestOptions.filter((opt) => opt.selected).map((opt) => opt.label);
 
-  const allEvents: EventItem[] = [
-    // ...MOCK_EVENTS,
-    ...eventStore.acceptedEvents,
-    ...eventStore.createdEvents,
-  ];
+  const allEvents: EventItem[] = Array.from(
+    new Map(
+      [...eventStore.acceptedEvents, ...eventStore.createdEvents].map((event) => [
+        event.id,
+        event,
+      ]),
+    ).values(),
+  );
 
   const filteredEvents = allEvents.filter((event) => {
     const matchesCategory =
@@ -277,7 +285,15 @@ function SignUpEventsPage() {
       (!filters.startTime || event.time >= filters.startTime) &&
       (!filters.endTime || event.time <= filters.endTime);
 
-    return matchesCategory && matchesDate && matchesPlace && matchesTime;
+    const matchesSearch =
+      !searchQuery.trim() ||
+      [event.title, event.location, event.place, event.category]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("ru")
+        .includes(searchQuery.trim().toLocaleLowerCase("ru"));
+
+    return matchesSearch && matchesCategory && matchesDate && matchesPlace && matchesTime;
   });
 
   return (
@@ -315,7 +331,26 @@ function SignUpEventsPage() {
           </FilterWrapper>
         </FiltersContainer>
 
-        {filteredEvents.map((event) => (
+        {eventStore.isMyEventsLoading && allEvents.length === 0 && (
+          <div style={{ display: "grid", placeItems: "center", gap: 12, padding: 32 }}>
+            <Spinner size="l" />
+            <span style={{ color: "#818c99" }}>Загружаем ваши поводы…</span>
+          </div>
+        )}
+
+        {!eventStore.isMyEventsLoading && eventStore.myEventsError && (
+          <div style={{ display: "grid", placeItems: "center", gap: 12, padding: 32 }}>
+            <span style={{ color: "#818c99" }}>{eventStore.myEventsError}</span>
+            <Button
+              mode="secondary"
+              onClick={() => eventStore.fetchMyEvents(true)}
+            >
+              Повторить
+            </Button>
+          </div>
+        )}
+
+        {!eventStore.myEventsError && filteredEvents.map((event) => (
           <Card key={event.id}>
             <EventImage src={event.image ?? ""} alt={event.title} />
             <EventInfo>
@@ -344,7 +379,9 @@ function SignUpEventsPage() {
           </Card>
         ))}
 
-        {filteredEvents.length === 0 && (
+        {!eventStore.isMyEventsLoading &&
+          !eventStore.myEventsError &&
+          filteredEvents.length === 0 && (
           <div style={{ textAlign: "center", color: "#818c99", marginTop: "20px" }}>
             Поводы не найдены
           </div>

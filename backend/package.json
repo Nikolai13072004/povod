@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "test": "tsx --test src/db/eventDate.test.ts src/repositories/memoryRepository.test.ts src/routes/api.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -31,6 +31,15 @@ export function errorHandler(
     return;
   }
   const e = err as { status?: number; statusCode?: number; message?: string };
+  const databaseError = err as { code?: string };
+  if (databaseError.code === "23505") {
+    res.status(409).json({ error: "Resource already exists", status: 409 });
+    return;
+  }
+  if (databaseError.code === "23503") {
+    res.status(409).json({ error: "Resource is still in use", status: 409 });
+    return;
+  }
   const status = e.status ?? e.statusCode ?? 500;
   const message = e.message ?? "Internal Server Error";
   if (status >= 500) console.error("[error]", err);

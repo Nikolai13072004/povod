@@ -1,74 +1,75 @@
 import { Router } from "express";
-import { db, save } from "../store";
+import { getRepository } from "../store";
 import { asyncHandler, HttpError } from "../middleware";
 import { friendAddSchema } from "../validation";
+import {
+  getAuthUser,
+  requireAuth,
+  type AuthLocals,
+} from "../auth/middleware";
+import { presentPublicUser } from "../presenters";
 
 export const usersRouter = Router();
 
-// GET /api/Users
 usersRouter.get(
   "/",
   asyncHandler(async (_req, res) => {
-    res.json(db.users);
+    res.json((await getRepository().listUsers()).map(presentPublicUser));
   }),
 );
 
-// GET /api/Users/:id
 usersRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {
-    const u = db.users.find((x) => x.id === req.params.id);
-    if (!u) throw new HttpError(404, "User not found");
-    res.json(u);
+    const user = await getRepository().getUser(req.params.id);
+    if (!user) throw new HttpError(404, "User not found");
+    res.json(presentPublicUser(user));
   }),
 );
 
-// DELETE /api/Users/:id
 usersRouter.delete(
   "/:id",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const i = db.users.findIndex((x) => x.id === req.params.id);
-    if (i === -1) throw new HttpError(404, "User not found");
-    db.users.splice(i, 1);
-    save();
+    const user = getAuthUser(res.locals as AuthLocals);
+    if (user.id !== req.params.id) throw new HttpError(403, "Forbidden");
+    if (!(await getRepository().deleteUser(user.id))) {
+      throw new HttpError(409, "User owns events or comments");
+    }
     res.status(204).send();
   }),
 );
 
-// GET /api/Users/:id/friends
 usersRouter.get(
   "/:id/friends",
   asyncHandler(async (req, res) => {
-    const u = db.users.find((x) => x.id === req.params.id);
-    if (!u) throw new HttpError(404, "User not found");
-    const friends = db.users.filter((x) => (u.friends ?? []).includes(x.id));
-    res.json(friends);
+    const friends = await getRepository().listFriends(req.params.id);
+    if (!friends) throw new HttpError(404, "User not found");
+    res.json(friends.map(presentPublicUser));
   }),
 );
 
-// POST /api/Users/:id/friends  { friendId }
 usersRouter.post(
   "/:id/friends",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const u = db.users.find((x) => x.id === req.params.id);
-    if (!u) throw new HttpError(404, "User not found");
+    const user = getAuthUser(res.locals as AuthLocals);
+    if (user.id !== req.params.id) throw new HttpError(403, "Forbidden");
     const { friendId } = friendAddSchema.parse(req.body);
-    if (!db.users.some((x) => x.id === friendId)) throw new HttpError(404, "Friend not found");
-    u.friends = u.friends ?? [];
-    if (!u.friends.includes(friendId)) u.friends.push(friendId);
-    save();
-    res.status(201).json(u);
+    const updated = await getRepository().addFriend(user.id, friendId);
+    if (!updated) throw new HttpError(404, "Friend not found");
+    res.status(201).json(updated);
   }),
 );
 
-// DELETE /api/Users/:id/friends/:friendId
 usersRouter.delete(
   "/:id/friends/:friendId",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const u = db.users.find((x) => x.id === req.params.id);
-    if (!u) throw new HttpError(404, "User not found");
-    u.friends = (u.friends ?? []).filter((f) => f !== req.params.friendId);
-    save();
+    const user = getAuthUser(res.locals as AuthLocals);
+    if (user.id !== req.params.id) throw new HttpError(403, "Forbidden");
+    const removed = await getRepository().removeFriend(user.id, req.params.friendId);
+    if (removed === undefined) throw new HttpError(404, "Friend not found");
     res.status(204).send();
   }),
 );

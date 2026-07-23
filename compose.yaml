@@ -25,6 +25,8 @@ services:
       DATABASE_URL: postgresql://povod:povod_local_password@postgres:5432/povod
       DATABASE_SSL: "false"
       ENABLE_EXTERNAL_EVENTS: "false"
+      DEMO_AUTH_ENABLED: "true"
+      DEMO_AUTH_PASSWORD: povod-demo
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,6 +38,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: http://localhost:8080/
+        VITE_DEMO_AUTH_ENABLED: "true"
     depends_on:
       - backend
     ports:
