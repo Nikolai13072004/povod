@@ -81,8 +81,8 @@ const CloseButton = styled.button<{ $mode: "light" | "dark" }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 6px;
   transition: all 0.2s ease;
 

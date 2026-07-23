@@ -131,8 +131,8 @@ const DeleteButton = styled.button`
   background-color: #f2f3f5;
   border: none;
   border-radius: 8px;
-  width: 40px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;

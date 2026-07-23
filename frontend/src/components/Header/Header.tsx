@@ -25,11 +25,12 @@ const LeftSection = styled.div`
   gap: 12px;
   flex-grow: 1;
   margin-left: 14px;
+  min-width: 0;
 `;
 
 const Avatar = styled.div<{ $avatar?: string }>`
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background-color: #ceddf7;
   background-image: url(${(props) => props.$avatar || ""});
@@ -42,6 +43,10 @@ const PageTitle = styled.h1`
   font-size: 20px;
   font-weight: 700;
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   color: var(--vkui--color_text_primary);
 `;

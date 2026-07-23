@@ -49,6 +49,7 @@ const SearchContainer = styled.div`
 
 const SearchInput = styled.input`
   flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   font-size: 15px;
@@ -80,6 +81,8 @@ const FilterWrapper = styled.div<{ $active?: boolean }>`
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
+  min-height: 40px;
+  box-sizing: border-box;
   background: ${(props) => (props.$active ? "#2d81e0" : "#f2f3f5")};
   border: 1px solid #2d81e0;
   border-radius: 10px;
@@ -114,7 +117,7 @@ const EventCard = styled.div`
 `;
 const EventImage = styled.div`
   width: 100%;
-  height: 160px;
+  aspect-ratio: 16 / 9;
   border-radius: 16px;
   background: linear-gradient(135deg, #67b5ff 0%, #3d88ff 100%);
   overflow: hidden;
@@ -132,6 +135,7 @@ const EventTitle = styled.h3`
 `;
 const EventMeta = styled.div`
   display: flex;
+  flex-wrap: wrap;
   gap: 10px 14px;
   font-size: 13px;
   color: var(--vkui--color_text_secondary);
@@ -140,6 +144,7 @@ const MetaRow = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 `;
 const EventActions = styled.div`
   display: flex;
@@ -353,7 +358,7 @@ function FirstPageComponent() {
                 </MetaRow>
                 <MetaRow>
                   <Icon28PlaceOutline />
-                  <span>{event.place}</span>
+                  <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{event.place}</span>
                 </MetaRow>
               </EventMeta>
               <EventActions>
