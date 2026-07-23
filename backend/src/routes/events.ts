@@ -22,16 +22,29 @@ function canViewEvent(event: Event, userId?: string): boolean {
   );
 }
 
+function queryInstant(value: string | undefined, name: string): Date | undefined {
+  if (!value) return undefined;
+  const result = new Date(value);
+  if (Number.isNaN(result.getTime())) {
+    throw new HttpError(400, `${name} must be an ISO 8601 timestamp`);
+  }
+  return result;
+}
+
 eventsRouter.get(
   "/",
   optionalAuth,
   asyncHandler(async (req, res) => {
-    const { search, category, date, author } = req.query as Record<string, string>;
+    const { search, category, startsFrom, startsTo, author } = req.query as Record<
+      string,
+      string
+    >;
     const viewerId = (res.locals as AuthLocals).authUser?.id;
     const local = await getRepository().listEvents({
       search,
       category,
-      date,
+      startsFrom: queryInstant(startsFrom, "startsFrom"),
+      startsTo: queryInstant(startsTo, "startsTo"),
       author,
       viewerId,
     });
@@ -137,8 +150,8 @@ eventsRouter.post(
       id: newId(),
       title: data.title,
       description: data.description,
-      date: data.date,
-      time: data.time,
+      startsAt: new Date(data.startsAt).toISOString(),
+      timezone: data.timezone,
       location: data.location,
       category: data.category,
       author: author.name,

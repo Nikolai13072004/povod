@@ -11,6 +11,13 @@ import {
 import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
+import {
+  eventDateKey,
+  eventTimeKey,
+  filterDateKey,
+  formatEventDate,
+  formatEventTime,
+} from "../../utils/eventDate";
 
 import {
   InterestsFilter,
@@ -175,15 +182,6 @@ const INTEREST_OPTIONS: FilterOption[] = [
   { id: "17", label: "Отдых", selected: false },
 ];
 
-/** "DD/MM/YY" | "DD.MM.YYYY" -> timestamp (для сравнения дат). */
-function parseEventDate(date: string): number {
-  const m = date.match(/^(\d{1,2})[./](\d{1,2})[./](\d{2,4})$/);
-  if (!m) return 0;
-  let year = Number(m[3]);
-  if (year < 100) year += 2000;
-  return new Date(year, Number(m[2]) - 1, Number(m[1])).getTime();
-}
-
 function FirstPageComponent() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,7 +215,7 @@ function FirstPageComponent() {
   const selectedInterests = interestOptions.filter((opt) => opt.selected).map((opt) => opt.label);
 
   const query = searchQuery.toLowerCase().trim();
-  const fromDate = filters.date ? parseEventDate(filters.date) : 0;
+  const fromDate = filterDateKey(filters.date);
 
   const filteredEvents = eventStore.events.filter((event) => {
     if (hiddenIds.includes(event.id)) return false;
@@ -245,7 +243,8 @@ function FirstPageComponent() {
       selectedInterests.some((i) => eventLabels.includes(i.toLowerCase()));
 
     // Дата: события в выбранный день или позже
-    const matchesDate = !fromDate || parseEventDate(event.date) >= fromDate;
+    const matchesDate =
+      !fromDate || eventDateKey(event.startsAt, event.timezone) >= fromDate;
 
     const matchesPlace =
       !filters.location ||
@@ -253,10 +252,11 @@ function FirstPageComponent() {
         .toLowerCase()
         .includes(filters.location.toLowerCase().trim());
 
+    const localTime = eventTimeKey(event.startsAt, event.timezone);
     const matchesTime =
       !filters.startTime ||
       !filters.endTime ||
-      (event.time >= filters.startTime && event.time <= filters.endTime);
+      (localTime >= filters.startTime && localTime <= filters.endTime);
 
     return matchesSearch && matchesCategory && matchesDate && matchesPlace && matchesTime;
   });
@@ -357,11 +357,11 @@ function FirstPageComponent() {
               <EventMeta>
                 <MetaRow>
                   <Icon28CalendarOutline />
-                  <span>{event.date}</span>
+                  <span>{formatEventDate(event.startsAt, event.timezone)}</span>
                 </MetaRow>
                 <MetaRow>
                   <Icon28ClockOutline />
-                  <span>{event.time}</span>
+                  <span>{formatEventTime(event.startsAt, event.timezone)}</span>
                 </MetaRow>
                 <MetaRow>
                   <Icon28PlaceOutline />

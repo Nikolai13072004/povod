@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { DeleteIcon } from "../../icons/icons";
 import { Icon28CalendarOutline, Icon28ClockOutline, Icon28PlaceOutline } from "@vkontakte/icons";
 import { eventStore } from "../../stores/EventStore";
+import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 const Container = styled.div`
   background-color: #ebf2fa;
   min-height: 100vh;
@@ -141,8 +142,8 @@ const DeleteButton = styled.button`
 interface Notification {
   id: number;
   title: string;
-  date: string;
-  time: string;
+  startsAt: string;
+  timezone: string;
   location: string;
   image: string;
 }
@@ -161,8 +162,8 @@ export function NotificationsPage() {
     eventStore.addAcceptedEvent({
       id: String(notification.id),
       title: notification.title,
-      date: notification.date,
-      time: notification.time,
+      startsAt: notification.startsAt,
+      timezone: notification.timezone,
       location: notification.location,
       image: notification.image,
     });
@@ -200,14 +201,14 @@ export function NotificationsPage() {
                       height={16}
                       fill="var(--vkui--color_icon_secondary)"
                     />
-                    {notification.date}
+                    {formatEventDate(notification.startsAt, notification.timezone)}
                     <Icon28ClockOutline
                       style={{ marginLeft: "8px" }}
                       width={16}
                       height={16}
                       fill="var(--vkui--color_icon_secondary)"
                     />
-                    {notification.time}
+                    {formatEventTime(notification.startsAt, notification.timezone)}
                   </DetailRow>
 
                   <DetailRow>

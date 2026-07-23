@@ -11,6 +11,11 @@ import type {
 import { seedComments, seedEvents, seedUsers } from "../seed";
 import { eventDateToIso } from "../db/eventDate";
 
+type LegacyEvent = Omit<Event, "startsAt" | "timezone"> & {
+  date: string;
+  time?: string;
+};
+
 interface Snapshot {
   users: User[];
   events: Event[];
@@ -82,7 +87,6 @@ export class MemoryRepository implements PovodRepository {
           filters.category?.toLocaleLowerCase("ru"),
       );
     }
-    if (filters.date) items = items.filter((event) => event.date === filters.date);
     if (filters.author) {
       items = items.filter(
         (event) => event.authorId === filters.author || event.author === filters.author,
@@ -97,11 +101,15 @@ export class MemoryRepository implements PovodRepository {
         event.authorId === filters.viewerId ||
         Boolean(filters.viewerId && event.participantIds.includes(filters.viewerId)),
     );
-    if (filters.activeAfter) {
+    const startsFrom = filters.startsFrom ?? filters.activeAfter;
+    if (startsFrom) {
       items = items.filter(
-        (event) =>
-          new Date(eventDateToIso(event.date, event.time)).getTime() >=
-          filters.activeAfter!.getTime(),
+        (event) => Date.parse(event.startsAt) >= startsFrom.getTime(),
+      );
+    }
+    if (filters.startsTo) {
+      items = items.filter(
+        (event) => Date.parse(event.startsAt) < filters.startsTo!.getTime(),
       );
     }
     if (filters.sort) {
@@ -109,8 +117,7 @@ export class MemoryRepository implements PovodRepository {
       items = [...items].sort(
         (left, right) =>
           direction *
-          (Date.parse(eventDateToIso(left.date, left.time)) -
-            Date.parse(eventDateToIso(right.date, right.time))),
+          (Date.parse(left.startsAt) - Date.parse(right.startsAt)),
       );
     }
     return clone(items);
@@ -358,6 +365,18 @@ export class MemoryRepository implements PovodRepository {
   }
 
   private normalizeRelations(): void {
+    this.events = this.events.map((storedEvent) => {
+      const event = storedEvent as Event | LegacyEvent;
+      if (!("startsAt" in event)) {
+        const { date, time, ...rest } = event;
+        return {
+          ...rest,
+          startsAt: eventDateToIso(date, time),
+          timezone: "Europe/Moscow",
+        };
+      }
+      return event;
+    });
     for (const event of this.events) {
       event.participantIds = [...new Set(event.participantIds ?? [])];
       event.participants = event.participantIds.length;

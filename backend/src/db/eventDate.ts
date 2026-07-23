@@ -33,22 +33,3 @@ export function eventDateToIso(date: string, time = "00:00"): string {
   const result = new Date(calendarValue.getTime() - MOSCOW_OFFSET_MS);
   return result.toISOString();
 }
-
-export function isoToLegacyDate(value: Date | string): { date: string; time: string } {
-  const date = value instanceof Date ? value : new Date(value);
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Moscow",
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return {
-    date: `${get("day")}/${get("month")}/${get("year")}`,
-    time: `${get("hour")}:${get("minute")}`,
-  };
-}

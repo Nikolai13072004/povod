@@ -4,6 +4,7 @@ import { observer } from "mobx-react-lite";
 import { eventStore } from "../../stores/EventStore";
 import { commentsAPI, type Comment as ApiComment } from "../../services/api";
 import { sessionStore } from "../../stores/sessionStore";
+import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 import bridge from "@vkontakte/vk-bridge";
 import {
   Panel,
@@ -197,7 +198,8 @@ function EventPageComponent() {
         <Spacing size={16} />
 
         <SimpleCell before={<Icon28CalendarOutline />} subtitle="Дата и время">
-          {eventData.date} в {eventData.time}
+          {formatEventDate(eventData.startsAt, eventData.timezone)} в{" "}
+          {formatEventTime(eventData.startsAt, eventData.timezone)}
         </SimpleCell>
 
         <SimpleCell before={<Icon28PlaceOutline />} subtitle="Место проведения">

@@ -1,27 +1,25 @@
 import { z } from "zod";
-import { eventDateToIso } from "./db/eventDate";
 
 /** Схемы валидации входных данных (Zod). */
 
 export const eventCreateSchema = z.object({
   title: z.string().min(1, "Название обязательно"),
   description: z.string().optional().default(""),
-  date: z
+  startsAt: z
     .string()
-    .min(1, "Дата обязательна")
+    .datetime({ offset: true, message: "startsAt должен быть ISO 8601 timestamp" }),
+  timezone: z
+    .string()
+    .min(1)
+    .default("Europe/Moscow")
     .refine((value) => {
       try {
-        eventDateToIso(value);
+        new Intl.DateTimeFormat("en", { timeZone: value }).format();
         return true;
       } catch {
         return false;
       }
-    }, "Некорректная дата"),
-  time: z
-    .string()
-    .regex(/^(?:|(?:[01]\d|2[0-3]):[0-5]\d)$/, "Некорректное время")
-    .optional()
-    .default(""),
+    }, "Некорректная IANA timezone"),
   location: z.string().optional().default(""),
   category: z.string().optional(),
   image: z.string().optional(),

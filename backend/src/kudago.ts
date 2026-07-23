@@ -8,8 +8,6 @@ import type { Event } from "./types";
 const CACHE_TTL = 30 * 60 * 1000;
 let cache: { at: number; events: Event[] } | null = null;
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
 interface KudaGoPlace {
   title?: string;
   address?: string;
@@ -46,8 +44,8 @@ function toEvent(k: KudaGoEvent): Event | null {
     id: `kudago_${k.id}`,
     title: title.charAt(0).toUpperCase() + title.slice(1),
     description: (k.description ?? "").replace(/<[^>]+>/g, "").trim(),
-    date: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`,
-    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    startsAt: d.toISOString(),
+    timezone: "Europe/Moscow",
     location: k.place?.title || k.place?.address || "Москва",
     // category "Музыка" — чтобы попадало под фильтр интересов на фронте
     category: "Музыка",

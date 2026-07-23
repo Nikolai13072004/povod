@@ -20,10 +20,10 @@ export interface Event {
   id: string;
   title: string;
   description: string;
-  /** Формат макета: "DD/MM/YY", напр. "27/06/26" */
-  date: string;
-  /** "HH:MM", напр. "18:00" */
-  time: string;
+  /** ISO 8601 instant, e.g. "2026-06-27T15:00:00.000Z". */
+  startsAt: string;
+  /** IANA timezone used for local presentation, e.g. "Europe/Moscow". */
+  timezone: string;
   location: string;
   category?: string;
   /** Отображаемое имя автора (контракт фронта: author: string) */

@@ -19,6 +19,13 @@ import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
 import { Button, Spinner } from "@vkontakte/vkui";
+import {
+  eventDateKey,
+  eventTimeKey,
+  filterDateKey,
+  formatEventDate,
+  formatEventTime,
+} from "../../utils/eventDate";
 
 const PageContainer = styled.div`
   background-color: transparent;
@@ -164,8 +171,8 @@ const DateContainer = styled.div`
 interface EventItem {
   id: string;
   title: string;
-  date: string;
-  time: string;
+  startsAt: string;
+  timezone: string;
   location?: string;
   place?: string;
   category?: string;
@@ -270,10 +277,9 @@ function SignUpEventsPage() {
     const matchesCategory =
       selectedInterests.length === 0 || selectedInterests.includes(event.category ?? "");
 
-    const formattedFilterDate = filters.date
-      ? filters.date.replace(/\./g, "/").replace("/202", "/2")
-      : "";
-    const matchesDate = !filters.date || event.date === formattedFilterDate;
+    const selectedDate = filterDateKey(filters.date);
+    const matchesDate =
+      !selectedDate || eventDateKey(event.startsAt, event.timezone) === selectedDate;
 
     const matchesPlace =
       !filters.location ||
@@ -281,9 +287,10 @@ function SignUpEventsPage() {
         .toLowerCase()
         .includes(filters.location.toLowerCase().trim());
 
+    const localTime = eventTimeKey(event.startsAt, event.timezone);
     const matchesTime =
-      (!filters.startTime || event.time >= filters.startTime) &&
-      (!filters.endTime || event.time <= filters.endTime);
+      (!filters.startTime || localTime >= filters.startTime) &&
+      (!filters.endTime || localTime <= filters.endTime);
 
     const matchesSearch =
       !searchQuery.trim() ||
@@ -361,10 +368,12 @@ function SignUpEventsPage() {
                 <EventTitle>{event.title}</EventTitle>
                 <DateContainer>
                   <DetailRow>
-                    <Icon28CalendarOutline width={16} height={16} /> {event.date}
+                    <Icon28CalendarOutline width={16} height={16} />{" "}
+                    {formatEventDate(event.startsAt, event.timezone)}
                   </DetailRow>
                   <DetailRow>
-                    <Icon28ClockOutline width={16} height={16} /> {event.time}
+                    <Icon28ClockOutline width={16} height={16} />{" "}
+                    {formatEventTime(event.startsAt, event.timezone)}
                   </DetailRow>
                   <DetailRow>
                     <Icon28PlaceOutline width={16} height={16} /> {event.location || event.place}

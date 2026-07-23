@@ -30,8 +30,8 @@ export interface Event {
   id: string;
   title: string;
   description: string;
-  date: string;
-  time: string;
+  startsAt: string;
+  timezone: string;
   location: string;
   category?: string;
   author: string;

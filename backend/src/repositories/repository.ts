@@ -3,10 +3,11 @@ import type { Comment, Event, User } from "../types";
 export interface EventFilters {
   search?: string;
   category?: string;
-  date?: string;
   author?: string;
   participant?: string;
   viewerId?: string;
+  startsFrom?: Date;
+  startsTo?: Date;
   activeAfter?: Date;
   sort?: "asc" | "desc";
 }

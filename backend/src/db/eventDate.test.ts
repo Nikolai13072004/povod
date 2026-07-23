@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { eventDateToIso, isoToLegacyDate } from "./eventDate";
+import { eventDateToIso } from "./eventDate";
 
-test("legacy Moscow date round-trips through timestamptz", () => {
+test("legacy Moscow date converts to timestamptz for snapshot import", () => {
   const iso = eventDateToIso("27/06/26", "18:30");
   assert.equal(iso, "2026-06-27T15:30:00.000Z");
-  assert.deepEqual(isoToLegacyDate(iso), { date: "27/06/26", time: "18:30" });
 });
 
 test("invalid calendar date is rejected", () => {

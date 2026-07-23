@@ -9,6 +9,10 @@ import {
 } from "@vkontakte/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
+import {
+  browserTimezone,
+  localDateTimeToIso,
+} from "../../utils/eventDate";
 
 const FormContainer = styled.div`
   min-height: 100vh;
@@ -394,15 +398,21 @@ export default function CreateEventForm() {
     if (!formData.title || !formData.date) return;
     setSubmitting(true);
 
-    // <input type="date"> отдаёт "YYYY-MM-DD" -> приводим к формату приложения "DD/MM/YY"
-    const [yyyy, mm, dd] = formData.date.split("-");
-    const dateStr = yyyy && mm && dd ? `${dd}/${mm}/${yyyy.slice(2)}` : formData.date;
+    const timezone = browserTimezone();
+    let startsAt: string;
+    try {
+      startsAt = localDateTimeToIso(formData.date, formData.timeFrom, timezone);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Некорректные дата и время");
+      setSubmitting(false);
+      return;
+    }
 
     const created = await eventStore.createEvent({
       title: formData.title,
       description: formData.description,
-      date: dateStr,
-      time: formData.timeFrom,
+      startsAt,
+      timezone,
       location: formData.location,
       category: formData.categories[0] || "Общее",
       image:

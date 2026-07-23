@@ -7,7 +7,7 @@ import type {
   ExternalIdentity,
   PovodRepository,
 } from "./repository";
-import { eventDateToIso, isoToLegacyDate } from "../db/eventDate";
+import { eventDateToIso } from "../db/eventDate";
 import { runMigrations } from "../db/migrations";
 import { seedComments, seedEvents, seedUsers } from "../seed";
 
@@ -16,6 +16,7 @@ interface EventRow {
   title: string;
   description: string;
   starts_at: Date | string;
+  timezone: string;
   location: string;
   category: string | null;
   author_id: string;
@@ -62,9 +63,32 @@ interface SessionRow {
   revoked_at: Date | string | null;
 }
 
+type LegacyEvent = Omit<Event, "startsAt" | "timezone"> & {
+  date: string;
+  time?: string;
+};
+
+interface ImportDataset {
+  users: User[];
+  events: Array<Event | LegacyEvent>;
+  comments: Comment[];
+}
+
+function importedEventTime(event: Event | LegacyEvent): {
+  startsAt: string;
+  timezone: string;
+} {
+  return "startsAt" in event
+    ? { startsAt: event.startsAt, timezone: event.timezone }
+    : {
+        startsAt: eventDateToIso(event.date, event.time),
+        timezone: "Europe/Moscow",
+      };
+}
+
 const EVENT_SELECT = `
   SELECT
-    e.id, e.title, e.description, e.starts_at, e.location, e.category,
+    e.id, e.title, e.description, e.starts_at, e.timezone, e.location, e.category,
     e.author_id, author.name AS author_name, e.image_url, e.tags,
     e.latitude, e.longitude, e.visibility, e.created_at,
     COALESCE(participants.ids, '{}') AS participant_ids
@@ -97,14 +121,13 @@ function toIso(value: Date | string): string {
 }
 
 function mapEvent(row: EventRow): Event {
-  const legacy = isoToLegacyDate(row.starts_at);
   const participantIds = row.participant_ids ?? [];
   return {
     id: row.id,
     title: row.title,
     description: row.description,
-    date: legacy.date,
-    time: legacy.time,
+    startsAt: toIso(row.starts_at),
+    timezone: row.timezone,
     location: row.location,
     category: row.category ?? undefined,
     author: row.author_name,
@@ -183,12 +206,8 @@ export class PostgresRepository implements PovodRepository {
       );
     }
     if (filters.category) add("lower(e.category) = lower(?)", filters.category);
-    if (filters.date) {
-      const start = eventDateToIso(filters.date, "00:00");
-      const end = new Date(Date.parse(start) + 24 * 60 * 60 * 1000).toISOString();
-      values.push(start, end);
-      conditions.push(`e.starts_at >= $${values.length - 1} AND e.starts_at < $${values.length}`);
-    }
+    if (filters.startsFrom) add("e.starts_at >= ?", filters.startsFrom);
+    if (filters.startsTo) add("e.starts_at < ?", filters.startsTo);
     if (filters.author) {
       values.push(filters.author, filters.author);
       conditions.push(
@@ -239,14 +258,15 @@ export class PostgresRepository implements PovodRepository {
       await client.query("BEGIN");
       await client.query(
         `INSERT INTO events (
-          id, title, description, starts_at, location, category, author_id,
+          id, title, description, starts_at, timezone, location, category, author_id,
           image_url, tags, latitude, longitude, visibility, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           event.id,
           event.title,
           event.description,
-          eventDateToIso(event.date, event.time),
+          event.startsAt,
+          event.timezone,
           event.location,
           event.category ?? null,
           event.authorId,
@@ -281,15 +301,16 @@ export class PostgresRepository implements PovodRepository {
     const next = { ...current, ...patch, id };
     await this.pool.query(
       `UPDATE events SET
-        title = $2, description = $3, starts_at = $4, location = $5,
-        category = $6, author_id = $7, image_url = $8, tags = $9,
-        latitude = $10, longitude = $11, visibility = $12
+        title = $2, description = $3, starts_at = $4, timezone = $5, location = $6,
+        category = $7, author_id = $8, image_url = $9, tags = $10,
+        latitude = $11, longitude = $12, visibility = $13
        WHERE id = $1`,
       [
         id,
         next.title,
         next.description,
-        eventDateToIso(next.date, next.time),
+        next.startsAt,
+        next.timezone,
         next.location,
         next.category ?? null,
         next.authorId,
@@ -617,11 +638,19 @@ export class PostgresRepository implements PovodRepository {
     const legacyTable = await client.query<{ exists: boolean }>(
       "SELECT to_regclass('public.app_snapshot') IS NOT NULL AS exists",
     );
-    let source = { users: seedUsers, events: seedEvents, comments: seedComments };
+    let source: ImportDataset = {
+      users: seedUsers,
+      events: seedEvents,
+      comments: seedComments,
+    };
     let sourceLabel = "seed-данные";
     if (legacyTable.rows[0]?.exists) {
       const legacy = await client.query<{
-        data: { users?: User[]; events?: Event[]; comments?: Comment[] };
+        data: {
+          users?: User[];
+          events?: Array<Event | LegacyEvent>;
+          comments?: Comment[];
+        };
       }>("SELECT data FROM app_snapshot WHERE id = 1");
       if (legacy.rows[0]?.data) {
         source = {
@@ -657,7 +686,7 @@ export class PostgresRepository implements PovodRepository {
 
   private async importDataset(
     client: PoolClient,
-    source: { users: User[]; events: Event[]; comments: Comment[] },
+    source: ImportDataset,
   ): Promise<void> {
     const users = new Map(source.users.map((user) => [user.id, user]));
     for (const comment of source.comments) users.set(comment.author.id, comment.author);
@@ -696,17 +725,19 @@ export class PostgresRepository implements PovodRepository {
 
     for (const event of source.events) {
       if (!users.has(event.authorId)) continue;
+      const eventTime = importedEventTime(event);
       await client.query(
         `INSERT INTO events (
-          id, title, description, starts_at, location, category, author_id,
+          id, title, description, starts_at, timezone, location, category, author_id,
           image_url, tags, latitude, longitude, visibility, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (id) DO NOTHING`,
         [
           event.id,
           event.title,
           event.description,
-          eventDateToIso(event.date, event.time),
+          eventTime.startsAt,
+          eventTime.timezone,
           event.location,
           event.category ?? null,
           event.authorId,

@@ -105,9 +105,17 @@ test("event API uses authenticated normalized participation", async (context) =>
   const event = (await eventResponse.json()) as {
     participants: number;
     participantIds: string[];
+    startsAt: string;
+    timezone: string;
+    date?: string;
+    time?: string;
   };
   assert.equal(event.participants, 2);
   assert.deepEqual(event.participantIds.sort(), ["u1", "u2"]);
+  assert.equal(event.startsAt, "2026-06-28T19:00:00.000Z");
+  assert.equal(event.timezone, "Europe/Moscow");
+  assert.equal(event.date, undefined);
+  assert.equal(event.time, undefined);
 });
 
 test("mutations require a session and enforce event ownership", async (context) => {
@@ -116,7 +124,10 @@ test("mutations require a session and enforce event ownership", async (context) 
   const anonymousCreate = await fetch(`${baseUrl}/api/Events`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title: "Без автора", date: "23/07/26" }),
+    body: JSON.stringify({
+      title: "Без автора",
+      startsAt: "2026-07-23T12:00:00.000Z",
+    }),
   });
   assert.equal(anonymousCreate.status, 401);
 
@@ -138,7 +149,8 @@ test("mutations require a session and enforce event ownership", async (context) 
       method: "POST",
       body: JSON.stringify({
         title: "Событие нового пользователя",
-        date: "24/07/26",
+        startsAt: "2026-07-24T12:00:00.000Z",
+        timezone: "Europe/Moscow",
         authorId: "u1",
       }),
     }),
@@ -167,7 +179,8 @@ test("private events and user emails are not exposed publicly", async (context) 
       method: "POST",
       body: JSON.stringify({
         title: "Закрытая встреча",
-        date: "25/07/26",
+        startsAt: "2026-07-25T12:00:00.000Z",
+        timezone: "Europe/Moscow",
         format: "private",
       }),
     }),
@@ -189,7 +202,7 @@ test("private events and user emails are not exposed publicly", async (context) 
   assert.equal(users.some((user) => "email" in user), false);
 });
 
-test("event API reports invalid dates after authentication", async (context) => {
+test("event API requires an ISO instant and valid timezone", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const token = await loginDemo(baseUrl);
 
@@ -199,8 +212,8 @@ test("event API reports invalid dates after authentication", async (context) => 
       method: "POST",
       body: JSON.stringify({
         title: "Некорректное событие",
-        date: "31/02/26",
-        time: "12:00",
+        startsAt: "31/02/26 12:00",
+        timezone: "Invalid/Timezone",
       }),
     }),
   );

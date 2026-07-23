@@ -13,8 +13,8 @@ export interface IEvent {
   id: string;
   title: string;
   description?: string;
-  date: string;
-  time: string;
+  startsAt: string;
+  timezone: string;
   place?: string;
   location?: string;
   category?: string;
@@ -35,8 +35,8 @@ function normalize(e: ApiEvent): IEvent {
     id: String(e.id),
     title: e.title,
     description: e.description,
-    date: e.date,
-    time: e.time,
+    startsAt: e.startsAt,
+    timezone: e.timezone,
     location: e.location,
     place: e.location ?? (e as { place?: string }).place,
     category: e.category,
@@ -140,8 +140,8 @@ class EventStore {
   createEvent = async (payload: {
     title: string;
     description?: string;
-    date: string;
-    time?: string;
+    startsAt: string;
+    timezone: string;
     location?: string;
     category?: string;
     image?: string | null;
@@ -152,8 +152,8 @@ class EventStore {
       const body: EventWrite = {
         title: payload.title,
         description: payload.description ?? "",
-        date: payload.date,
-        time: payload.time ?? "",
+        startsAt: payload.startsAt,
+        timezone: payload.timezone,
         location: payload.location ?? "",
         category: payload.category,
         image: payload.image ?? undefined,
