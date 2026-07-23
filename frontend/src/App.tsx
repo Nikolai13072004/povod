@@ -6,14 +6,9 @@ import { observer } from "mobx-react-lite";
 import { rootStore } from "./stores/rootStore";
 import { sessionStore } from "./stores/sessionStore";
 import { useEffect } from "react";
-import {
-  ConfigProvider,
-  AdaptivityProvider,
-  AppRoot,
-  SplitLayout,
-  SplitCol,
-} from "@vkontakte/vkui";
+import { ConfigProvider, AdaptivityProvider, AppRoot } from "@vkontakte/vkui";
 import "@vkontakte/vkui/dist/vkui.css";
+import { ContentWidth } from "./components/Layout/ContentWidth";
 
 const AppContainer = styled.div<{ isWhiteBg?: boolean }>`
   min-height: 100vh;
@@ -29,17 +24,22 @@ const AppContainer = styled.div<{ isWhiteBg?: boolean }>`
 `;
 
 const MainContent = styled.div`
-  display: flex;
   flex: 1;
-  gap: 20px;
-  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 24px 0;
 
   @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 16px;
-    padding: 18px 16px 20px;
+    padding: 18px 0 20px;
   }
 `;
+
+/** Максимальная ширина колонки контента для текущего маршрута. */
+function contentMaxWidth(pathname: string): string {
+  if (pathname === "/" || pathname === "/SelectInterestPage") return "480px";
+  if (pathname === "/page-1" || pathname === "/events") return "1080px";
+  return "760px";
+}
 
 const App = observer(() => {
   const location = useLocation();
@@ -65,19 +65,20 @@ const App = observer(() => {
     <ConfigProvider colorScheme="light">
       <AdaptivityProvider>
         <AppRoot style={isChatPage ? chatSceneTokens : {}}>
-          <AppContainer isWhiteBg={isChatPage}>
+          <AppContainer
+            isWhiteBg={isChatPage}
+            style={
+              { "--povod-content-max": contentMaxWidth(location.pathname) } as React.CSSProperties
+            }
+          >
             {showAppChrome && <THeader />}
 
             <MainContent>
-              <SplitLayout style={{ justifyContent: "center" }}>
-                <SplitCol maxWidth="100%">
-                  <main style={{ flex: 1 }}>
-                    <Outlet />
-                  </main>
-                </SplitCol>
-              </SplitLayout>
-              {showAppChrome && <NavMenu />}
+              <ContentWidth as="main">
+                <Outlet />
+              </ContentWidth>
             </MainContent>
+            {showAppChrome && <NavMenu />}
           </AppContainer>
         </AppRoot>
       </AdaptivityProvider>
