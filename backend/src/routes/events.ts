@@ -5,12 +5,7 @@ import { eventCreateSchema, eventUpdateSchema } from "../validation";
 import { config } from "../config";
 import { getExternalEvents, findExternalEvent } from "../kudago";
 import type { Event } from "../types";
-import {
-  getAuthUser,
-  optionalAuth,
-  requireAuth,
-  type AuthLocals,
-} from "../auth/middleware";
+import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware";
 
 export const eventsRouter = Router();
 
@@ -35,10 +30,7 @@ eventsRouter.get(
   "/",
   optionalAuth,
   asyncHandler(async (req, res) => {
-    const { search, category, startsFrom, startsTo, author } = req.query as Record<
-      string,
-      string
-    >;
+    const { search, category, startsFrom, startsTo, author } = req.query as Record<string, string>;
     const viewerId = (res.locals as AuthLocals).authUser?.id;
     const local = await getRepository().listEvents({
       search,
@@ -178,10 +170,7 @@ eventsRouter.put(
     if (current.authorId !== getAuthUser(res.locals as AuthLocals).id) {
       throw new HttpError(403, "Only the event author can edit it");
     }
-    const event = await repository.updateEvent(
-      req.params.id,
-      eventUpdateSchema.parse(req.body),
-    );
+    const event = await repository.updateEvent(req.params.id, eventUpdateSchema.parse(req.body));
     res.json(event);
   }),
 );

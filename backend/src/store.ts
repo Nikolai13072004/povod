@@ -13,9 +13,7 @@ export async function initStore(): Promise<void> {
     ]);
     repository = new PostgresRepository(getPool());
   } else {
-    const persistFile = config.persist
-      ? path.resolve(process.cwd(), "data", "db.json")
-      : undefined;
+    const persistFile = config.persist ? path.resolve(process.cwd(), "data", "db.json") : undefined;
     repository = new MemoryRepository(persistFile);
   }
   await repository.init();

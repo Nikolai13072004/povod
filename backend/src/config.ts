@@ -1,8 +1,6 @@
 import { z } from "zod";
 
-const booleanValue = z
-  .enum(["true", "false"])
-  .transform((value) => value === "true");
+const booleanValue = z.enum(["true", "false"]).transform((value) => value === "true");
 
 const environmentSchema = z
   .object({
@@ -113,8 +111,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     databaseUrl: values.DATABASE_URL,
     databaseSsl: values.DATABASE_SSL,
     authSessionDays: values.AUTH_SESSION_DAYS,
-    demoAuthEnabled:
-      values.DEMO_AUTH_ENABLED ?? values.NODE_ENV !== "production",
+    demoAuthEnabled: values.DEMO_AUTH_ENABLED ?? values.NODE_ENV !== "production",
     demoAuthPassword: values.DEMO_AUTH_PASSWORD,
     externalEvents: values.ENABLE_EXTERNAL_EVENTS,
   };

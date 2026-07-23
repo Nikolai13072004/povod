@@ -106,11 +106,7 @@ class SessionStore {
     return this.authenticate(() => authAPI.login({ email, password }));
   };
 
-  register = async (
-    name: string,
-    email: string,
-    password: string,
-  ): Promise<boolean> => {
+  register = async (name: string, email: string, password: string): Promise<boolean> => {
     return this.authenticate(() => authAPI.register({ name, email, password }));
   };
 

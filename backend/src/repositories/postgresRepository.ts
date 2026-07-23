@@ -137,9 +137,7 @@ function mapEvent(row: EventRow): Event {
     image: row.image_url ?? undefined,
     tags: row.tags?.length ? row.tags : undefined,
     coords:
-      row.latitude === null || row.longitude === null
-        ? undefined
-        : [row.latitude, row.longitude],
+      row.latitude === null || row.longitude === null ? undefined : [row.latitude, row.longitude],
     format: row.visibility,
     createdAt: toIso(row.created_at),
   };
@@ -210,9 +208,7 @@ export class PostgresRepository implements PovodRepository {
     if (filters.startsTo) add("e.starts_at < ?", filters.startsTo);
     if (filters.author) {
       values.push(filters.author, filters.author);
-      conditions.push(
-        `(e.author_id = $${values.length - 1} OR author.name = $${values.length})`,
-      );
+      conditions.push(`(e.author_id = $${values.length - 1} OR author.name = $${values.length})`);
     }
     if (filters.participant) {
       add(
@@ -237,18 +233,12 @@ export class PostgresRepository implements PovodRepository {
     const order = filters.sort
       ? `ORDER BY e.starts_at ${filters.sort === "asc" ? "ASC" : "DESC"}`
       : "ORDER BY e.created_at DESC";
-    const result = await this.pool.query<EventRow>(
-      `${EVENT_SELECT} ${where} ${order}`,
-      values,
-    );
+    const result = await this.pool.query<EventRow>(`${EVENT_SELECT} ${where} ${order}`, values);
     return result.rows.map(mapEvent);
   }
 
   async getEvent(id: string): Promise<Event | undefined> {
-    const result = await this.pool.query<EventRow>(
-      `${EVENT_SELECT} WHERE e.id = $1`,
-      [id],
-    );
+    const result = await this.pool.query<EventRow>(`${EVENT_SELECT} WHERE e.id = $1`, [id]);
     return result.rows[0] ? mapEvent(result.rows[0]) : undefined;
   }
 
@@ -343,10 +333,10 @@ export class PostgresRepository implements PovodRepository {
   async leaveEvent(eventId: string, userId: string): Promise<Event | undefined> {
     const exists = await this.getEvent(eventId);
     if (!exists) return undefined;
-    await this.pool.query(
-      "DELETE FROM event_participants WHERE event_id = $1 AND user_id = $2",
-      [eventId, userId],
-    );
+    await this.pool.query("DELETE FROM event_participants WHERE event_id = $1 AND user_id = $2", [
+      eventId,
+      userId,
+    ]);
     return this.getEvent(eventId);
   }
 
@@ -377,14 +367,7 @@ export class PostgresRepository implements PovodRepository {
          email = EXCLUDED.email,
          avatar_url = EXCLUDED.avatar_url,
          interests = EXCLUDED.interests`,
-      [
-        user.id,
-        user.name,
-        user.email,
-        user.avatar ?? null,
-        user.interests ?? [],
-        user.createdAt,
-      ],
+      [user.id, user.name, user.email, user.avatar ?? null, user.interests ?? [], user.createdAt],
     );
     return (await this.getUser(user.id))!;
   }
@@ -396,14 +379,7 @@ export class PostgresRepository implements PovodRepository {
       await client.query(
         `INSERT INTO users (id, name, email, avatar_url, interests, created_at)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          user.id,
-          user.name,
-          user.email,
-          user.avatar ?? null,
-          user.interests ?? [],
-          user.createdAt,
-        ],
+        [user.id, user.name, user.email, user.avatar ?? null, user.interests ?? [], user.createdAt],
       );
       await client.query(
         `INSERT INTO password_credentials (user_id, password_hash)
@@ -629,7 +605,9 @@ export class PostgresRepository implements PovodRepository {
     );
     if ((bootstrap.rowCount ?? 0) > 0) return;
 
-    const count = await client.query<{ count: string }>("SELECT count(*)::text AS count FROM users");
+    const count = await client.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM users",
+    );
     if (Number(count.rows[0]?.count ?? 0) > 0) {
       await this.markBootstrapCompleted(client, "existing_normalized_data");
       return;
@@ -684,10 +662,7 @@ export class PostgresRepository implements PovodRepository {
     );
   }
 
-  private async importDataset(
-    client: PoolClient,
-    source: ImportDataset,
-  ): Promise<void> {
+  private async importDataset(client: PoolClient, source: ImportDataset): Promise<void> {
     const users = new Map(source.users.map((user) => [user.id, user]));
     for (const comment of source.comments) users.set(comment.author.id, comment.author);
 
@@ -695,14 +670,7 @@ export class PostgresRepository implements PovodRepository {
       await client.query(
         `INSERT INTO users (id, name, email, avatar_url, interests, created_at)
          VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`,
-        [
-          user.id,
-          user.name,
-          user.email,
-          user.avatar ?? null,
-          user.interests ?? [],
-          user.createdAt,
-        ],
+        [user.id, user.name, user.email, user.avatar ?? null, user.interests ?? [], user.createdAt],
       );
     }
 
