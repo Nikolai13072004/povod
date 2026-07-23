@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useNavigate } from "react-router";
 import { sessionStore } from "../../stores/sessionStore";
+import { appConfig } from "../../config";
 
 import photoTop from "../../assets/images/2.png";
 import photoBottom from "../../assets/images/1.png";
@@ -178,7 +179,7 @@ const TopIcon = styled.img`
 
 export const MyLoginForm = observer(() => {
   const navigate = useNavigate();
-  const demoAuthEnabled = import.meta.env.VITE_DEMO_AUTH_ENABLED === "true";
+  const demoAuthEnabled = appConfig.demoAuthEnabled;
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState(demoAuthEnabled ? "elmira@povod.app" : "");

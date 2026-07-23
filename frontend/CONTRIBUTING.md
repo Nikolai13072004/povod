@@ -20,18 +20,19 @@ AI-агенты также обязаны следовать `AGENTS.md`: он �
 
 ## Проверка перед коммитом
 
-Backend:
+Из корня monorepo:
 
 ```bash
-npm run typecheck
-npm test
+npm run check
 ```
 
-Frontend:
+Команда запускает backend typecheck и тесты, затем production-сборку frontend. Для проверки контракта уже запущенного локального или развёрнутого API:
 
 ```bash
-npm run build
+API_URL=http://localhost:8080 npm run check:api
 ```
+
+Авторизованная часть контракта включается переменными `CONTRACT_AUTH_EMAIL` и `CONTRACT_AUTH_PASSWORD`.
 
 ## Что документировать
 

@@ -1,0 +1,12 @@
+{
+  "name": "povod",
+  "version": "0.2.0",
+  "private": true,
+  "description": "POVOD full-stack monorepo",
+  "scripts": {
+    "check": "npm run check:backend && npm run check:frontend",
+    "check:backend": "npm --prefix backend run typecheck && npm --prefix backend test",
+    "check:frontend": "npm --prefix frontend run build",
+    "check:api": "node scripts/check-api-contract.mjs"
+  }
+}

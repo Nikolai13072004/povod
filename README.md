@@ -25,15 +25,16 @@ backend/   Express + TypeScript + Zod + normalized PostgreSQL
 В двух отдельных терминалах:
 
 ```bash
+cp backend/env.example backend/.env
 cd backend
 npm ci
 npm run dev
 ```
 
 ```bash
+cp frontend/env.example frontend/.env.local
 cd frontend
 npm ci
-# Создайте frontend/.env.local с VITE_API_URL=http://localhost:8080/
 npm run dev
 ```
 
@@ -44,16 +45,41 @@ Backend доступен на `http://localhost:8080`, frontend — на `http:/
 После установки Docker Desktop из корня репозитория выполните:
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
 Команда поднимет PostgreSQL, API и собранный frontend. Приложение будет доступно по
 `http://localhost:5173`, API — по `http://localhost:8080`. Данные PostgreSQL сохраняются
 в локальном Docker volume; для полной очистки окружения используйте `docker compose down -v`.
 
+Compose имеет безопасные локальные дефолты. Чтобы изменить порты, PostgreSQL, CORS,
+демо-вход или URL API, скопируйте корневой `.env.example` в `.env`. Backend проверяет
+переменные через Zod до запуска; production не допускает wildcard CORS и включённый
+демо-вход. Frontend получает `VITE_*` во время сборки и по умолчанию обращается к
+`http://localhost:8080/`.
+
 Для локального демо-входа Docker Compose подготавливает пользователя
 `elmira@povod.app` с паролем `povod-demo`. Демо-учётные данные явно отключаются
 в production через `DEMO_AUTH_ENABLED=false`.
+
+## Проверки
+
+Полная локальная проверка monorepo запускается из корня:
+
+```bash
+npm run check
+```
+
+Она выполняет backend typecheck и тесты, затем production-сборку frontend. Для
+запущенного API доступна независимая smoke-проверка контракта:
+
+```bash
+npm run check:api
+```
+
+По умолчанию проверяются health, ping и публичные события. Для авторизованной части
+задайте `CONTRACT_AUTH_EMAIL` и `CONTRACT_AUTH_PASSWORD`; адрес сервера можно изменить
+через `API_URL`.
 
 ## Документация
 

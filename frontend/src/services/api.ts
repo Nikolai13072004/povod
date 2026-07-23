@@ -1,7 +1,4 @@
-// Базовый URL API. Эндпоинты дописываются без ведущего слеша (`${BASE}api/Events`),
-// поэтому гарантируем завершающий слеш у базы.
-const RAW_BASE_URL = import.meta.env.VITE_API_URL || "https://team-5.hack.kam-dev.ru/";
-const API_BASE_URL = RAW_BASE_URL.endsWith("/") ? RAW_BASE_URL : `${RAW_BASE_URL}/`;
+import { appConfig } from "../config";
 
 interface ApiResponse<T> {
   data?: T;
@@ -68,7 +65,7 @@ export type EventWrite = Omit<
 
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   try {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${appConfig.apiBaseUrl}${endpoint}`;
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
