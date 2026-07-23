@@ -57,13 +57,18 @@ const SearchInput = styled.input`
   }
 `;
 
+const CardGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+`;
+
 const Card = styled.div`
   background: white;
   border-radius: 16px;
   padding: 12px;
   display: flex;
   gap: 12px;
-  margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   align-items: stretch;
 `;
@@ -351,6 +356,7 @@ function SignUpEventsPage() {
           }
           onRetry={() => eventStore.fetchMyEvents(true)}
         >
+          <CardGrid>
           {filteredEvents.map((event) => (
             <Card key={event.id}>
               <EventImage src={event.image ?? ""} alt={event.title} />
@@ -382,6 +388,7 @@ function SignUpEventsPage() {
               </EventInfo>
             </Card>
           ))}
+          </CardGrid>
         </AsyncContent>
       </ContentPadding>
 

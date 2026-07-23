@@ -4,11 +4,10 @@ import { useTheme } from "../../context/ThemeContext";
 import { BellIcon } from "../../icons/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import { sessionStore } from "../../stores/sessionStore";
+import { ContentWidth } from "../Layout/ContentWidth";
 
 const Header = styled.header<{ $mode: "light" | "dark" }>`
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
+  padding: 12px 0;
   background: var(--vkui--color_background_primary);
 `;
 
@@ -16,6 +15,8 @@ const PageHeader = styled.div`
   display: flex;
   align-items: center;
   width: 100%;
+  padding: 0 16px;
+  box-sizing: border-box;
 `;
 
 const LeftSection = styled.div`
@@ -82,20 +83,22 @@ export const THeader = observer(function THeader() {
 
   return (
     <Header $mode={theme}>
-      <PageHeader>
-        <LeftSection>
-          <Avatar
-            $avatar={sessionStore.user.avatar}
-            onClick={handleAvatarClick}
-            title={sessionStore.user.name}
-          />
-          <PageTitle>{displayTitle}</PageTitle>
-        </LeftSection>
+      <ContentWidth>
+        <PageHeader>
+          <LeftSection>
+            <Avatar
+              $avatar={sessionStore.user.avatar}
+              onClick={handleAvatarClick}
+              title={sessionStore.user.name}
+            />
+            <PageTitle>{displayTitle}</PageTitle>
+          </LeftSection>
 
-        <IconButton $mode={theme} type="button" aria-label="Уведомления" onClick={handleBellClick}>
-          <BellIcon />
-        </IconButton>
-      </PageHeader>
+          <IconButton $mode={theme} type="button" aria-label="Уведомления" onClick={handleBellClick}>
+            <BellIcon />
+          </IconButton>
+        </PageHeader>
+      </ContentWidth>
     </Header>
   );
 });
