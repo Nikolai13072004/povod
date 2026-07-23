@@ -24,7 +24,7 @@ const Section = styled.div`
 `;
 
 const SectionTitle = styled(Title)`
-  color: #3388ee; 
+  color: #3388ee;
   font-size: clamp(18px, 5vw, 22px) !important;
 `;
 
@@ -191,7 +191,7 @@ export function SelectInterestPage() {
               type="number"
               value={peopleFrom}
               onChange={(e) => setPeopleFrom(e.target.value)}
-              onBlur={handleBlurFrom} 
+              onBlur={handleBlurFrom}
             />
             <span style={{ color: "#919cb5" }}>—</span>
             <Input
@@ -211,7 +211,7 @@ export function SelectInterestPage() {
         <Button
           size="l"
           stretched
-          disabled={!isValid || selected.length === 0} 
+          disabled={!isValid || selected.length === 0}
           appearance="accent"
           style={{
             background: isValid ? "#3388ee" : "#ccc",

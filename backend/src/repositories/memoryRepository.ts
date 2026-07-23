@@ -103,21 +103,15 @@ export class MemoryRepository implements PovodRepository {
     );
     const startsFrom = filters.startsFrom ?? filters.activeAfter;
     if (startsFrom) {
-      items = items.filter(
-        (event) => Date.parse(event.startsAt) >= startsFrom.getTime(),
-      );
+      items = items.filter((event) => Date.parse(event.startsAt) >= startsFrom.getTime());
     }
     if (filters.startsTo) {
-      items = items.filter(
-        (event) => Date.parse(event.startsAt) < filters.startsTo!.getTime(),
-      );
+      items = items.filter((event) => Date.parse(event.startsAt) < filters.startsTo!.getTime());
     }
     if (filters.sort) {
       const direction = filters.sort === "asc" ? 1 : -1;
       items = [...items].sort(
-        (left, right) =>
-          direction *
-          (Date.parse(left.startsAt) - Date.parse(right.startsAt)),
+        (left, right) => direction * (Date.parse(left.startsAt) - Date.parse(right.startsAt)),
       );
     }
     return clone(items);
@@ -181,9 +175,7 @@ export class MemoryRepository implements PovodRepository {
 
   async findUserByEmail(email: string): Promise<User | undefined> {
     const normalized = email.trim().toLocaleLowerCase("en");
-    const user = this.users.find(
-      (item) => item.email.toLocaleLowerCase("en") === normalized,
-    );
+    const user = this.users.find((item) => item.email.toLocaleLowerCase("en") === normalized);
     return user ? clone(user) : undefined;
   }
 
@@ -323,9 +315,7 @@ export class MemoryRepository implements PovodRepository {
     provider: string,
     externalUserId: string,
   ): Promise<ExternalIdentity | undefined> {
-    const identity = this.externalIdentities.get(
-      this.identityKey(provider, externalUserId),
-    );
+    const identity = this.externalIdentities.get(this.identityKey(provider, externalUserId));
     return identity ? clone(identity) : undefined;
   }
 

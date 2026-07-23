@@ -2,12 +2,7 @@ import { Router } from "express";
 import { getRepository, newId } from "../store";
 import { asyncHandler, HttpError } from "../middleware";
 import { commentCreateSchema } from "../validation";
-import {
-  getAuthUser,
-  optionalAuth,
-  requireAuth,
-  type AuthLocals,
-} from "../auth/middleware";
+import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware";
 import { presentComment } from "../presenters";
 
 export const commentsRouter = Router();
@@ -47,13 +42,15 @@ commentsRouter.post(
       throw new HttpError(403, "Invitation required");
     }
     res.status(201).json(
-      presentComment(await repository.createComment({
-        id: newId(),
-        text: data.text,
-        eventId: event.id,
-        authorId: author.id,
-        createdAt: new Date().toISOString(),
-      })),
+      presentComment(
+        await repository.createComment({
+          id: newId(),
+          text: data.text,
+          eventId: event.id,
+          authorId: author.id,
+          createdAt: new Date().toISOString(),
+        }),
+      ),
     );
   }),
 );

@@ -69,9 +69,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
-        ...(getSessionToken()
-          ? { Authorization: `Bearer ${getSessionToken()}` }
-          : {}),
+        ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}),
         ...options.headers,
       },
       ...options,
@@ -138,11 +136,9 @@ export const eventsAPI = {
 
   getByAuthor: (authorId: string) => fetchApi<Event[]>(`api/Events/author/${authorId}`),
 
-  getByParticipant: (userId: string) =>
-    fetchApi<Event[]>(`api/Events/participant/${userId}`),
+  getByParticipant: (userId: string) => fetchApi<Event[]>(`api/Events/participant/${userId}`),
 
-  getMine: () =>
-    fetchApi<{ created: Event[]; attending: Event[] }>("api/Events/mine"),
+  getMine: () => fetchApi<{ created: Event[]; attending: Event[] }>("api/Events/mine"),
 
   join: (eventId: string) =>
     fetchApi<Event>(`api/Events/${eventId}/join`, {

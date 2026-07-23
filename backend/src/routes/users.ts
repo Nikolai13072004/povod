@@ -2,11 +2,7 @@ import { Router } from "express";
 import { getRepository } from "../store";
 import { asyncHandler, HttpError } from "../middleware";
 import { friendAddSchema } from "../validation";
-import {
-  getAuthUser,
-  requireAuth,
-  type AuthLocals,
-} from "../auth/middleware";
+import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware";
 import { presentPublicUser } from "../presenters";
 
 export const usersRouter = Router();

@@ -20,14 +20,14 @@ test("friendship is visible to both users and removed symmetrically", async () =
   await repository.init();
 
   await repository.addFriend("u2", "u3");
-  assert.deepEqual(
-    (await repository.listFriends("u2"))?.map((user) => user.id).sort(),
-    ["u1", "u3"],
-  );
-  assert.deepEqual(
-    (await repository.listFriends("u3"))?.map((user) => user.id).sort(),
-    ["u1", "u2"],
-  );
+  assert.deepEqual((await repository.listFriends("u2"))?.map((user) => user.id).sort(), [
+    "u1",
+    "u3",
+  ]);
+  assert.deepEqual((await repository.listFriends("u3"))?.map((user) => user.id).sort(), [
+    "u1",
+    "u2",
+  ]);
 
   await repository.removeFriend("u2", "u3");
   assert.deepEqual(
@@ -47,9 +47,9 @@ test("events can be selected by author and participant", async () => {
   const created = await repository.listEvents({ author: "u1" });
   const accepted = await repository.listEvents({ participant: "u1" });
 
-  assert.deepEqual(created.map((event) => event.id), ["1"]);
   assert.deepEqual(
-    accepted.map((event) => event.id).sort(),
-    ["1", "3"],
+    created.map((event) => event.id),
+    ["1"],
   );
+  assert.deepEqual(accepted.map((event) => event.id).sort(), ["1", "3"]);
 });

@@ -279,9 +279,7 @@ export const MyLoginForm = observer(() => {
                 type="button"
                 onClick={() => setMode(mode === "login" ? "register" : "login")}
               >
-                {mode === "login"
-                  ? "Нет аккаунта? Зарегистрироваться"
-                  : "Уже есть аккаунт? Войти"}
+                {mode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
               </AuthModeButton>
             </AuthForm>
           )}
