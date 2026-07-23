@@ -19,14 +19,21 @@ const NavWrapper = styled("div", { shouldForwardProp })`
 
 const Nav = styled("nav", { shouldForwardProp })`
   display: flex;
-  align-items: center;
-  justify-content: space-around;
+  justify-content: center;
   width: 100%;
   height: 60px;
   padding: 0 10px 20px 10px;
   background: #ffffff;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
   border-top: 2px solid #e8efff;
+`;
+
+const NavInner = styled("div", { shouldForwardProp })`
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  width: 100%;
+  max-width: 480px;
 `;
 
 const StyledNavLink = styled(NavLink, { shouldForwardProp })`
@@ -53,18 +60,20 @@ export default function NavMenu() {
   return (
     <NavWrapper>
       <Nav>
-        <StyledNavLink to="/page-1">
-          <HomeIcon />
-        </StyledNavLink>
-        <StyledNavLink to="/add">
-          <AddIcon />
-        </StyledNavLink>
-        <StyledNavLink to="/events">
-          <EventIcon />
-        </StyledNavLink>
-        <StyledNavLink to="/chats">
-          <ChatIcon />
-        </StyledNavLink>
+        <NavInner>
+          <StyledNavLink to="/page-1">
+            <HomeIcon />
+          </StyledNavLink>
+          <StyledNavLink to="/add">
+            <AddIcon />
+          </StyledNavLink>
+          <StyledNavLink to="/events">
+            <EventIcon />
+          </StyledNavLink>
+          <StyledNavLink to="/chats">
+            <ChatIcon />
+          </StyledNavLink>
+        </NavInner>
       </Nav>
     </NavWrapper>
   );
