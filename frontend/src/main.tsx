@@ -7,6 +7,7 @@ import { ThemeProvider } from "@emotion/react";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./app/router.tsx";
 import { ThemeProvider as CustomThemeProvider } from "./context/ThemeContext";
+import { ErrorBoundary } from "./components/ErrorBoundary/ErrorBoundary.tsx";
 
 // Инициализация VK Bridge (обязательна для VK Mini Apps).
 // Вне среды VK вызов безопасно игнорируется.
@@ -17,7 +18,9 @@ bridge.send("VKWebAppInit").catch(() => {
 createRoot(document.getElementById("root")!).render(
   <CustomThemeProvider>
     <ThemeProvider theme={theme}>
-      <RouterProvider router={router} />
+      <ErrorBoundary>
+        <RouterProvider router={router} />
+      </ErrorBoundary>
     </ThemeProvider>
   </CustomThemeProvider>,
 );
