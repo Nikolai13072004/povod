@@ -5,8 +5,12 @@ interface Bucket {
   resetsAt: number;
 }
 
+/** Реестр всех созданных limiter'ов — нужен только для сброса состояния в тестах. */
+const registries: Array<Map<string, Bucket>> = [];
+
 export function createAuthRateLimit(maxAttempts: number, windowMs: number): RequestHandler {
   const buckets = new Map<string, Bucket>();
+  registries.push(buckets);
 
   return (req, res, next) => {
     const now = Date.now();
@@ -36,4 +40,12 @@ export function createAuthRateLimit(maxAttempts: number, windowMs: number): Requ
     }
     next();
   };
+}
+
+/**
+ * Сбрасывает состояние всех rate-limiter'ов. Предназначено для изоляции тестов:
+ * limiter'ы — модульные синглтоны и иначе копили бы счётчики между тест-инстансами.
+ */
+export function resetRateLimits(): void {
+  for (const buckets of registries) buckets.clear();
 }
