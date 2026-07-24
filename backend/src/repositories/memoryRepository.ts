@@ -10,6 +10,7 @@ import type {
 } from "./repository";
 import { seedComments, seedEvents, seedUsers } from "../seed";
 import { eventDateToIso } from "../db/eventDate";
+import { logger } from "../logger";
 
 type LegacyEvent = Omit<Event, "startsAt" | "timezone"> & {
   date: string;
@@ -64,9 +65,9 @@ export class MemoryRepository implements PovodRepository {
         ]),
       );
       this.normalizeRelations();
-      console.log(`[store] данные загружены из ${this.persistFile}`);
+      logger.info(`[store] данные загружены из ${this.persistFile}`);
     } catch (error) {
-      console.warn("[store] локальный снимок повреждён, используются seed-данные:", error);
+      logger.warn("[store] локальный снимок повреждён, используются seed-данные:", error);
     }
   }
 
@@ -349,7 +350,7 @@ export class MemoryRepository implements PovodRepository {
           ),
         );
       } catch (error) {
-        console.error("[store] ошибка записи локального снимка:", error);
+        logger.error("[store] ошибка записи локального снимка:", error);
       }
     }, 50);
   }

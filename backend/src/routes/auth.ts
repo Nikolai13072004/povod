@@ -10,6 +10,7 @@ import { issueSession } from "../auth/session";
 import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware";
 import type { User } from "../types";
 import { createAuthRateLimit } from "../auth/rateLimit";
+import { logger } from "../logger";
 
 export const authRouter = Router();
 const loginRateLimit = createAuthRateLimit(10, 10 * 60 * 1000);
@@ -86,7 +87,7 @@ authRouter.post(
       if (config.nodeEnv === "production") {
         throw new HttpError(503, "VK authentication is not configured");
       }
-      console.warn("[auth] VK_APP_SECRET не задан — подпись НЕ проверяется (dev only)");
+      logger.warn("[auth] VK_APP_SECRET не задан — подпись НЕ проверяется (dev only)");
     } else if (!verifyVkLaunch(launchParams, config.vkAppSecret)) {
       throw new HttpError(401, "Invalid VK launch signature");
     }

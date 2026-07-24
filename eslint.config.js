@@ -31,6 +31,17 @@ export default tseslint.config(
     // Backend: Node
     files: ["backend/**/*.ts"],
     languageOptions: { globals: { ...globals.node } },
+    // Логи должны идти через централизованный logger с редакцией секретов/PII (SEC-003).
+    rules: {
+      "no-console": "warn",
+    },
+  },
+  {
+    // Единственное допустимое место прямого console — сам logger.
+    files: ["backend/src/logger.ts"],
+    rules: {
+      "no-console": "off",
+    },
   },
   {
     // Прагматичный baseline: тулинг настроен, существующие замечания — предупреждения.
