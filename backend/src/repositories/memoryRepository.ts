@@ -317,6 +317,19 @@ export class MemoryRepository implements PovodRepository {
     this.scheduleSave();
   }
 
+  async deleteExpiredSessions(now: string): Promise<number> {
+    const cutoff = Date.parse(now);
+    let removed = 0;
+    for (const [key, session] of this.sessions) {
+      if (Boolean(session.revokedAt) || Date.parse(session.expiresAt) <= cutoff) {
+        this.sessions.delete(key);
+        removed += 1;
+      }
+    }
+    if (removed > 0) this.scheduleSave();
+    return removed;
+  }
+
   async getExternalIdentity(
     provider: string,
     externalUserId: string,
