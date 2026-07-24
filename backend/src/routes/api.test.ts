@@ -392,3 +392,40 @@ test("escalation: private events stay inaccessible to uninvited users", async (c
   );
   assert.equal(comments.status, 404);
 });
+
+test("event creation validates image type and rejects spoofed MIME (SEC-005)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  // Заявлен image/png, но содержимое — SVG/текст: должно быть отклонено.
+  const spoofed = `data:image/png;base64,${Buffer.from("<svg onload=alert(1)>").toString("base64")}`;
+  const rejected = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Поддельное изображение",
+        startsAt: "2026-09-01T12:00:00.000Z",
+        timezone: "Europe/Moscow",
+        image: spoofed,
+      }),
+    }),
+  );
+  assert.equal(rejected.status, 400);
+
+  // Настоящая PNG-сигнатура — принимается.
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01]);
+  const accepted = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Валидное изображение",
+        startsAt: "2026-09-01T12:00:00.000Z",
+        timezone: "Europe/Moscow",
+        image: `data:image/png;base64,${png.toString("base64")}`,
+      }),
+    }),
+  );
+  assert.equal(accepted.status, 201);
+});
