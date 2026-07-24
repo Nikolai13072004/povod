@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import { ZodError } from "zod";
+import { logger } from "./logger";
 
 /** Обёртка для async-роутов: пробрасывает ошибки в errorHandler. */
 export const asyncHandler =
@@ -42,6 +43,6 @@ export function errorHandler(
   }
   const status = e.status ?? e.statusCode ?? 500;
   const message = e.message ?? "Internal Server Error";
-  if (status >= 500) console.error("[error]", err);
+  if (status >= 500) logger.error("[error]", err);
   res.status(status).json({ error: message, status });
 }

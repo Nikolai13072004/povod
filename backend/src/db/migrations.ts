@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PoolClient } from "pg";
+import { logger } from "../logger";
 
 const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "migrations");
 
@@ -32,7 +33,7 @@ export async function runMigrations(client: PoolClient): Promise<void> {
         await client.query(sql);
         await client.query("INSERT INTO schema_migrations (version) VALUES ($1)", [version]);
         await client.query("COMMIT");
-        console.log(`[db] применена миграция ${version}`);
+        logger.info(`[db] применена миграция ${version}`);
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;
