@@ -39,6 +39,8 @@ export interface ExternalIdentity {
 
 export interface PovodRepository {
   init(): Promise<void>;
+  /** Проверка готовности хранилища (для readiness-пробы). Бросает/возвращает false, если недоступно. */
+  ping(): Promise<boolean>;
 
   listEvents(filters?: EventFilters): Promise<Event[]>;
   getEvent(id: string): Promise<Event | undefined>;

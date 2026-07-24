@@ -190,6 +190,12 @@ export class PostgresRepository implements PovodRepository {
     }
   }
 
+  async ping(): Promise<boolean> {
+    // Проверяем и доступность БД, и что таблица миграций существует (миграции применены).
+    await this.pool.query("SELECT 1 FROM schema_migrations LIMIT 1");
+    return true;
+  }
+
   async listEvents(filters: EventFilters = {}): Promise<Event[]> {
     const conditions: string[] = [];
     const values: unknown[] = [];

@@ -8,6 +8,7 @@
 
 ### Изменено
 
+- [backend] Health-проверки разделены на liveness (`GET /health/live`) и readiness (`GET /health/ready`): liveness не зависит от БД, а readiness реально проверяет доступность хранилища/PostgreSQL (для Postgres — наличие таблицы миграций) и отвечает `503`, если хранилище недоступно. Прежний `GET /health` сохранён для обратной совместимости (BE-002).
 - [frontend] Маршруты приложения переведены на lazy loading (`React.lazy` + `Suspense` с fallback-спиннером): страницы грузятся по требованию отдельными чанками, initial bundle уменьшен (FE-002).
 - [frontend] Удалены неиспользуемые тяжёлые изображения (`volleyball.png` ~16 MB, `karaoke.png`, старые `1.png`/`2.png`, `picnic.jpg`, `cat.jpg`, `hero.png`) — репозиторий легче на ~25 MB (follow-up PERF-001).
 - [frontend] Изображения экрана входа сжаты и переведены в WebP с ресайзом (~4.8 MB → ~0.21 MB): initial-вес страницы входа резко снижен (PERF-001).
