@@ -18,9 +18,7 @@ export function createAuthRateLimit(maxAttempts: number, windowMs: number): Requ
     const key = req.ip || req.socket.remoteAddress || "unknown";
     const current = buckets.get(key);
     const bucket =
-      !current || current.resetsAt <= now
-        ? { count: 0, resetsAt: now + windowMs }
-        : current;
+      !current || current.resetsAt <= now ? { count: 0, resetsAt: now + windowMs } : current;
     bucket.count += 1;
     buckets.set(key, bucket);
 

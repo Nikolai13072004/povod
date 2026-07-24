@@ -25,9 +25,7 @@ export function verifyVkLaunch(search: string, secret: string): boolean {
   });
   keys.sort();
 
-  const checkString = keys
-    .map((k) => `${k}=${encodeURIComponent(params.get(k) ?? "")}`)
-    .join("&");
+  const checkString = keys.map((k) => `${k}=${encodeURIComponent(params.get(k) ?? "")}`).join("&");
 
   const hash = crypto.createHmac("sha256", secret).update(checkString).digest("base64url");
 

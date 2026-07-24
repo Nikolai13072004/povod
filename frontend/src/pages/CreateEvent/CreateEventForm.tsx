@@ -9,10 +9,7 @@ import {
 } from "@vkontakte/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
-import {
-  browserTimezone,
-  localDateTimeToIso,
-} from "../../utils/eventDate";
+import { browserTimezone, localDateTimeToIso } from "../../utils/eventDate";
 
 const FormContainer = styled.div`
   min-height: 100vh;
@@ -526,7 +523,15 @@ export default function CreateEventForm() {
         </PhotoSection>
 
         {formData.photoData && (
-          <div style={{ marginTop: 12, borderRadius: 12, overflow: "hidden", width: "100%", aspectRatio: "16 / 9" }}>
+          <div
+            style={{
+              marginTop: 12,
+              borderRadius: 12,
+              overflow: "hidden",
+              width: "100%",
+              aspectRatio: "16 / 9",
+            }}
+          >
             <img
               src={formData.photoData}
               alt="Preview"

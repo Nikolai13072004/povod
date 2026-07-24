@@ -239,8 +239,7 @@ function FirstPageComponent() {
       selectedInterests.some((i) => eventLabels.includes(i.toLowerCase()));
 
     // Дата: события в выбранный день или позже
-    const matchesDate =
-      !fromDate || eventDateKey(event.startsAt, event.timezone) >= fromDate;
+    const matchesDate = !fromDate || eventDateKey(event.startsAt, event.timezone) >= fromDate;
 
     const matchesPlace =
       !filters.location ||
@@ -337,57 +336,54 @@ function FirstPageComponent() {
         onRetry={() => eventStore.fetchEvents(true)}
       >
         <>
-          {hasActiveFilters && (
-            <ResultCount>Найдено поводов: {filteredEvents.length}</ResultCount>
-          )}
+          {hasActiveFilters && <ResultCount>Найдено поводов: {filteredEvents.length}</ResultCount>}
           <EventsList>
-          {filteredEvents.map((event) => (
-            <EventCard key={event.id} onClick={() => navigate(`/page-1/${event.id}`)}>
-              <EventImage>
-                {event.image && <img src={event.image} alt={event.title} />}
-              </EventImage>
-              <EventTitle>{event.title}</EventTitle>
-              <EventMeta>
-                <MetaRow>
-                  <Icon28CalendarOutline />
-                  <span>{formatEventDate(event.startsAt, event.timezone)}</span>
-                </MetaRow>
-                <MetaRow>
-                  <Icon28ClockOutline />
-                  <span>{formatEventTime(event.startsAt, event.timezone)}</span>
-                </MetaRow>
-                <MetaRow>
-                  <Icon28PlaceOutline />
-                  <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{event.place}</span>
-                </MetaRow>
-              </EventMeta>
-              <EventActions>
-                <Button
-                  size="m"
-                  mode="tertiary"
-                  stretched
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleHideEvent(event.id);
-                  }}
-                >
-                  Не сейчас
-                </Button>
-                <Button
-                  size="m"
-                  mode="primary"
-                  stretched
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/page-1/${event.id}`);
-                  }}
-                >
-                  Присоединиться
-                </Button>
-              </EventActions>
-            </EventCard>
-          ))}
-
+            {filteredEvents.map((event) => (
+              <EventCard key={event.id} onClick={() => navigate(`/page-1/${event.id}`)}>
+                <EventImage>
+                  {event.image && <img src={event.image} alt={event.title} />}
+                </EventImage>
+                <EventTitle>{event.title}</EventTitle>
+                <EventMeta>
+                  <MetaRow>
+                    <Icon28CalendarOutline />
+                    <span>{formatEventDate(event.startsAt, event.timezone)}</span>
+                  </MetaRow>
+                  <MetaRow>
+                    <Icon28ClockOutline />
+                    <span>{formatEventTime(event.startsAt, event.timezone)}</span>
+                  </MetaRow>
+                  <MetaRow>
+                    <Icon28PlaceOutline />
+                    <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{event.place}</span>
+                  </MetaRow>
+                </EventMeta>
+                <EventActions>
+                  <Button
+                    size="m"
+                    mode="tertiary"
+                    stretched
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHideEvent(event.id);
+                    }}
+                  >
+                    Не сейчас
+                  </Button>
+                  <Button
+                    size="m"
+                    mode="primary"
+                    stretched
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/page-1/${event.id}`);
+                    }}
+                  >
+                    Присоединиться
+                  </Button>
+                </EventActions>
+              </EventCard>
+            ))}
           </EventsList>
         </>
       </AsyncContent>

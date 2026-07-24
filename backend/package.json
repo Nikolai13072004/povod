@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Backend API for the POVOD VK Mini App (hackathon team-5, May 2026)",
+  "description": "POVOD backend API (Express + TypeScript + PostgreSQL)",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",

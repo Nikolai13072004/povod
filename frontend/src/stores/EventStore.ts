@@ -1,9 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import {
-  eventsAPI,
-  type Event as ApiEvent,
-  type EventWrite,
-} from "../services/api";
+import { eventsAPI, type Event as ApiEvent, type EventWrite } from "../services/api";
 
 /**
  * Внутренняя модель события. Расширена полем `place` (алиас `location`),

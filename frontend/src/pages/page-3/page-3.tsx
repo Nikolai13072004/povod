@@ -272,10 +272,7 @@ function SignUpEventsPage() {
 
   const allEvents: EventItem[] = Array.from(
     new Map(
-      [...eventStore.acceptedEvents, ...eventStore.createdEvents].map((event) => [
-        event.id,
-        event,
-      ]),
+      [...eventStore.acceptedEvents, ...eventStore.createdEvents].map((event) => [event.id, event]),
     ).values(),
   );
 
@@ -361,37 +358,37 @@ function SignUpEventsPage() {
           onRetry={() => eventStore.fetchMyEvents(true)}
         >
           <CardGrid>
-          {filteredEvents.map((event) => (
-            <Card key={event.id}>
-              <EventImage src={event.image ?? ""} alt={event.title} />
-              <EventInfo>
-                <div>
-                  {eventStore.acceptedEvents.some((accepted) => accepted.id === event.id) && (
-                    <StatusTag>Записан</StatusTag>
-                  )}
-                  <EventTitle>{event.title}</EventTitle>
-                  <DateContainer>
-                    <DetailRow>
-                      <Icon28CalendarOutline width={16} height={16} />{" "}
-                      {formatEventDate(event.startsAt, event.timezone)}
-                    </DetailRow>
-                    <DetailRow>
-                      <Icon28ClockOutline width={16} height={16} />{" "}
-                      {formatEventTime(event.startsAt, event.timezone)}
-                    </DetailRow>
-                    <DetailRow>
-                      <Icon28PlaceOutline width={16} height={16} />{" "}
-                      {event.location || event.place}
-                    </DetailRow>
-                  </DateContainer>
-                </div>
+            {filteredEvents.map((event) => (
+              <Card key={event.id}>
+                <EventImage src={event.image ?? ""} alt={event.title} />
+                <EventInfo>
+                  <div>
+                    {eventStore.acceptedEvents.some((accepted) => accepted.id === event.id) && (
+                      <StatusTag>Записан</StatusTag>
+                    )}
+                    <EventTitle>{event.title}</EventTitle>
+                    <DateContainer>
+                      <DetailRow>
+                        <Icon28CalendarOutline width={16} height={16} />{" "}
+                        {formatEventDate(event.startsAt, event.timezone)}
+                      </DetailRow>
+                      <DetailRow>
+                        <Icon28ClockOutline width={16} height={16} />{" "}
+                        {formatEventTime(event.startsAt, event.timezone)}
+                      </DetailRow>
+                      <DetailRow>
+                        <Icon28PlaceOutline width={16} height={16} />{" "}
+                        {event.location || event.place}
+                      </DetailRow>
+                    </DateContainer>
+                  </div>
 
-                <ActionButton onClick={() => navigate(`/page-1/${event.id}`)}>
-                  Перейти к поводу
-                </ActionButton>
-              </EventInfo>
-            </Card>
-          ))}
+                  <ActionButton onClick={() => navigate(`/page-1/${event.id}`)}>
+                    Перейти к поводу
+                  </ActionButton>
+                </EventInfo>
+              </Card>
+            ))}
           </CardGrid>
         </AsyncContent>
       </ContentPadding>
@@ -420,7 +417,6 @@ function SignUpEventsPage() {
         onClose={() => setActiveModal(null)}
         onSave={handleApplyLocation}
       />
-
     </PageContainer>
   );
 }

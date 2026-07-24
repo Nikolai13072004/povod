@@ -1,0 +1,8 @@
+node_modules
+dist
+build
+coverage
+**/package-lock.json
+backend/data
+# Общие документы поддерживаются вручную и должны оставаться идентичными в frontend/ и backend/
+**/*.md

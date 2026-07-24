@@ -75,11 +75,7 @@ function timezoneOffsetAt(timestamp: number, timezone: string): number {
   return representedAsUtc - Math.floor(timestamp / 1000) * 1000;
 }
 
-export function localDateTimeToIso(
-  date: string,
-  time: string,
-  timezone: string,
-): string {
+export function localDateTimeToIso(date: string, time: string, timezone: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Некорректная дата");
   const localTime = time || "00:00";
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(localTime)) {
