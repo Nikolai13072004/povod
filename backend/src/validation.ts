@@ -1,6 +1,15 @@
 import { z } from "zod";
+import { validateImageReference } from "./media";
 
 /** Схемы валидации входных данных (Zod). */
+
+/** Изображение: внешний http(s) URL или data URL с реальной проверкой типа и размера (SEC-005). */
+const imageSchema = z.string().superRefine((value, ctx) => {
+  const result = validateImageReference(value);
+  if (!result.ok) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.reason });
+  }
+});
 
 export const eventCreateSchema = z.object({
   title: z.string().min(1, "Название обязательно"),
@@ -22,7 +31,7 @@ export const eventCreateSchema = z.object({
     }, "Некорректная IANA timezone"),
   location: z.string().optional().default(""),
   category: z.string().optional(),
-  image: z.string().optional(),
+  image: imageSchema.optional(),
   tags: z.array(z.string()).optional(),
   coords: z.tuple([z.number(), z.number()]).optional(),
   format: z.enum(["public", "private"]).optional(),
