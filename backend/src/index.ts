@@ -2,6 +2,7 @@ import "dotenv/config"; // должен идти первым: загружае�
 import { createApp } from "./app";
 import { config } from "./config";
 import { initStore } from "./store";
+import { logger } from "./logger";
 
 const app = createApp();
 
@@ -11,12 +12,12 @@ async function main() {
   const storage = config.databaseUrl ? "PostgreSQL" : config.persist ? "data/db.json" : "in-memory";
 
   app.listen(config.port, config.host, () => {
-    console.log(`\n🎉  POVOD backend запущен: http://localhost:${config.port}`);
-    console.log(`    health:   GET /health`);
-    console.log(`    events:   GET /api/Events`);
-    console.log(`    storage:  ${storage}`);
-    console.log(`    external: ${config.externalEvents ? "KudaGo (концерты/фестивали)" : "off"}`);
-    console.log(`    cors:     ${config.corsOrigin}\n`);
+    logger.info(`\n🎉  POVOD backend запущен: http://localhost:${config.port}`);
+    logger.info(`    health:   GET /health`);
+    logger.info(`    events:   GET /api/Events`);
+    logger.info(`    storage:  ${storage}`);
+    logger.info(`    external: ${config.externalEvents ? "KudaGo (концерты/фестивали)" : "off"}`);
+    logger.info(`    cors:     ${config.corsOrigin}\n`);
   });
 
   // Прогрев кэша внешних событий (не блокирует старт)
@@ -27,6 +28,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[fatal] не удалось запустить сервер:", err);
+  logger.error("[fatal] не удалось запустить сервер:", err);
   process.exit(1);
 });

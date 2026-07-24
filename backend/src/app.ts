@@ -3,6 +3,7 @@ import cors from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
 import { config } from "./config";
+import { loggerStream, redactText } from "./logger";
 import { eventsRouter } from "./routes/events";
 import { usersRouter } from "./routes/users";
 import { commentsRouter } from "./routes/comments";
@@ -22,7 +23,10 @@ export function createApp() {
   app.use(cors({ origin: config.corsOrigin }));
   // limit 10mb — фронт может слать фото как base64 data URL (до 5MB)
   app.use(express.json({ limit: "10mb" }));
-  if (config.nodeEnv !== "test") app.use(morgan("dev"));
+  // Логи запросов проходят через централизованную редакцию (SEC-003): URL с секретами
+  // в query-параметрах не попадёт в вывод, а сам поток идёт через logger.
+  morgan.token("url", (req: express.Request) => redactText(req.originalUrl ?? req.url ?? ""));
+  if (config.nodeEnv !== "test") app.use(morgan("dev", { stream: loggerStream }));
 
   // health / служебные
   app.get("/health", health);
