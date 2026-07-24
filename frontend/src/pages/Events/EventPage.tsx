@@ -33,7 +33,8 @@ import styled from "@emotion/styled";
 
 const EventImage = styled.img`
   width: 100%;
-  height: 240px;
+  aspect-ratio: 16 / 9;
+  height: auto;
   object-fit: cover;
   border-radius: 12px;
   display: block;
@@ -42,6 +43,7 @@ const EventImage = styled.img`
 
 const CommentInput = styled.input`
   flex: 1;
+  min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--vkui--color_separator_primary_alpha);
   border-radius: 12px;
@@ -328,11 +330,11 @@ function EventPageComponent() {
             {comments.map((c) => (
               <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 14 }}>
                 <Avatar size={36} src={c.author?.avatar} initials={c.author?.name?.[0]} />
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>
                     {c.author?.name ?? "Гость"}
                   </div>
-                  <Text style={{ fontSize: 14 }}>{c.text}</Text>
+                  <Text style={{ fontSize: 14, overflowWrap: "break-word" }}>{c.text}</Text>
                   <div
                     style={{
                       fontSize: 12,
@@ -356,7 +358,7 @@ function EventPageComponent() {
                 if (e.key === "Enter") handleAddComment();
               }}
             />
-            <Button size="m" loading={posting} disabled={!commentText.trim()} onClick={handleAddComment}>
+            <Button size="l" loading={posting} disabled={!commentText.trim()} onClick={handleAddComment}>
               Отправить
             </Button>
           </div>
