@@ -17,3 +17,11 @@ export function getPool(): Pool {
   });
   return pool;
 }
+
+/** Закрывает пул соединений, если он был создан. Безопасно вызывать всегда (BE-001). */
+export async function closePool(): Promise<void> {
+  if (!pool) return;
+  const current = pool;
+  pool = undefined;
+  await current.end();
+}
