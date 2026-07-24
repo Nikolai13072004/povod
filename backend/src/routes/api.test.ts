@@ -245,6 +245,21 @@ test("responses carry helmet security headers", async (context) => {
   assert.ok(response.headers.get("x-frame-options"));
 });
 
+test("liveness and readiness probes report process and store health (BE-002)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+
+  const liveResponse = await fetch(`${baseUrl}/health/live`);
+  assert.equal(liveResponse.status, 200);
+  const liveBody = (await liveResponse.json()) as { status: string };
+  assert.equal(liveBody.status, "alive");
+
+  const readyResponse = await fetch(`${baseUrl}/health/ready`);
+  assert.equal(readyResponse.status, 200);
+  const readyBody = (await readyResponse.json()) as { status: string; checks: { store: string } };
+  assert.equal(readyBody.status, "ready");
+  assert.equal(readyBody.checks.store, "ok");
+});
+
 // --- Horizontal privilege escalation (SEC-006) ---------------------------------
 // Сид: событие «1» и комментарии c1/c2 принадлежат u1/u2/u3. «Атакующий» — новый
 // зарегистрированный пользователь, не связанный с этими сущностями. Он не должен

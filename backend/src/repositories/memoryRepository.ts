@@ -47,6 +47,11 @@ export class MemoryRepository implements PovodRepository {
     this.normalizeRelations();
   }
 
+  async ping(): Promise<boolean> {
+    // In-memory/JSON-хранилище всегда доступно после инициализации процесса.
+    return true;
+  }
+
   async init(): Promise<void> {
     if (!this.persistFile || !fs.existsSync(this.persistFile)) return;
     try {
