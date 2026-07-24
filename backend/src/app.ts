@@ -8,7 +8,7 @@ import { eventsRouter } from "./routes/events";
 import { usersRouter } from "./routes/users";
 import { commentsRouter } from "./routes/comments";
 import { authRouter } from "./routes/auth";
-import { health, ping, dbTime } from "./routes/health";
+import { health, live, ready, ping, dbTime } from "./routes/health";
 import { notFound, errorHandler } from "./middleware";
 
 /** Сборка Express-приложения (без listen — удобно для тестов). */
@@ -30,6 +30,8 @@ export function createApp() {
 
   // health / служебные
   app.get("/health", health);
+  app.get("/health/live", live);
+  app.get("/health/ready", ready);
   app.get("/api/ping", ping);
   app.get("/api/db/time", dbTime);
 
