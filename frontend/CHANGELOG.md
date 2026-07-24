@@ -39,6 +39,7 @@
 ### Добавлено
 
 - [frontend] Настроены Vitest + React Testing Library (jsdom, `@testing-library/jest-dom`, `user-event`); добавлены компонентные тесты `AsyncContent`, формы входа, формы создания события, фильтра даты и ленты с карточками; `npm run test` фронтенда включён в корневой `npm run check` (QA-003).
+- [frontend] Добавлен unit-тест `ErrorBoundary` (экран восстановления, скрытие детей при ошибке, custom fallback, сброс) — follow-up FE-003.
 - Добавлен GitHub Actions CI: на push в `main` и на каждый Pull Request прогоняется `npm run check` (format, lint, typecheck, тесты, сборка) (OPS-001).
 - Настроены ESLint (flat config) и Prettier для monorepo; добавлены скрипты `lint`, `format`, `format:check`, включённые в корневой `npm run check`; кодовая база отформатирована (QA-001).
 - Корневые команды `npm run check` и `npm run check:api` для полной локальной проверки monorepo и smoke-валидации публичного/авторизованного API-контракта.
