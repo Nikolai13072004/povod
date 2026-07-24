@@ -210,3 +210,12 @@ test("event API requires an ISO instant and valid timezone", async (context) => 
   );
   assert.equal(response.status, 400);
 });
+
+test("responses carry helmet security headers", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const response = await fetch(`${baseUrl}/health`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.ok(response.headers.get("content-security-policy"));
+  assert.ok(response.headers.get("x-frame-options"));
+});
