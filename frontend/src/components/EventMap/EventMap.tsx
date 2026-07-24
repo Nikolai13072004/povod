@@ -83,7 +83,7 @@ export const EventMap: React.FC<EventMapProps> = ({ coords }) => {
       ref={mapRef}
       style={{
         width: "100%",
-        height: "200px",
+        height: "clamp(180px, 32vw, 360px)",
         borderRadius: "12px",
         overflow: "hidden",
         border: "1px solid var(--vkui--color_separator_primary_alpha)",

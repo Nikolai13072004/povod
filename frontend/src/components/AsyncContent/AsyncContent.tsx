@@ -21,6 +21,8 @@ const StateDescription = styled.div`
   max-width: 420px;
   font-size: 14px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+  min-width: 0;
 `;
 
 interface AsyncContentProps {

@@ -12,6 +12,7 @@ const ModalOverlay = styled.div<{ $isOpen: boolean }>`
   background-color: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   z-index: 2000;
   opacity: ${(props) => (props.$isOpen ? 1 : 0)};
   visibility: ${(props) => (props.$isOpen ? "visible" : "hidden")};
@@ -20,6 +21,10 @@ const ModalOverlay = styled.div<{ $isOpen: boolean }>`
 
 const ModalContent = styled.div<{ $isOpen: boolean }>`
   width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  max-height: 90dvh;
+  overflow-y: auto;
   background-color: #f0f5fb;
   border-radius: 28px 28px 0 0;
   padding: 8px 20px 24px;
@@ -49,6 +54,7 @@ const InputWrapper = styled.div`
   display: flex;
   gap: 12px;
   align-items: center;
+  min-width: 0;
 `;
 
 const StyledInput = styled.input`
@@ -69,6 +75,8 @@ const StyledInput = styled.input`
 const TimeInput = styled(StyledInput)`
   padding: 14px;
   text-align: center;
+  min-width: 0;
+  flex: 1;
 `;
 
 const IconInside = styled.div`
@@ -287,6 +295,8 @@ const Chip = styled.button<{ $selected: boolean }>`
   background: ${(props) => (props.$selected ? "#2d78df" : "#ffffff")};
   color: ${(props) => (props.$selected ? "#ffffff" : "#818c99")};
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow-wrap: anywhere;
+  max-width: 100%;
 
   &:active {
     transform: scale(0.96);

@@ -91,6 +91,13 @@ const LocationWrapper = styled.div`
   color: var(--vkui--color_text_secondary);
   font-size: 14px;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+
+  svg {
+    flex-shrink: 0;
+  }
 `;
 
 const InterestsHeading = styled.h2`
@@ -158,6 +165,10 @@ const AllInterestsGrid = styled.div`
 
 const InterestChip = styled.button<{ $selected?: boolean }>`
   padding: 8px 16px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid ${(props) => (props.$selected ? "#2688eb" : "#d7d8d9")};
   border-radius: 20px;
   background: ${(props) => (props.$selected ? "#2688eb" : "transparent")};

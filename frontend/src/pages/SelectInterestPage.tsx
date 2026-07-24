@@ -12,6 +12,7 @@ const PageContainer = styled.div`
   flex-direction: column;
   gap: 24px;
   min-height: 83vh;
+  min-height: 83dvh;
   padding: 32px 20px;
   background: transparent;
 `;
@@ -24,7 +25,7 @@ const Section = styled.div`
 
 const SectionTitle = styled(Title)`
   color: #3388ee; 
-  font-size: 22px !important;
+  font-size: clamp(18px, 5vw, 22px) !important;
 `;
 
 const ChipsFlex = styled.div`

@@ -15,10 +15,10 @@ const PageContainer = styled.div`
   display: flex;
   flex-direction: column;
   padding: 20px 18px 24px;
-  height: 94dvh;
+  min-height: 94dvh;
   background: #ebf2fa;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-y: auto;
   margin: 0;
 `;
 
@@ -33,7 +33,7 @@ const HeroCard = styled.div`
 
 const ImageStack = styled.div`
   position: relative;
-  height: 300px;
+  height: clamp(180px, 38vh, 300px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -67,7 +67,7 @@ const TextCard = styled.div`
 `;
 
 const PageTitle = styled.h1`
-  font-size: 28px;
+  font-size: clamp(22px, 6vw, 30px);
   font-weight: 800;
   color: #000000;
   margin: 0;
@@ -162,6 +162,8 @@ const AuthModeButton = styled.button`
   color: #2d81e0;
   cursor: pointer;
   font-size: 14px;
+  padding: 10px 8px;
+  min-height: 40px;
 `;
 
 const AuthError = styled.div`
