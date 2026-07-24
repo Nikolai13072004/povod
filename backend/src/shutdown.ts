@@ -38,11 +38,12 @@ export function createGracefulShutdown(deps: ShutdownDeps): (reason?: string) =>
         resolve();
       };
 
+      // Таймер намеренно НЕ unref-ится: во время остановки мы должны дождаться
+      // дренажа активных запросов (или таймаута), а не дать процессу выйти раньше.
       const timer = setTimeout(() => {
         logger.warn("[shutdown] активные запросы не завершились вовремя — закрываем принудительно");
         finish();
       }, deps.timeoutMs ?? 10_000);
-      timer.unref?.();
 
       deps.server.close((error) => {
         clearTimeout(timer);
