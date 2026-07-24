@@ -15,8 +15,13 @@ async function startTestApp(context: TestContext): Promise<TestApp> {
   process.env.DEMO_AUTH_ENABLED = "true";
   process.env.DEMO_AUTH_PASSWORD = "povod-demo";
 
-  const [{ initStore }, { createApp }] = await Promise.all([import("../store"), import("../app")]);
+  const [{ initStore }, { createApp }, { resetRateLimits }] = await Promise.all([
+    import("../store"),
+    import("../app"),
+    import("../auth/rateLimit"),
+  ]);
   await initStore();
+  resetRateLimits(); // изоляция: limiter'ы — синглтоны, чистим счётчики между тестами
 
   const server = createApp().listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
@@ -48,6 +53,26 @@ const authorized = (token: string, init: RequestInit = {}): RequestInit => ({
     ...init.headers,
   },
 });
+
+/** Регистрирует нового пользователя (по умолчанию — «атакующего») и возвращает его токен и id. */
+async function registerUser(
+  baseUrl: string,
+  overrides: { name?: string; email?: string; password?: string } = {},
+): Promise<{ token: string; id: string }> {
+  const response = await fetch(`${baseUrl}/api/Auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: overrides.name ?? "Мэллори",
+      email: overrides.email ?? "mallory@povod.app",
+      password: overrides.password ?? "attacker-password",
+    }),
+  });
+  assert.equal(response.status, 201);
+  const body = (await response.json()) as { token: string; user: { id: string } };
+  assert.ok(body.token);
+  return { token: body.token, id: body.user.id };
+}
 
 test("session lifecycle supports login, lookup and logout", async (context) => {
   const { baseUrl } = await startTestApp(context);
@@ -218,4 +243,152 @@ test("responses carry helmet security headers", async (context) => {
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.ok(response.headers.get("content-security-policy"));
   assert.ok(response.headers.get("x-frame-options"));
+});
+
+// --- Horizontal privilege escalation (SEC-006) ---------------------------------
+// Сид: событие «1» и комментарии c1/c2 принадлежат u1/u2/u3. «Атакующий» — новый
+// зарегистрированный пользователь, не связанный с этими сущностями. Он не должен
+// иметь возможности читать или изменять чужие ресурсы по их id.
+
+test("escalation: a non-author cannot delete another user's event", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const attacker = await registerUser(baseUrl);
+
+  // Событие «1» создано u1.
+  const forbidden = await fetch(
+    `${baseUrl}/api/Events/1`,
+    authorized(attacker.token, { method: "DELETE" }),
+  );
+  assert.equal(forbidden.status, 403);
+
+  // Событие должно остаться на месте.
+  const stillThere = await fetch(`${baseUrl}/api/Events/1`);
+  assert.equal(stillThere.status, 200);
+});
+
+test("escalation: a non-author cannot edit another user's event", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const attacker = await registerUser(baseUrl);
+
+  const forbidden = await fetch(
+    `${baseUrl}/api/Events/1`,
+    authorized(attacker.token, {
+      method: "PUT",
+      body: JSON.stringify({ title: "Захвачено" }),
+    }),
+  );
+  assert.equal(forbidden.status, 403);
+
+  const event = (await (await fetch(`${baseUrl}/api/Events/1`)).json()) as { title: string };
+  assert.notEqual(event.title, "Захвачено");
+});
+
+test("escalation: participant listing is scoped to the authenticated user", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const attacker = await registerUser(baseUrl);
+
+  const forbidden = await fetch(`${baseUrl}/api/Events/participant/u1`, authorized(attacker.token));
+  assert.equal(forbidden.status, 403);
+});
+
+test("escalation: a stranger cannot delete someone else's comment", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const attacker = await registerUser(baseUrl);
+
+  // Комментарий c1 написан u2 к событию «1» (автор u1). Атакующий — ни тот, ни другой.
+  const forbidden = await fetch(
+    `${baseUrl}/api/Comments/c1`,
+    authorized(attacker.token, { method: "DELETE" }),
+  );
+  assert.equal(forbidden.status, 403);
+
+  // Комментарий должен остаться.
+  const comments = (await (await fetch(`${baseUrl}/api/Comments/event/1`)).json()) as Array<{
+    id: string;
+  }>;
+  assert.ok(comments.some((comment) => comment.id === "c1"));
+});
+
+test("authorization: an event author may moderate comments on their own event", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl); // u1 — автор события «1»
+
+  // c1 — чужой комментарий (u2) на событии u1: автор события вправе его удалить.
+  const response = await fetch(
+    `${baseUrl}/api/Comments/c1`,
+    authorized(owner, { method: "DELETE" }),
+  );
+  assert.equal(response.status, 204);
+});
+
+test("escalation: a user cannot delete or modify another account", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const attacker = await registerUser(baseUrl);
+
+  const deleteOther = await fetch(
+    `${baseUrl}/api/Users/u1`,
+    authorized(attacker.token, { method: "DELETE" }),
+  );
+  assert.equal(deleteOther.status, 403);
+
+  const addFriendForOther = await fetch(
+    `${baseUrl}/api/Users/u1/friends`,
+    authorized(attacker.token, { method: "POST", body: JSON.stringify({ friendId: "u2" }) }),
+  );
+  assert.equal(addFriendForOther.status, 403);
+
+  const removeFriendForOther = await fetch(
+    `${baseUrl}/api/Users/u1/friends/u2`,
+    authorized(attacker.token, { method: "DELETE" }),
+  );
+  assert.equal(removeFriendForOther.status, 403);
+});
+
+test("escalation: private events stay inaccessible to uninvited users", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl); // u1
+  const attacker = await registerUser(baseUrl);
+
+  const createResponse = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(owner, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Секретная встреча",
+        startsAt: "2026-08-01T12:00:00.000Z",
+        timezone: "Europe/Moscow",
+        format: "private",
+      }),
+    }),
+  );
+  assert.equal(createResponse.status, 201);
+  const privateEvent = (await createResponse.json()) as { id: string };
+
+  // Прямое чтение скрыто (404, а не 403 — чтобы не раскрывать существование).
+  const read = await fetch(`${baseUrl}/api/Events/${privateEvent.id}`, authorized(attacker.token));
+  assert.equal(read.status, 404);
+
+  // Запись на событие требует приглашения.
+  const join = await fetch(
+    `${baseUrl}/api/Events/${privateEvent.id}/join`,
+    authorized(attacker.token, { method: "POST" }),
+  );
+  assert.equal(join.status, 403);
+
+  // Комментирование заблокировано.
+  const comment = await fetch(
+    `${baseUrl}/api/Comments`,
+    authorized(attacker.token, {
+      method: "POST",
+      body: JSON.stringify({ eventId: privateEvent.id, text: "впустите меня" }),
+    }),
+  );
+  assert.equal(comment.status, 403);
+
+  // Список комментариев скрыт.
+  const comments = await fetch(
+    `${baseUrl}/api/Comments/event/${privateEvent.id}`,
+    authorized(attacker.token),
+  );
+  assert.equal(comments.status, 404);
 });
