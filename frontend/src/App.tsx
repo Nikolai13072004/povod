@@ -5,8 +5,8 @@ import { THeader } from "./components/Header/Header";
 import { observer } from "mobx-react-lite";
 import { rootStore } from "./stores/rootStore";
 import { sessionStore } from "./stores/sessionStore";
-import { useEffect } from "react";
-import { ConfigProvider, AdaptivityProvider, AppRoot } from "@vkontakte/vkui";
+import { Suspense, useEffect } from "react";
+import { ConfigProvider, AdaptivityProvider, AppRoot, Spinner } from "@vkontakte/vkui";
 import "@vkontakte/vkui/dist/vkui.css";
 import { ContentWidth } from "./components/Layout/ContentWidth";
 
@@ -76,7 +76,15 @@ const App = observer(() => {
 
             <MainContent>
               <ContentWidth as="main">
-                <Outlet />
+                <Suspense
+                  fallback={
+                    <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
+                      <Spinner size="l" />
+                    </div>
+                  }
+                >
+                  <Outlet />
+                </Suspense>
               </ContentWidth>
             </MainContent>
             {showAppChrome && <NavMenu />}
