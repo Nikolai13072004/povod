@@ -35,6 +35,7 @@
 
 ### Добавлено
 
+- Добавлен GitHub Actions CI: на push в `main` и на каждый Pull Request прогоняется `npm run check` (format, lint, typecheck, тесты, сборка) (OPS-001).
 - Настроены ESLint (flat config) и Prettier для monorepo; добавлены скрипты `lint`, `format`, `format:check`, включённые в корневой `npm run check`; кодовая база отформатирована (QA-001).
 - Корневые команды `npm run check` и `npm run check:api` для полной локальной проверки monorepo и smoke-валидации публичного/авторизованного API-контракта.
 - [backend] Unit-тесты разбора, дефолтов и production-ограничений переменных окружения.
