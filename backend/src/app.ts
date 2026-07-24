@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import helmet from "helmet";
 import { config } from "./config";
 import { eventsRouter } from "./routes/events";
 import { usersRouter } from "./routes/users";
@@ -12,6 +13,11 @@ import { notFound, errorHandler } from "./middleware";
 /** Сборка Express-приложения (без listen — удобно для тестов). */
 export function createApp() {
   const app = express();
+
+  // Безопасные HTTP-заголовки: nosniff, frame policy (DENY), CSP, HSTS (в production) и др.
+  // API отдаёт JSON и потребляется фронтом с другого origin — разрешаем cross-origin
+  // доступ к ресурсам, не ослабляя остальные заголовки.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
   app.use(cors({ origin: config.corsOrigin }));
   // limit 10mb — фронт может слать фото как base64 data URL (до 5MB)
