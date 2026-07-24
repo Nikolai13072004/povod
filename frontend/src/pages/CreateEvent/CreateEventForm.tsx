@@ -10,6 +10,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
 import { browserTimezone, localDateTimeToIso } from "../../utils/eventDate";
+import { useToast } from "../../components/Toast/ToastProvider";
 
 const FormContainer = styled.div`
   min-height: 100vh;
@@ -334,6 +335,7 @@ interface FormData {
 
 export default function CreateEventForm() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeType, setActiveType] = useState<"exact" | "idea">("idea");
   const [submitting, setSubmitting] = useState(false);
@@ -356,12 +358,12 @@ export default function CreateEventForm() {
     const file = event.target.files?.[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
-        alert("Пожалуйста, выберите файл изображения");
+        showToast("Пожалуйста, выберите файл изображения", { type: "error" });
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        alert("Файл слишком большой. Максимальный размер: 5MB");
+        showToast("Файл слишком большой. Максимальный размер: 5MB", { type: "error" });
         return;
       }
 

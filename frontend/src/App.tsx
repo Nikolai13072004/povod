@@ -9,6 +9,7 @@ import { Suspense, useEffect } from "react";
 import { ConfigProvider, AdaptivityProvider, AppRoot, Spinner } from "@vkontakte/vkui";
 import "@vkontakte/vkui/dist/vkui.css";
 import { ContentWidth } from "./components/Layout/ContentWidth";
+import { ToastProvider } from "./components/Toast/ToastProvider";
 
 const AppContainer = styled.div<{ isWhiteBg?: boolean }>`
   min-height: 100vh;
@@ -66,29 +67,31 @@ const App = observer(() => {
     <ConfigProvider colorScheme="light">
       <AdaptivityProvider>
         <AppRoot style={isChatPage ? chatSceneTokens : {}}>
-          <AppContainer
-            isWhiteBg={isChatPage}
-            style={
-              { "--povod-content-max": contentMaxWidth(location.pathname) } as React.CSSProperties
-            }
-          >
-            {showAppChrome && <THeader />}
+          <ToastProvider>
+            <AppContainer
+              isWhiteBg={isChatPage}
+              style={
+                { "--povod-content-max": contentMaxWidth(location.pathname) } as React.CSSProperties
+              }
+            >
+              {showAppChrome && <THeader />}
 
-            <MainContent>
-              <ContentWidth as="main">
-                <Suspense
-                  fallback={
-                    <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
-                      <Spinner size="l" />
-                    </div>
-                  }
-                >
-                  <Outlet />
-                </Suspense>
-              </ContentWidth>
-            </MainContent>
-            {showAppChrome && <NavMenu />}
-          </AppContainer>
+              <MainContent>
+                <ContentWidth as="main">
+                  <Suspense
+                    fallback={
+                      <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
+                        <Spinner size="l" />
+                      </div>
+                    }
+                  >
+                    <Outlet />
+                  </Suspense>
+                </ContentWidth>
+              </MainContent>
+              {showAppChrome && <NavMenu />}
+            </AppContainer>
+          </ToastProvider>
         </AppRoot>
       </AdaptivityProvider>
     </ConfigProvider>

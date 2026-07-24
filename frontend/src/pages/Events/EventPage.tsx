@@ -5,6 +5,7 @@ import { eventStore } from "../../stores/EventStore";
 import { commentsAPI, type Comment as ApiComment } from "../../services/api";
 import { sessionStore } from "../../stores/sessionStore";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
+import { useToast } from "../../components/Toast/ToastProvider";
 import bridge from "@vkontakte/vk-bridge";
 import {
   Panel,
@@ -70,6 +71,7 @@ function formatCommentDate(iso: string): string {
 function EventPageComponent() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const showToast = useToast();
   const [loading, setLoading] = useState(false);
 
   const [comments, setComments] = useState<ApiComment[]>([]);
@@ -191,7 +193,7 @@ function EventPageComponent() {
       }
       try {
         await navigator.clipboard.writeText(link);
-        alert("Ссылка на приложение скопирована:\n" + link);
+        showToast("Ссылка на приложение скопирована", { type: "success" });
       } catch {
         /* буфер обмена недоступен */
       }
