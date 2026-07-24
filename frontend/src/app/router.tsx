@@ -1,16 +1,32 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
+import { lazy } from "react";
 import App from "../App";
 import { NotFound } from "../pages/Errors/NotFound";
-import { FirstPage } from "../pages/page-1/page-1";
-import { MyLoginForm } from "../pages/Login/FormPage";
-import { SelectInterestPage } from "../pages/SelectInterestPage";
-import UserProfile from "../pages/Profile/ProfilePage";
-import { EventPage } from "../pages/Events/EventPage";
-import SignUpEventsPage from "../pages/page-3/page-3";
-import ChatPage from "../pages/chat/ChatPage";
-import CreateEventForm from "../pages/CreateEvent/CreateEventForm";
-import { NotificationsPage } from "../components/Notification/NotificationsPage";
 import { RequireAuth } from "./RequireAuth";
+
+// Страницы грузятся лениво (code-splitting), чтобы уменьшить initial bundle.
+// Fallback на время загрузки задан через <Suspense> в App.
+const FirstPage = lazy(() =>
+  import("../pages/page-1/page-1").then((m) => ({ default: m.FirstPage })),
+);
+const MyLoginForm = lazy(() =>
+  import("../pages/Login/FormPage").then((m) => ({ default: m.MyLoginForm })),
+);
+const SelectInterestPage = lazy(() =>
+  import("../pages/SelectInterestPage").then((m) => ({ default: m.SelectInterestPage })),
+);
+const UserProfile = lazy(() => import("../pages/Profile/ProfilePage"));
+const EventPage = lazy(() =>
+  import("../pages/Events/EventPage").then((m) => ({ default: m.EventPage })),
+);
+const SignUpEventsPage = lazy(() => import("../pages/page-3/page-3"));
+const ChatPage = lazy(() => import("../pages/chat/ChatPage"));
+const CreateEventForm = lazy(() => import("../pages/CreateEvent/CreateEventForm"));
+const NotificationsPage = lazy(() =>
+  import("../components/Notification/NotificationsPage").then((m) => ({
+    default: m.NotificationsPage,
+  })),
+);
 
 export const router = createBrowserRouter([
   {
