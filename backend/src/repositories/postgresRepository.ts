@@ -564,6 +564,14 @@ export class PostgresRepository implements PovodRepository {
     );
   }
 
+  async deleteExpiredSessions(now: string): Promise<number> {
+    const result = await this.pool.query(
+      "DELETE FROM auth_sessions WHERE expires_at <= $1 OR revoked_at IS NOT NULL",
+      [now],
+    );
+    return result.rowCount ?? 0;
+  }
+
   async getExternalIdentity(
     provider: string,
     externalUserId: string,
