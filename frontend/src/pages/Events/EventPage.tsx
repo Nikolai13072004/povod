@@ -331,9 +331,7 @@ function EventPageComponent() {
               <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 14 }}>
                 <Avatar size={36} src={c.author?.avatar} initials={c.author?.name?.[0]} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>
-                    {c.author?.name ?? "Гость"}
-                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{c.author?.name ?? "Гость"}</div>
                   <Text style={{ fontSize: 14, overflowWrap: "break-word" }}>{c.text}</Text>
                   <div
                     style={{
@@ -358,15 +356,17 @@ function EventPageComponent() {
                 if (e.key === "Enter") handleAddComment();
               }}
             />
-            <Button size="l" loading={posting} disabled={!commentText.trim()} onClick={handleAddComment}>
+            <Button
+              size="l"
+              loading={posting}
+              disabled={!commentText.trim()}
+              onClick={handleAddComment}
+            >
               Отправить
             </Button>
           </div>
           {commentError && (
-            <Text
-              role="alert"
-              style={{ color: "var(--vkui--color_text_negative)", marginTop: 8 }}
-            >
+            <Text role="alert" style={{ color: "var(--vkui--color_text_negative)", marginTop: 8 }}>
               {commentError}
             </Text>
           )}

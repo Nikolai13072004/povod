@@ -5,17 +5,9 @@ import { asyncHandler, HttpError } from "../middleware";
 import { config } from "../config";
 import { verifyVkLaunch, getVkUserId } from "../vk";
 import { loginSchema, registerSchema } from "../validation";
-import {
-  DUMMY_PASSWORD_HASH,
-  hashPassword,
-  verifyPassword,
-} from "../auth/password";
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "../auth/password";
 import { issueSession } from "../auth/session";
-import {
-  getAuthUser,
-  requireAuth,
-  type AuthLocals,
-} from "../auth/middleware";
+import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware";
 import type { User } from "../types";
 import { createAuthRateLimit } from "../auth/rateLimit";
 
@@ -41,10 +33,7 @@ authRouter.post(
       friends: [],
       createdAt: new Date().toISOString(),
     };
-    const created = await repository.createPasswordUser(
-      user,
-      await hashPassword(data.password),
-    );
+    const created = await repository.createPasswordUser(user, await hashPassword(data.password));
     res.status(201).json(await issueSession(created));
   }),
 );

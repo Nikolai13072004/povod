@@ -8,11 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-povod}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-povod_local_password}
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
-        ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -15,10 +15,7 @@ async function startTestApp(context: TestContext): Promise<TestApp> {
   process.env.DEMO_AUTH_ENABLED = "true";
   process.env.DEMO_AUTH_PASSWORD = "povod-demo";
 
-  const [{ initStore }, { createApp }] = await Promise.all([
-    import("../store"),
-    import("../app"),
-  ]);
+  const [{ initStore }, { createApp }] = await Promise.all([import("../store"), import("../app")]);
   await initStore();
 
   const server = createApp().listen(0, "127.0.0.1");
@@ -56,10 +53,7 @@ test("session lifecycle supports login, lookup and logout", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const token = await loginDemo(baseUrl);
 
-  const sessionResponse = await fetch(
-    `${baseUrl}/api/Auth/session`,
-    authorized(token),
-  );
+  const sessionResponse = await fetch(`${baseUrl}/api/Auth/session`, authorized(token));
   assert.equal(sessionResponse.status, 200);
   const session = (await sessionResponse.json()) as { user: { id: string } };
   assert.equal(session.user.id, "u1");
@@ -70,10 +64,7 @@ test("session lifecycle supports login, lookup and logout", async (context) => {
   );
   assert.equal(logoutResponse.status, 204);
 
-  const revokedResponse = await fetch(
-    `${baseUrl}/api/Auth/session`,
-    authorized(token),
-  );
+  const revokedResponse = await fetch(`${baseUrl}/api/Auth/session`, authorized(token));
   assert.equal(revokedResponse.status, 401);
 });
 
@@ -87,11 +78,11 @@ test("event API uses authenticated normalized participation", async (context) =>
     created: Array<{ id: string }>;
     attending: Array<{ id: string }>;
   };
-  assert.deepEqual(mine.created.map((event) => event.id), ["1"]);
   assert.deepEqual(
-    mine.attending.map((event) => event.id).sort(),
-    ["1", "3"],
+    mine.created.map((event) => event.id),
+    ["1"],
   );
+  assert.deepEqual(mine.attending.map((event) => event.id).sort(), ["1", "3"]);
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const joinResponse = await fetch(
@@ -190,16 +181,16 @@ test("private events and user emails are not exposed publicly", async (context) 
 
   const anonymousEvent = await fetch(`${baseUrl}/api/Events/${event.id}`);
   assert.equal(anonymousEvent.status, 404);
-  const ownerEvent = await fetch(
-    `${baseUrl}/api/Events/${event.id}`,
-    authorized(token),
-  );
+  const ownerEvent = await fetch(`${baseUrl}/api/Events/${event.id}`, authorized(token));
   assert.equal(ownerEvent.status, 200);
 
   const usersResponse = await fetch(`${baseUrl}/api/Users`);
   const users = (await usersResponse.json()) as Array<Record<string, unknown>>;
   assert.equal(usersResponse.status, 200);
-  assert.equal(users.some((user) => "email" in user), false);
+  assert.equal(
+    users.some((user) => "email" in user),
+    false,
+  );
 });
 
 test("event API requires an ISO instant and valid timezone", async (context) => {

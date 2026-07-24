@@ -241,7 +241,12 @@ const UserProfile = () => {
         },
       })) as {
         response?: {
-          items?: Array<{ id: number; first_name?: string; last_name?: string; photo_100?: string }>;
+          items?: Array<{
+            id: number;
+            first_name?: string;
+            last_name?: string;
+            photo_100?: string;
+          }>;
         };
       };
       const items = apiRes.response?.items ?? [];

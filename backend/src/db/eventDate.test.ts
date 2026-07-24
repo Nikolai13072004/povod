@@ -12,8 +12,5 @@ test("invalid calendar date is rejected", () => {
 });
 
 test("ISO calendar date keeps the supplied local time", () => {
-  assert.equal(
-    eventDateToIso("2026-07-23", "09:15"),
-    "2026-07-23T06:15:00.000Z",
-  );
+  assert.equal(eventDateToIso("2026-07-23", "09:15"), "2026-07-23T06:15:00.000Z");
 });

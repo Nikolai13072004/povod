@@ -9,8 +9,7 @@ export function getPool(): Pool {
 
   const hostname = new URL(config.databaseUrl).hostname;
   const isLocal = ["localhost", "127.0.0.1", "::1", "postgres", "db"].includes(hostname);
-  const useSsl =
-    config.databaseSsl === "true" || (config.databaseSsl !== "false" && !isLocal);
+  const useSsl = config.databaseSsl === "true" || (config.databaseSsl !== "false" && !isLocal);
 
   pool = new Pool({
     connectionString: config.databaseUrl,

@@ -99,7 +99,12 @@ export const THeader = observer(function THeader() {
             <PageTitle>{displayTitle}</PageTitle>
           </LeftSection>
 
-          <IconButton $mode={theme} type="button" aria-label="Уведомления" onClick={handleBellClick}>
+          <IconButton
+            $mode={theme}
+            type="button"
+            aria-label="Уведомления"
+            onClick={handleBellClick}
+          >
             <BellIcon />
           </IconButton>
         </PageHeader>

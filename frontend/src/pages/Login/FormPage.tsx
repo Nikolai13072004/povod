@@ -7,8 +7,8 @@ import { useNavigate } from "react-router";
 import { sessionStore } from "../../stores/sessionStore";
 import { appConfig } from "../../config";
 
-import photoTop from "../../assets/images/2.png";
-import photoBottom from "../../assets/images/1.png";
+import photoTop from "../../assets/images/2.webp";
+import photoBottom from "../../assets/images/1.webp";
 import topLogo from "../../assets/images/logo.png";
 
 const PageContainer = styled.div`
@@ -279,9 +279,7 @@ export const MyLoginForm = observer(() => {
                 type="button"
                 onClick={() => setMode(mode === "login" ? "register" : "login")}
               >
-                {mode === "login"
-                  ? "Нет аккаунта? Зарегистрироваться"
-                  : "Уже есть аккаунт? Войти"}
+                {mode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
               </AuthModeButton>
             </AuthForm>
           )}
