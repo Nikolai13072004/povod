@@ -10,6 +10,7 @@ import type {
 import { eventDateToIso } from "../db/eventDate";
 import { runMigrations } from "../db/migrations";
 import { seedComments, seedEvents, seedUsers } from "../seed";
+import { logger } from "../logger";
 
 interface EventRow {
   id: string;
@@ -645,7 +646,7 @@ export class PostgresRepository implements PovodRepository {
       await this.importDataset(client, source);
       await this.markBootstrapCompleted(client, sourceLabel);
       await client.query("COMMIT");
-      console.log(`[db] нормализованные таблицы заполнены из ${sourceLabel}`);
+      logger.info(`[db] нормализованные таблицы заполнены из ${sourceLabel}`);
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;

@@ -1,4 +1,5 @@
 import type { Event } from "./types";
+import { logger } from "./logger";
 
 /**
  * Источник реальных событий — KudaGo (бесплатный публичный API, без ключа).
@@ -90,10 +91,10 @@ export async function getExternalEvents(): Promise<Event[]> {
         return true;
       });
     cache = { at: Date.now(), events };
-    console.log(`[kudago] загружено событий: ${events.length}`);
+    logger.info(`[kudago] загружено событий: ${events.length}`);
     return events;
   } catch (err) {
-    console.warn("[kudago] не удалось получить события:", err);
+    logger.warn("[kudago] не удалось получить события:", err);
     return cache?.events ?? [];
   }
 }
