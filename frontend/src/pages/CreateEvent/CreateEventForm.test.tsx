@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { ToastProvider } from "../../components/Toast/ToastProvider";
 
 const mockEventStore = vi.hoisted(() => ({
   createEvent: vi.fn(),
@@ -19,7 +20,9 @@ import CreateEventForm from "./CreateEventForm";
 function renderForm() {
   return render(
     <MemoryRouter>
-      <CreateEventForm />
+      <ToastProvider>
+        <CreateEventForm />
+      </ToastProvider>
     </MemoryRouter>,
   );
 }
