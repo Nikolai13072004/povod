@@ -4,6 +4,8 @@ import { config } from "./config";
 import { initStore } from "./store";
 import { logger } from "./logger";
 import { startSessionCleanup } from "./auth/sessionCleanup";
+import { closePool } from "./db/pg";
+import { createGracefulShutdown } from "./shutdown";
 
 const app = createApp();
 
@@ -12,7 +14,7 @@ async function main() {
 
   const storage = config.databaseUrl ? "PostgreSQL" : config.persist ? "data/db.json" : "in-memory";
 
-  app.listen(config.port, config.host, () => {
+  const server = app.listen(config.port, config.host, () => {
     logger.info(`\n🎉  POVOD backend запущен: http://localhost:${config.port}`);
     logger.info(`    health:   GET /health`);
     logger.info(`    events:   GET /api/Events`);
@@ -22,7 +24,16 @@ async function main() {
   });
 
   // Периодическая очистка истёкших/отозванных сессий (SEC-007).
-  startSessionCleanup();
+  const stopCleanup = startSessionCleanup();
+
+  // Graceful shutdown: по SIGTERM/SIGINT перестаём принимать запросы,
+  // дожидаемся активных и закрываем пул БД (BE-001).
+  const shutdown = createGracefulShutdown({ server, closePool, stopCleanup });
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.once(signal, () => {
+      void shutdown(signal).then(() => process.exit(0));
+    });
+  }
 
   // Прогрев кэша внешних событий (не блокирует старт)
   if (config.externalEvents) {
