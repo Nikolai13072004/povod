@@ -53,3 +53,40 @@ test("events can be selected by author and participant", async () => {
   );
   assert.deepEqual(accepted.map((event) => event.id).sort(), ["1", "3"]);
 });
+
+test("deleteExpiredSessions removes expired and revoked sessions, keeps active (SEC-007)", async () => {
+  const repository = new MemoryRepository();
+  await repository.init();
+
+  const base = {
+    userId: "u1",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    lastUsedAt: "2026-01-01T00:00:00.000Z",
+  };
+  await repository.createSession({
+    ...base,
+    id: "s-active",
+    tokenHash: "hash-active",
+    expiresAt: "2999-01-01T00:00:00.000Z",
+  });
+  await repository.createSession({
+    ...base,
+    id: "s-expired",
+    tokenHash: "hash-expired",
+    expiresAt: "2020-01-01T00:00:00.000Z",
+  });
+  await repository.createSession({
+    ...base,
+    id: "s-revoked",
+    tokenHash: "hash-revoked",
+    expiresAt: "2999-01-01T00:00:00.000Z",
+    revokedAt: "2026-02-01T00:00:00.000Z",
+  });
+
+  const removed = await repository.deleteExpiredSessions("2026-07-24T00:00:00.000Z");
+  assert.equal(removed, 2);
+
+  assert.ok(await repository.getSessionByTokenHash("hash-active"));
+  assert.equal(await repository.getSessionByTokenHash("hash-expired"), undefined);
+  assert.equal(await repository.getSessionByTokenHash("hash-revoked"), undefined);
+});

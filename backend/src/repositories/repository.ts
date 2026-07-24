@@ -71,6 +71,8 @@ export interface PovodRepository {
   getSessionByTokenHash(tokenHash: string): Promise<AuthSession | undefined>;
   touchSession(id: string, usedAt: string): Promise<void>;
   revokeSession(id: string): Promise<void>;
+  /** Удаляет истёкшие и отозванные сессии; возвращает число удалённых (SEC-007). */
+  deleteExpiredSessions(now: string): Promise<number>;
   getExternalIdentity(
     provider: string,
     externalUserId: string,

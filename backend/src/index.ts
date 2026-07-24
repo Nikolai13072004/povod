@@ -3,6 +3,7 @@ import { createApp } from "./app";
 import { config } from "./config";
 import { initStore } from "./store";
 import { logger } from "./logger";
+import { startSessionCleanup } from "./auth/sessionCleanup";
 
 const app = createApp();
 
@@ -19,6 +20,9 @@ async function main() {
     logger.info(`    external: ${config.externalEvents ? "KudaGo (концерты/фестивали)" : "off"}`);
     logger.info(`    cors:     ${config.corsOrigin}\n`);
   });
+
+  // Периодическая очистка истёкших/отозванных сессий (SEC-007).
+  startSessionCleanup();
 
   // Прогрев кэша внешних событий (не блокирует старт)
   if (config.externalEvents) {
