@@ -24,9 +24,8 @@ const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
      место — иначе конец страницы уезжал под меню и был недоступен. */
   padding-bottom: ${(props) =>
     props.$hasNav ? "calc(88px + env(safe-area-inset-bottom, 0px))" : "20px"};
-  transition:
-    background 0.3s ease,
-    color 0.3s ease;
+  /* Без transition на background/color: он анимировался при КАЖДОЙ смене маршрута
+     (у страниц разный фон), из-за чего фон заметно «мигал» при переходе. */
 `;
 
 const MainContent = styled.div`
@@ -56,6 +55,15 @@ const App = observer(() => {
   const showAppChrome =
     location.pathname !== "/" && !isSelectInterestPage && !isProfilePage && !isNotificationsPage;
 
+  /**
+   * Карточка события рисует собственную шапку (VKUI `PanelHeader` с кнопкой «назад»),
+   * которая при прокрутке становится фиксированной. Общая шапка приложения на этом
+   * маршруте дублировала её и вылезала из-под фиксированной панели. Нижнюю навигацию
+   * при этом оставляем.
+   */
+  const pageHasOwnHeader = /^\/page-1\/[^/]+$/.test(location.pathname);
+  const showTopHeader = showAppChrome && !pageHasOwnHeader;
+
   useEffect(() => {
     rootStore.loadBackendStatus();
     sessionStore.init();
@@ -80,7 +88,7 @@ const App = observer(() => {
                 { "--povod-content-max": contentMaxWidth(location.pathname) } as React.CSSProperties
               }
             >
-              {showAppChrome && <THeader />}
+              {showTopHeader && <THeader />}
 
               <MainContent>
                 <ContentWidth as="main">
