@@ -187,13 +187,13 @@ export const MyLoginForm = observer(() => {
   const [email, setEmail] = useState(demoAuthEnabled ? "elmira@povod.app" : "");
   const [password, setPassword] = useState(demoAuthEnabled ? "povod-demo" : "");
 
+  /** Куда вести после входа: онбординг проходим только один раз. */
+  const afterAuthRoute = (): string =>
+    localStorage.getItem("onboarded") === "true" ? "/page-1" : "/SelectInterestPage";
+
   useEffect(() => {
     if (!sessionStore.initialized || !sessionStore.authenticated) return;
-    if (localStorage.getItem("onboarded") === "true") {
-      navigate("/page-1", { replace: true });
-    } else {
-      navigate("/SelectInterestPage", { replace: true });
-    }
+    navigate(afterAuthRoute(), { replace: true });
   }, [navigate, sessionStore.initialized, sessionStore.authenticated]);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -204,7 +204,9 @@ export const MyLoginForm = observer(() => {
         : await sessionStore.register(name, email, password);
     if (!success) return;
     localStorage.setItem("isAuth", "true");
-    navigate("/SelectInterestPage", { replace: true });
+    // Прошедшего онбординг пользователя ведём сразу в ленту, иначе он на миг
+    // попадал на «Выбор интересов» и только оттуда редиректился обратно.
+    navigate(afterAuthRoute(), { replace: true });
   };
 
   // Внутри ВК показываем реального пользователя и приветственную кнопку

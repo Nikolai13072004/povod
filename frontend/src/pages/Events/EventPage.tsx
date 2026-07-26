@@ -177,15 +177,17 @@ function EventPageComponent() {
     setLoading(false);
   };
 
-  // «Пригласи одним кликом» — шеринг через VK Bridge, в браузере — фолбэк
+  // «Пригласи одним кликом» — шеринг через VK Bridge, в браузере — фолбэк.
+  // Делимся ссылкой на КОНКРЕТНОЕ событие: раньше уходила захардкоженная ссылка
+  // на приложение, и получатель не попадал на нужный повод.
   const handleInvite = async () => {
-    const link = "https://vk.com/app54645823";
+    const link = `${window.location.origin}/page-1/${eventData.id}`;
     try {
       await bridge.send("VKWebAppShare", { link });
     } catch {
       if (navigator.share) {
         try {
-          await navigator.share({ title: "POVOD", text: eventData.title, url: link });
+          await navigator.share({ title: eventData.title, text: eventData.title, url: link });
           return;
         } catch {
           /* пользователь отменил шеринг */
@@ -193,7 +195,7 @@ function EventPageComponent() {
       }
       try {
         await navigator.clipboard.writeText(link);
-        showToast("Ссылка на приложение скопирована", { type: "success" });
+        showToast("Ссылка на событие скопирована", { type: "success" });
       } catch {
         /* буфер обмена недоступен */
       }
