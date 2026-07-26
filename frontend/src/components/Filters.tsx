@@ -133,7 +133,14 @@ interface BaseModalProps {
 
 function FilterBottomSheet({ isOpen, onClose, onApply, title, children }: BaseModalProps) {
   useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "unset";
+    if (!isOpen) return;
+    // Блокируем скролл фона только пока лист открыт и ГАРАНТИРОВАННО снимаем блокировку
+    // при закрытии или размонтировании (иначе уход со страницы с открытым фильтром
+    // оставлял body заблокированным для скролла).
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
 
   return (

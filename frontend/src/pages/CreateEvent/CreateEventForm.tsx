@@ -327,7 +327,6 @@ interface FormData {
   photoSource: "gallery" | "camera" | null;
   date: string;
   timeFrom: string;
-  timeTo: string;
   photoData: string | null;
   location: string;
   format: "public" | "private";
@@ -349,7 +348,6 @@ export default function CreateEventForm() {
     photoData: null,
     date: "",
     timeFrom: "",
-    timeTo: "",
     location: "",
     format: "public",
   });
@@ -485,7 +483,7 @@ export default function CreateEventForm() {
       </Section>
 
       <Section>
-        <Label>Описание *</Label>
+        <Label>Описание</Label>
         <TextArea
           placeholder="Расскажи, чего ожидать..."
           value={formData.description}
@@ -559,22 +557,21 @@ export default function CreateEventForm() {
       </Section>
 
       <Section>
-        <Label>Дата и время *</Label>
+        <Label>Дата и время начала *</Label>
+        {/* Время окончания пока не поддерживается API (см. BE-006): раньше поле
+            собиралось в форме, но молча терялось при отправке. */}
         <TimeRow>
           <Input
             type="date"
+            aria-label="Дата события"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
           />
           <Input
             type="time"
+            aria-label="Время начала"
             value={formData.timeFrom}
             onChange={(e) => setFormData({ ...formData, timeFrom: e.target.value })}
-          />
-          <Input
-            type="time"
-            value={formData.timeTo}
-            onChange={(e) => setFormData({ ...formData, timeTo: e.target.value })}
           />
         </TimeRow>
       </Section>

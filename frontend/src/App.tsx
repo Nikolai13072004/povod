@@ -10,8 +10,9 @@ import { ConfigProvider, AdaptivityProvider, AppRoot, Spinner } from "@vkontakte
 import "@vkontakte/vkui/dist/vkui.css";
 import { ContentWidth } from "./components/Layout/ContentWidth";
 import { ToastProvider } from "./components/Toast/ToastProvider";
+import { ScrollToTop } from "./components/ScrollToTop/ScrollToTop";
 
-const AppContainer = styled.div<{ isWhiteBg?: boolean }>`
+const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -19,7 +20,10 @@ const AppContainer = styled.div<{ isWhiteBg?: boolean }>`
   /* Проверка пропса + !important, чтобы перебить index.css */
   background: ${(props) => (props.isWhiteBg ? "#ffffff" : "var(--bg-color)")} !important;
   color: var(--text-color);
-  padding-bottom: 20px;
+  /* Когда снизу висит фиксированная навигация (высота ~80px), резервируем под неё
+     место — иначе конец страницы уезжал под меню и был недоступен. */
+  padding-bottom: ${(props) =>
+    props.$hasNav ? "calc(88px + env(safe-area-inset-bottom, 0px))" : "20px"};
   transition:
     background 0.3s ease,
     color 0.3s ease;
@@ -67,9 +71,11 @@ const App = observer(() => {
     <ConfigProvider colorScheme="light">
       <AdaptivityProvider>
         <AppRoot style={isChatPage ? chatSceneTokens : {}}>
+          <ScrollToTop />
           <ToastProvider>
             <AppContainer
               isWhiteBg={isChatPage}
+              $hasNav={showAppChrome}
               style={
                 { "--povod-content-max": contentMaxWidth(location.pathname) } as React.CSSProperties
               }
