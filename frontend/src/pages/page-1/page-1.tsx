@@ -22,6 +22,7 @@ import {
 
 import { InterestsFilter, DateFilter, TimeFilter, LocationFilter } from "../../components/Filters";
 import { filtersStore } from "../../stores/filtersStore";
+import { EventCover } from "../../components/EventCover/EventCover";
 
 const PageContainer = styled.div`
   display: flex;
@@ -116,19 +117,6 @@ const EventCard = styled.div`
   background: var(--vkui--color_background_secondary);
   border-radius: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-`;
-const EventImage = styled.div`
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #67b5ff 0%, #3d88ff 100%);
-  overflow: hidden;
-  position: relative;
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
 `;
 const EventTitle = styled.h3`
   font-size: 16px;
@@ -305,9 +293,7 @@ function FirstPageComponent() {
           <EventsList>
             {filteredEvents.map((event) => (
               <EventCard key={event.id} onClick={() => navigate(`/page-1/${event.id}`)}>
-                <EventImage>
-                  {event.image && <img src={event.image} alt={event.title} />}
-                </EventImage>
+                <EventCover src={event.image} title={event.title} />
                 <EventTitle>{event.title}</EventTitle>
                 <EventMeta>
                   <MetaRow>
