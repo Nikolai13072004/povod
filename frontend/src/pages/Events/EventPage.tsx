@@ -275,6 +275,16 @@ function EventPageComponent() {
           {participants} человек
         </SimpleCell>
 
+        {eventData.authorId && (
+          <SimpleCell
+            subtitle="Организатор"
+            onClick={() => navigate(`/users/${eventData.authorId}`)}
+            aria-label={`Профиль организатора: ${eventData.author ?? "пользователь"}`}
+          >
+            {eventData.author ?? "Пользователь"}
+          </SimpleCell>
+        )}
+
         <Spacing size={12} />
         <Separator />
 
