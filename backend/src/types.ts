@@ -50,3 +50,37 @@ export interface Comment {
   createdAt: string;
   eventId: string;
 }
+
+/**
+ * Что произошло. Набор намеренно узкий: только события, которые приложение
+ * действительно умеет порождать сегодня.
+ */
+export type NotificationType =
+  /** Организатор изменил время или место события, на которое вы записаны. */
+  | "event_updated"
+  /** Событие, на которое вы записаны, отменено. */
+  | "event_cancelled"
+  /** Новый комментарий к вашему событию. */
+  | "event_comment"
+  /** Кто-то записался на ваше событие. */
+  | "event_joined";
+
+export interface Notification {
+  id: string;
+  /** Получатель. */
+  userId: string;
+  type: NotificationType;
+  /**
+   * Событие. Может отсутствовать: уведомление об отмене обязано пережить
+   * само событие, иначе оно исчезнет ровно тогда, когда нужнее всего.
+   */
+  eventId?: string;
+  /** Название сохраняется рядом по той же причине — прочитать его будет уже негде. */
+  eventTitle: string;
+  actorId?: string;
+  actorName?: string;
+  /** Человекочитаемый список изменений — для `event_updated` («время», «место»). */
+  changes?: string[];
+  createdAt: string;
+  readAt?: string;
+}

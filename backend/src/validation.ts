@@ -57,6 +57,14 @@ export const profileUpdateSchema = z
     message: "Нужно передать хотя бы одно поле",
   });
 
+/**
+ * Пометка уведомлений прочитанными. Без `ids` читается всё — это нажатие
+ * «Прочитать все»; со списком — отдельные записи при открытии ленты.
+ */
+export const markNotificationsSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(200).optional(),
+});
+
 export const friendAddSchema = z.object({
   friendId: z.string().min(1, "friendId обязателен"),
 });

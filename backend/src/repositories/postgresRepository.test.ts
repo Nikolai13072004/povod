@@ -26,6 +26,7 @@ process.env.ENABLE_EXTERNAL_EVENTS = "false";
 /** Таблицы, которые чистим между тестами. `schema_migrations` намеренно сохраняем. */
 const TABLES = [
   "app_metadata",
+  "notifications",
   "auth_sessions",
   "password_credentials",
   "external_identities",
@@ -87,6 +88,10 @@ test("migrations create the full schema and are recorded", { skip }, async () =>
     applied.rows.some((row) => row.version.startsWith("006")),
     "миграция 006 (город пользователя) должна быть применена",
   );
+  assert.ok(
+    applied.rows.some((row) => row.version.startsWith("007")),
+    "миграция 007 (уведомления) должна быть применена",
+  );
 
   const userColumns = await pool.query<{ column_name: string }>(
     `SELECT column_name FROM information_schema.columns
@@ -105,9 +110,77 @@ test("migrations create the full schema and are recorded", { skip }, async () =>
     "events_created_at_idx",
     "auth_sessions_expires_at_idx",
     "users_email_lower_idx",
+    "notifications_user_created_idx",
+    "notifications_user_unread_idx",
   ]) {
     assert.ok(indexNames.includes(expected), `индекс ${expected} должен существовать`);
   }
+});
+
+test("notifications: batch insert, feed order and unread counting", { skip }, async () => {
+  const repository = await freshRepository();
+  const base = {
+    userId: "u1",
+    type: "event_joined" as const,
+    eventId: "1",
+    eventTitle: "Пляжный волейбол",
+    actorId: "u2",
+    actorName: "Марк",
+  };
+
+  await repository.createNotifications([
+    { ...base, id: "n1", createdAt: "2026-07-01T10:00:00.000Z" },
+    { ...base, id: "n2", createdAt: "2026-07-02T10:00:00.000Z" },
+    // Чужое уведомление: в ленту u1 попасть не должно.
+    { ...base, id: "n3", userId: "u3", createdAt: "2026-07-03T10:00:00.000Z" },
+  ]);
+
+  const feed = await repository.listNotifications("u1", 50);
+  assert.deepEqual(
+    feed.map((item) => item.id),
+    ["n2", "n1"],
+    "лента отдаётся свежими вперёд",
+  );
+  assert.equal(await repository.countUnreadNotifications("u1"), 2);
+
+  const readAt = "2026-07-04T10:00:00.000Z";
+  assert.equal(await repository.markNotificationsRead("u1", readAt, ["n1"]), 1);
+  assert.equal(await repository.countUnreadNotifications("u1"), 1);
+  // Повторное чтение уже прочитанного ничего не меняет.
+  assert.equal(await repository.markNotificationsRead("u1", readAt, ["n1"]), 0);
+
+  // Чужое уведомление нельзя пометить, даже зная его идентификатор.
+  assert.equal(await repository.markNotificationsRead("u1", readAt, ["n3"]), 0);
+  assert.equal(await repository.countUnreadNotifications("u3"), 1);
+
+  assert.equal(await repository.markNotificationsRead("u1", readAt), 1, "без ids читается всё");
+  assert.equal(await repository.countUnreadNotifications("u1"), 0);
+});
+
+test("notifications survive the deletion of what they refer to", { skip }, async () => {
+  const repository = await freshRepository();
+  await repository.createNotifications([
+    {
+      id: "n-link",
+      userId: "u1",
+      type: "event_comment",
+      eventId: "2",
+      eventTitle: "Вечернее караоке",
+      actorId: "u3",
+      actorName: "Тимур",
+      createdAt: "2026-07-01T10:00:00.000Z",
+    },
+  ]);
+
+  await repository.deleteEvent("2");
+
+  const [notification] = await repository.listNotifications("u1", 50);
+  assert.ok(notification, "удаление события не должно уносить уведомление о нём");
+  // ON DELETE SET NULL: ссылка исчезла, а название и имя остались — прочитать
+  // их из удалённых строк было бы уже негде.
+  assert.equal(notification.eventId, undefined);
+  assert.equal(notification.eventTitle, "Вечернее караоке");
+  assert.equal(notification.actorName, "Тимур");
 });
 
 test("seed data is imported into normalized tables", { skip }, async () => {

@@ -6,6 +6,7 @@ import { config } from "../config";
 import { getExternalEvents, findExternalEvent } from "../kudago";
 import type { Event } from "../types";
 import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware";
+import { notifyEventCancelled, notifyEventJoined, notifyEventUpdated } from "../notifications";
 
 export const eventsRouter = Router();
 
@@ -165,12 +166,16 @@ eventsRouter.put(
   requireAuth,
   asyncHandler(async (req, res) => {
     const repository = getRepository();
+    const author = getAuthUser(res.locals as AuthLocals);
     const current = await repository.getEvent(req.params.id);
     if (!current) throw new HttpError(404, "Event not found");
-    if (current.authorId !== getAuthUser(res.locals as AuthLocals).id) {
+    if (current.authorId !== author.id) {
       throw new HttpError(403, "Only the event author can edit it");
     }
     const event = await repository.updateEvent(req.params.id, eventUpdateSchema.parse(req.body));
+    // Участников касается перенос времени, смена места или переименование —
+    // правку описания или обложки рассылать незачем (PROD-006).
+    if (event) await notifyEventUpdated(current, event, author);
     res.json(event);
   }),
 );
@@ -180,12 +185,16 @@ eventsRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     const repository = getRepository();
+    const author = getAuthUser(res.locals as AuthLocals);
     const event = await repository.getEvent(req.params.id);
     if (!event) throw new HttpError(404, "Event not found");
-    if (event.authorId !== getAuthUser(res.locals as AuthLocals).id) {
+    if (event.authorId !== author.id) {
       throw new HttpError(403, "Only the event author can delete it");
     }
     await repository.deleteEvent(event.id);
+    // После удаления список участников уже не прочитать — уведомляем по снимку,
+    // сделанному до операции.
+    await notifyEventCancelled(event, author);
     res.status(204).send();
   }),
 );
@@ -199,7 +208,10 @@ eventsRouter.post(
     const current = await repository.getEvent(req.params.id);
     if (!current) throw new HttpError(404, "Event not found");
     if (!canViewEvent(current, user.id)) throw new HttpError(403, "Invitation required");
+    const alreadyJoined = current.participantIds.includes(user.id);
     const event = await repository.joinEvent(current.id, user.id);
+    // Повторное нажатие идемпотентно и не должно рождать второе уведомление.
+    if (event && !alreadyJoined) await notifyEventJoined(event, user);
     res.json(event);
   }),
 );

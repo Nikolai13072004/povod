@@ -67,6 +67,29 @@ export interface Comment {
   eventId: string;
 }
 
+/** Что произошло. Набор совпадает с серверным (`backend/src/types.ts`). */
+export type NotificationType =
+  "event_updated" | "event_cancelled" | "event_comment" | "event_joined";
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  /** Может отсутствовать: уведомление об отмене переживает само событие. */
+  eventId?: string;
+  eventTitle: string;
+  actorId?: string;
+  actorName?: string;
+  /** Для `event_updated`: «время», «место», «название». */
+  changes?: string[];
+  createdAt: string;
+  readAt?: string;
+}
+
+export interface NotificationFeed {
+  items: Notification[];
+  unread: number;
+}
+
 export type EventWrite = Omit<
   Event,
   "id" | "author" | "authorId" | "participants" | "participantIds" | "createdAt"
@@ -206,6 +229,20 @@ export const commentsAPI = {
     }),
 };
 
+export const notificationsAPI = {
+  list: () => fetchApi<NotificationFeed>("api/Notifications"),
+
+  /** Дешёвый запрос только ради значка на колокольчике. */
+  unreadCount: () => fetchApi<{ unread: number }>("api/Notifications/unread"),
+
+  /** Без `ids` отмечает прочитанным всё. */
+  markRead: (ids?: string[]) =>
+    fetchApi<{ unread: number }>("api/Notifications/read", {
+      method: "POST",
+      body: JSON.stringify(ids ? { ids } : {}),
+    }),
+};
+
 export const healthAPI = {
   ping: () => fetchApi<{ message: string; service?: string; timestamp?: string }>("api/ping"),
 
@@ -245,5 +282,6 @@ export const api = {
   events: eventsAPI,
   users: usersAPI,
   comments: commentsAPI,
+  notifications: notificationsAPI,
   health: healthAPI,
 };
