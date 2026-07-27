@@ -7,16 +7,11 @@ import {
   Icon28PlaceOutline,
   Icon28SearchOutline,
 } from "@vkontakte/icons";
-import {
-  DateFilter,
-  InterestsFilter,
-  LocationFilter,
-  TimeFilter,
-  type FilterOption,
-} from "../../components/Filters";
+import { DateFilter, InterestsFilter, LocationFilter, TimeFilter } from "../../components/Filters";
 import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
+import { filtersStore } from "../../stores/filtersStore";
 import { AsyncContent } from "../../components/AsyncContent";
 import {
   eventDateKey,
@@ -148,26 +143,35 @@ const FiltersContainer = styled.div`
   }
 `;
 
-const FilterWrapper = styled.div`
+const FilterWrapper = styled.div<{ $active?: boolean }>`
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
-  background: #f2f3f5;
+  min-height: 40px;
+  box-sizing: border-box;
+  background: ${(props) => (props.$active ? "#2d81e0" : "#f2f3f5")};
   border: 1px solid #2d81e0;
   border-radius: 10px;
   cursor: pointer;
-  color: #2d81e0;
+  color: ${(props) => (props.$active ? "#ffffff" : "#2d81e0")};
   white-space: nowrap;
   &:active {
     opacity: 0.8;
   }
 `;
 
+/** Чип сброса — как в ленте, появляется только при активных фильтрах. */
+const ResetChip = styled(FilterWrapper)`
+  background: #ffffff;
+  border-color: #e05b5b;
+  color: #e05b5b;
+`;
+
 const FilterButton = styled.span`
   font-size: 14px;
   font-weight: 400;
-  color: #2d81e0;
+  color: inherit;
 `;
 const DateContainer = styled.div`
   display: flex;
@@ -219,56 +223,20 @@ interface EventItem {
 // ];
 
 function SignUpEventsPage() {
-  const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+  // Фильтры раздела живут в сторе и не теряются при переходе на другую вкладку.
+  const filters = filtersStore.myEvents;
 
   useEffect(() => {
     eventStore.fetchMyEvents();
   }, []);
 
-  const [filters, setFilters] = useState({
-    date: "",
-    location: "",
-    startTime: "",
-    endTime: "",
-  });
-
-  const [interestOptions, setInterestOptions] = useState<FilterOption[]>([
-    { id: "1", label: "Спорт", selected: false },
-    { id: "2", label: "Искусство", selected: false },
-    { id: "3", label: "Путешествия", selected: false },
-    { id: "4", label: "IT", selected: false },
-    { id: "5", label: "Компьютерные игры", selected: false },
-    { id: "6", label: "Технологии", selected: false },
-    { id: "7", label: "Еда", selected: false },
-    { id: "8", label: "Настольные игры", selected: false },
-    { id: "9", label: "Наука", selected: false },
-    { id: "10", label: "Музыка", selected: false },
-    { id: "11", label: "Саморазвитие", selected: false },
-    { id: "12", label: "Образование", selected: false },
-    { id: "13", label: "Кино", selected: false },
-    { id: "14", label: "Шопинг", selected: false },
-    { id: "15", label: "Ресторан", selected: false },
-    { id: "16", label: "Музей", selected: false },
-    { id: "17", label: "Отдых", selected: false },
-  ]);
-
   const [activeModal, setActiveModal] = useState<"interests" | "date" | "time" | "place" | null>(
     null,
   );
 
-  const handleApplyDate = (date: string) => setFilters((prev) => ({ ...prev, date }));
-  const handleApplyLocation = (loc: string) => setFilters((prev) => ({ ...prev, location: loc }));
-  const handleApplyTime = (start: string, end: string) =>
-    setFilters((prev) => ({ ...prev, startTime: start, endTime: end }));
-
-  const handleToggleInterest = (id: string) => {
-    setInterestOptions((prev) =>
-      prev.map((opt) => (opt.id === id ? { ...opt, selected: !opt.selected } : opt)),
-    );
-  };
-
-  const selectedInterests = interestOptions.filter((opt) => opt.selected).map((opt) => opt.label);
+  const searchQuery = filters.search;
+  const selectedInterests = filters.selectedInterests;
 
   const allEvents: EventItem[] = Array.from(
     new Map(
@@ -315,32 +283,48 @@ function SignUpEventsPage() {
             type="text"
             placeholder="Поиск..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => filters.setSearch(e.target.value)}
           />
         </SearchContainer>
       </ContentPadding>
 
       <ContentPadding style={{ marginTop: "16px" }}>
         <FiltersContainer>
-          <FilterWrapper onClick={() => setActiveModal("interests")}>
-            <FilterButton>Интересы</FilterButton>
+          <FilterWrapper
+            $active={selectedInterests.length > 0}
+            onClick={() => setActiveModal("interests")}
+          >
+            <FilterButton>
+              Интересы{selectedInterests.length > 0 ? ` (${selectedInterests.length})` : ""}
+            </FilterButton>
             <OpenFilterIcon />
           </FilterWrapper>
 
-          <FilterWrapper onClick={() => setActiveModal("date")}>
-            <FilterButton>Дата</FilterButton>
+          <FilterWrapper $active={Boolean(filters.date)} onClick={() => setActiveModal("date")}>
+            <FilterButton>{filters.date ? `Дата: ${filters.date}` : "Дата"}</FilterButton>
             <OpenFilterIcon />
           </FilterWrapper>
 
-          <FilterWrapper onClick={() => setActiveModal("time")}>
-            <FilterButton>Время</FilterButton>
+          <FilterWrapper $active={filters.timeActive} onClick={() => setActiveModal("time")}>
+            <FilterButton>
+              {filters.timeActive ? `${filters.startTime}–${filters.endTime}` : "Время"}
+            </FilterButton>
             <OpenFilterIcon />
           </FilterWrapper>
 
-          <FilterWrapper onClick={() => setActiveModal("place")}>
-            <FilterButton>Место</FilterButton>
+          <FilterWrapper
+            $active={Boolean(filters.location)}
+            onClick={() => setActiveModal("place")}
+          >
+            <FilterButton>{filters.location ? `Место: ${filters.location}` : "Место"}</FilterButton>
             <OpenFilterIcon />
           </FilterWrapper>
+
+          {filters.hasActiveFilters && (
+            <ResetChip onClick={() => filters.reset()}>
+              <FilterButton>Сбросить ✕</FilterButton>
+            </ResetChip>
+          )}
         </FiltersContainer>
 
         <AsyncContent
@@ -396,26 +380,26 @@ function SignUpEventsPage() {
       <InterestsFilter
         isOpen={activeModal === "interests"}
         onClose={() => setActiveModal(null)}
-        options={interestOptions}
-        onToggle={handleToggleInterest}
+        options={filters.interestOptions}
+        onToggle={(id: string) => filters.toggleInterest(id)}
       />
 
       <DateFilter
         isOpen={activeModal === "date"}
         onClose={() => setActiveModal(null)}
-        onSave={handleApplyDate}
+        onSave={(date: string) => filters.setDate(date)}
       />
 
       <TimeFilter
         isOpen={activeModal === "time"}
         onClose={() => setActiveModal(null)}
-        onSave={handleApplyTime}
+        onSave={(start: string, end: string) => filters.setTimeRange(start, end)}
       />
 
       <LocationFilter
         isOpen={activeModal === "place"}
         onClose={() => setActiveModal(null)}
-        onSave={handleApplyLocation}
+        onSave={(place: string) => filters.setLocation(place)}
       />
     </PageContainer>
   );
