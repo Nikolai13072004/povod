@@ -12,6 +12,7 @@ import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
 import { filtersStore } from "../../stores/filtersStore";
+import { EventCover } from "../../components/EventCover/EventCover";
 import { AsyncContent } from "../../components/AsyncContent";
 import {
   eventDateKey,
@@ -69,11 +70,9 @@ const Card = styled.div`
   align-items: stretch;
 `;
 
-const EventImage = styled.img`
+/** Обложка в «Моих событиях» — фиксированной ширины, остальное задаёт EventCover. */
+const CoverSlot = styled.div`
   width: 100px;
-  height: 100px;
-  border-radius: 12px;
-  object-fit: cover;
   flex-shrink: 0;
 `;
 const EventInfo = styled.div`
@@ -423,7 +422,15 @@ function SignUpEventsPage() {
           <CardGrid>
             {filteredEvents.map((event) => (
               <Card key={event.id}>
-                <EventImage src={event.image ?? ""} alt={event.title} />
+                <CoverSlot>
+                  <EventCover
+                    src={event.image}
+                    title={event.title}
+                    ratio="1 / 1"
+                    rounded="12px"
+                    className="my-events-cover"
+                  />
+                </CoverSlot>
                 <EventInfo>
                   <div>
                     {eventStore.acceptedEvents.some((accepted) => accepted.id === event.id) && (

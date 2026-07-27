@@ -1,6 +1,6 @@
 /**
- * Доменные модели. Совместимы с интерфейсами фронтенда
- * (VK_POVOD_Hackathon_2026/src/services/api.ts): Event, User, Comment.
+ * Доменные модели POVOD: Event, User, Comment.
+ * Совместимы с типами фронтенда (`frontend/src/services/api.ts`).
  * Поля сверх контракта (authorId, participantIds, category, format...) —
  * безопасное расширение: фронт их просто игнорирует.
  */
