@@ -5,7 +5,7 @@ import { Icon16Place } from "@vkontakte/icons";
 import { useNavigate } from "react-router-dom";
 import { sessionStore } from "../stores/sessionStore";
 import { setStoredInterests } from "../storage";
-import { useInterestForm } from "../components/ComponentShowcase/useInterestForm";
+import { useInterestForm } from "../hooks/useInterestForm";
 
 const PageContainer = styled.div`
   display: flex;
