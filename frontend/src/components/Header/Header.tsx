@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import styled from "@emotion/styled";
 import { observer } from "mobx-react-lite";
 import { useTheme } from "../../context/ThemeContext";
 import { BellIcon } from "../../icons/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import { sessionStore } from "../../stores/sessionStore";
+import { notificationsStore } from "../../stores/notificationsStore";
 import { ContentWidth } from "../Layout/ContentWidth";
 
 const Header = styled.header<{ $mode: "light" | "dark" }>`
@@ -59,6 +61,7 @@ const PageTitle = styled.h1`
 `;
 
 const IconButton = styled.button<{ $mode: "light" | "dark" }>`
+  position: relative;
   width: 44px;
   height: 44px;
   border: none;
@@ -74,10 +77,35 @@ const IconButton = styled.button<{ $mode: "light" | "dark" }>`
   }
 `;
 
+/** Счётчик непрочитанных на колокольчике. Больше 99 не показываем — не влезает. */
+const UnreadBadge = styled.span`
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: var(--povod-danger);
+  color: var(--povod-danger-on-surface);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+`;
+
 export const THeader = observer(function THeader() {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const unread = notificationsStore.unread;
+
+  // Счётчик обновляется при переходах: этого достаточно, чтобы значок не отставал,
+  // и не требует ни опроса по таймеру, ни постоянного соединения (PROD-003).
+  useEffect(() => {
+    if (sessionStore.authenticated) void notificationsStore.refreshUnread();
+  }, [location.pathname, sessionStore.authenticated]);
 
   const handleAvatarClick = () => {
     localStorage.setItem("isAuth", "true");
@@ -111,10 +139,13 @@ export const THeader = observer(function THeader() {
           <IconButton
             $mode={theme}
             type="button"
-            aria-label="Уведомления"
+            aria-label={unread > 0 ? `Уведомления, непрочитанных: ${unread}` : "Уведомления"}
             onClick={handleBellClick}
           >
             <BellIcon />
+            {unread > 0 && (
+              <UnreadBadge aria-hidden="true">{unread > 99 ? "99+" : unread}</UnreadBadge>
+            )}
           </IconButton>
         </PageHeader>
       </ContentWidth>

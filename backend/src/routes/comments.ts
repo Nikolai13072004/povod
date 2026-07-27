@@ -4,6 +4,7 @@ import { asyncHandler, HttpError } from "../middleware";
 import { commentCreateSchema } from "../validation";
 import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware";
 import { presentComment } from "../presenters";
+import { notifyEventComment } from "../notifications";
 
 export const commentsRouter = Router();
 
@@ -41,17 +42,15 @@ commentsRouter.post(
     ) {
       throw new HttpError(403, "Invitation required");
     }
-    res.status(201).json(
-      presentComment(
-        await repository.createComment({
-          id: newId(),
-          text: data.text,
-          eventId: event.id,
-          authorId: author.id,
-          createdAt: new Date().toISOString(),
-        }),
-      ),
-    );
+    const comment = await repository.createComment({
+      id: newId(),
+      text: data.text,
+      eventId: event.id,
+      authorId: author.id,
+      createdAt: new Date().toISOString(),
+    });
+    await notifyEventComment(event, author);
+    res.status(201).json(presentComment(comment));
   }),
 );
 

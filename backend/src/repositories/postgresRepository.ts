@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import type { Comment, Event, User } from "../types";
+import type { Comment, Event, Notification, NotificationType, User } from "../types";
 import type {
   AuthSession,
   CreateCommentInput,
@@ -53,6 +53,19 @@ interface CommentRow {
   author_avatar_url: string | null;
   author_interests: string[];
   author_created_at: Date | string;
+}
+
+interface NotificationRow {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  event_id: string | null;
+  event_title: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  changes: string[] | null;
+  created_at: Date | string;
+  read_at: Date | string | null;
 }
 
 interface SessionRow {
@@ -172,6 +185,21 @@ function mapComment(row: CommentRow): Comment {
       interests: row.author_interests ?? [],
       createdAt: toIso(row.author_created_at),
     },
+  };
+}
+
+function mapNotification(row: NotificationRow): Notification {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    type: row.type,
+    eventId: row.event_id ?? undefined,
+    eventTitle: row.event_title,
+    actorId: row.actor_id ?? undefined,
+    actorName: row.actor_name ?? undefined,
+    changes: row.changes?.length ? row.changes : undefined,
+    createdAt: toIso(row.created_at),
+    readAt: row.read_at ? toIso(row.read_at) : undefined,
   };
 }
 
@@ -574,6 +602,69 @@ export class PostgresRepository implements PovodRepository {
   async deleteComment(id: string): Promise<boolean> {
     const result = await this.pool.query("DELETE FROM comments WHERE id = $1", [id]);
     return (result.rowCount ?? 0) > 0;
+  }
+
+  async createNotifications(notifications: Notification[]): Promise<void> {
+    if (notifications.length === 0) return;
+    // Одна вставка на всю пачку: рассылка участникам события — самый частый случай,
+    // и по запросу на получателя это был бы десяток round-trip'ов на одно действие.
+    const values: unknown[] = [];
+    const rows = notifications.map((item, index) => {
+      const base = index * 9;
+      values.push(
+        item.id,
+        item.userId,
+        item.type,
+        item.eventId ?? null,
+        item.eventTitle,
+        item.actorId ?? null,
+        item.actorName ?? null,
+        item.changes ?? [],
+        item.createdAt,
+      );
+      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9})`;
+    });
+    await this.pool.query(
+      `INSERT INTO notifications
+         (id, user_id, type, event_id, event_title, actor_id, actor_name, changes, created_at)
+       VALUES ${rows.join(", ")}`,
+      values,
+    );
+  }
+
+  async listNotifications(userId: string, limit: number): Promise<Notification[]> {
+    const result = await this.pool.query<NotificationRow>(
+      `SELECT id, user_id, type, event_id, event_title, actor_id, actor_name, changes,
+              created_at, read_at
+         FROM notifications
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2`,
+      [userId, limit],
+    );
+    return result.rows.map(mapNotification);
+  }
+
+  async countUnreadNotifications(userId: string): Promise<number> {
+    const result = await this.pool.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL",
+      [userId],
+    );
+    return Number(result.rows[0]?.count ?? 0);
+  }
+
+  async markNotificationsRead(userId: string, readAt: string, ids?: string[]): Promise<number> {
+    // `ids IS NULL` в условии позволяет обойтись одним запросом на оба сценария:
+    // «прочитать всё» и «прочитать выбранные».
+    const result = await this.pool.query(
+      `UPDATE notifications
+          SET read_at = $2
+        WHERE user_id = $1
+          AND read_at IS NULL
+          AND ($3::text[] IS NULL OR id = ANY($3))`,
+      [userId, readAt, ids ?? null],
+    );
+    return result.rowCount ?? 0;
   }
 
   async getPasswordHash(userId: string): Promise<string | undefined> {
