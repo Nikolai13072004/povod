@@ -241,6 +241,67 @@ class EventStore {
     }
   };
 
+  /** Редактирование собственного события (FE-007). Права проверяет сервер. */
+  updateEvent = async (
+    id: string,
+    patch: {
+      title?: string;
+      description?: string;
+      startsAt?: string;
+      timezone?: string;
+      location?: string;
+      category?: string;
+      image?: string;
+      format?: "public" | "private";
+    },
+  ): Promise<IEvent | null> => {
+    runInAction(() => {
+      this.actionError = null;
+    });
+    try {
+      const response = await eventsAPI.update(id, patch);
+      if (response.error || !response.data) {
+        throw new Error(response.error ?? "Не удалось сохранить изменения");
+      }
+      const updated = normalize(response.data);
+      runInAction(() => {
+        for (const list of [this.events, this.createdEvents, this.acceptedEvents]) {
+          const index = list.findIndex((item) => item.id === id);
+          if (index !== -1) list[index] = updated;
+        }
+      });
+      return updated;
+    } catch (error) {
+      runInAction(() => {
+        this.actionError =
+          error instanceof Error ? error.message : "Не удалось сохранить изменения";
+      });
+      return null;
+    }
+  };
+
+  /** Удаление собственного события (FE-007). Права проверяет сервер. */
+  deleteEvent = async (id: string): Promise<boolean> => {
+    runInAction(() => {
+      this.actionError = null;
+    });
+    try {
+      const response = await eventsAPI.delete(id);
+      if (response.error) throw new Error(response.error);
+      runInAction(() => {
+        this.events = this.events.filter((item) => item.id !== id);
+        this.createdEvents = this.createdEvents.filter((item) => item.id !== id);
+        this.acceptedEvents = this.acceptedEvents.filter((item) => item.id !== id);
+      });
+      return true;
+    } catch (error) {
+      runInAction(() => {
+        this.actionError = error instanceof Error ? error.message : "Не удалось удалить событие";
+      });
+      return false;
+    }
+  };
+
   /** Записаться на событие: оптимистично обновляем UI, затем синхронизируем с API. */
   join = async (event: IEvent): Promise<boolean> => {
     runInAction(() => {

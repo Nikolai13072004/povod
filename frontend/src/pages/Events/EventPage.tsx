@@ -6,6 +6,7 @@ import { commentsAPI, type Comment as ApiComment } from "../../services/api";
 import { sessionStore } from "../../stores/sessionStore";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 import { useToast } from "../../components/Toast/ToastProvider";
+import { EventOwnerControls } from "./EventOwnerControls";
 import bridge from "@vkontakte/vk-bridge";
 import {
   Panel,
@@ -113,6 +114,9 @@ function EventPageComponent() {
     ? eventData.participantIds?.includes(sessionStore.user.id) ||
       eventStore.acceptedEvents.some((item) => item.id === eventData.id)
     : false;
+
+  /** Автор видит блок управления событием (FE-007); права всё равно проверяет сервер. */
+  const isOwner = Boolean(eventData?.authorId && eventData.authorId === sessionStore.user.id);
 
   if (!eventData && (!detailLoaded || detailLoading)) {
     return (
@@ -262,6 +266,12 @@ function EventPageComponent() {
               Место на карте
             </Title>
             <EventMap coords={eventData.coords} />
+          </div>
+        )}
+
+        {isOwner && (
+          <div style={{ padding: "0 16px" }}>
+            <EventOwnerControls event={eventData} onDeleted={() => navigate("/page-1")} />
           </div>
         )}
 
