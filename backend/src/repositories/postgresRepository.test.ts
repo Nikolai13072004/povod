@@ -74,11 +74,27 @@ test("migrations create the full schema and are recorded", { skip }, async () =>
   const applied = await pool.query<{ version: string }>(
     "SELECT version FROM schema_migrations ORDER BY version",
   );
-  assert.ok(applied.rows.length >= 4, "должны быть применены все нумерованные миграции");
+  assert.ok(applied.rows.length >= 5, "должны быть применены все нумерованные миграции");
   assert.ok(
     applied.rows.some((row) => row.version.startsWith("004")),
     "миграция 004 (индекс очистки сессий) должна быть применена",
   );
+  assert.ok(
+    applied.rows.some((row) => row.version.startsWith("005")),
+    "миграция 005 (индекс сортировки ленты) должна быть применена",
+  );
+
+  const indexes = await pool.query<{ indexname: string }>(
+    "SELECT indexname FROM pg_indexes WHERE schemaname = 'public'",
+  );
+  const indexNames = indexes.rows.map((row) => row.indexname);
+  for (const expected of [
+    "events_created_at_idx",
+    "auth_sessions_expires_at_idx",
+    "users_email_lower_idx",
+  ]) {
+    assert.ok(indexNames.includes(expected), `индекс ${expected} должен существовать`);
+  }
 });
 
 test("seed data is imported into normalized tables", { skip }, async () => {
@@ -130,6 +146,43 @@ test("joining a missing event returns undefined and inserts nothing", { skip }, 
     ["does-not-exist"],
   );
   assert.equal(rows.rows[0]?.count, "0");
+});
+
+test("concurrent joins stay consistent and do not double-count (BE-004)", { skip }, async () => {
+  const repository = await freshRepository();
+
+  // Десять одновременных записей одного и того же пользователя: транзакция с
+  // блокировкой строки события не даёт появиться дублю или неверному счётчику.
+  const results = await Promise.all(
+    Array.from({ length: 10 }, () => repository.joinEvent("2", "u3")),
+  );
+  assert.ok(results.every(Boolean), "все вызовы должны вернуть событие");
+
+  const event = await repository.getEvent("2");
+  assert.deepEqual(event?.participantIds.sort(), ["u2", "u3"]);
+  assert.equal(event?.participants, 2);
+});
+
+test("concurrent updates do not lose each other's fields (BE-004)", { skip }, async () => {
+  const repository = await freshRepository();
+
+  // Раньше обновление читало событие вне транзакции, поэтому две параллельные
+  // правки разных полей затирали друг друга. Теперь строка блокируется на чтение+запись.
+  await Promise.all([
+    repository.updateEvent("1", { title: "Новое название" }),
+    repository.updateEvent("1", { location: "Новое место" }),
+  ]);
+
+  const event = await repository.getEvent("1");
+  assert.equal(event?.title, "Новое название");
+  assert.equal(event?.location, "Новое место");
+});
+
+test("removeFriend reports a missing user instead of silently succeeding", { skip }, async () => {
+  const repository = await freshRepository();
+
+  assert.equal(await repository.removeFriend("u1", "does-not-exist"), undefined);
+  assert.equal(await repository.addFriend("u1", "does-not-exist"), undefined);
 });
 
 test("friendship is symmetric and removed on both sides", { skip }, async () => {
@@ -313,19 +366,21 @@ test("password credentials and external identities persist", { skip }, async () 
   assert.equal(identity?.userId, "u1");
 });
 
-test("deleting a user with owned content is refused by the database", { skip }, async () => {
+test("deleting a user with owned content returns false, not an error", { skip }, async () => {
   const repository = await freshRepository();
 
   // u1 — автор события «1» и комментариев: внешние ключи объявлены ON DELETE RESTRICT,
   // поэтому PostgreSQL отклоняет удаление, а не сносит контент каскадом.
   // Расхождение адаптеров: in-memory возвращает false, PostgreSQL бросает 23503.
   // На уровне API оба случая дают 409 (errorHandler маппит код 23503).
-  await assert.rejects(
-    () => repository.deleteUser("u1"),
-    (error: { code?: string }) => error.code === "23503",
-    "удаление автора контента должно отклоняться внешним ключом",
-  );
+  // BE-004: проверка владения и удаление идут одной транзакцией, поэтому адаптер
+  // возвращает false так же, как in-memory (раньше PostgreSQL бросал 23503).
+  assert.equal(await repository.deleteUser("u1"), false);
   assert.ok(await repository.getUser("u1"), "пользователь остаётся на месте");
+
+  // u2 не создавал событий, но написал комментарий c1 — тоже владелец контента.
+  assert.equal(await repository.deleteUser("u2"), false);
+  assert.ok(await repository.getUser("u2"));
 });
 
 test("a user without content can be deleted", { skip }, async () => {
