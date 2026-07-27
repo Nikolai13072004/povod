@@ -94,3 +94,27 @@ describe("filtersStore", () => {
     expect(filtersStore.myEvents.hasActiveFilters).toBe(false);
   });
 });
+
+describe("myEventsTab (FE-008)", () => {
+  beforeEach(() => {
+    filtersStore.resetAll();
+  });
+
+  it("defaults to showing all events", () => {
+    expect(filtersStore.myEventsTab).toBe("all");
+  });
+
+  it("switches the active tab and survives page unmounts", () => {
+    filtersStore.setMyEventsTab("created");
+    expect(filtersStore.myEventsTab).toBe("created");
+
+    filtersStore.setMyEventsTab("attending");
+    expect(filtersStore.myEventsTab).toBe("attending");
+  });
+
+  it("returns to the default tab on logout", () => {
+    filtersStore.setMyEventsTab("created");
+    filtersStore.resetAll();
+    expect(filtersStore.myEventsTab).toBe("all");
+  });
+});
