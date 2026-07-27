@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import styled from "@emotion/styled";
+import { observer } from "mobx-react-lite";
 import { useNavigate } from "react-router-dom";
-import { DeleteIcon } from "../../icons/icons";
-import { Icon28CalendarOutline, Icon28ClockOutline, Icon28PlaceOutline } from "@vkontakte/icons";
-import { eventStore } from "../../stores/EventStore";
-import { formatEventDate, formatEventTime } from "../../utils/eventDate";
+import { notificationsStore } from "../../stores/notificationsStore";
+import { AsyncContent } from "../AsyncContent/AsyncContent";
+import { formatNotification, relativeTime } from "./notificationText";
+import type { Notification } from "../../services/api";
+
 const Container = styled.div`
   background-color: var(--povod-bg);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 `;
@@ -16,8 +19,8 @@ const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 16px;
-  background: transparent;
 `;
 
 const Title = styled.h1`
@@ -27,226 +30,145 @@ const Title = styled.h1`
   color: var(--povod-text);
 `;
 
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const TextButton = styled.button`
+  background: none;
+  border: none;
+  padding: 8px;
+  min-height: 40px;
+  font-size: 14px;
+  color: var(--povod-primary);
+  cursor: pointer;
+
+  &:disabled {
+    color: var(--povod-text-secondary);
+    cursor: default;
+  }
+`;
+
 const CloseButton = styled.button`
   background: none;
   border: none;
-  font-size: 24px;
   cursor: pointer;
   color: var(--povod-primary);
   display: flex;
   align-items: center;
+  min-width: 40px;
+  min-height: 40px;
+  justify-content: center;
 `;
 
 const Content = styled.div`
-  padding: 0 16px;
+  padding: 0 16px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 `;
 
-const NotificationCard = styled.div`
+/**
+ * Непрочитанное отмечается полосой слева, а не цветным фоном: фон пришлось бы
+ * подбирать отдельно под тёмную тему и он конфликтует с контрастом текста.
+ */
+const Card = styled.button<{ $unread: boolean; $clickable: boolean }>`
+  width: 100%;
+  text-align: left;
   background: var(--povod-surface);
-  border-radius: 12px;
-  padding: 12px;
-  margin: 12px 0px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-`;
-
-const EventImage = styled.img`
-  width: 80px;
-  height: 80px;
-  border-radius: 8px;
-  object-fit: cover;
-`;
-
-const InfoSection = styled.div`
-  flex-grow: 1;
-`;
-
-const EventTitle = styled.div`
-  font-weight: 600;
-  font-size: 15px;
-  margin-bottom: 8px;
-`;
-
-// const DetailRow = styled.div`
-//   display: flex;
-//   align-items: center;
-//   gap: 4px;
-//   color: var(--povod-text-secondary);
-//   font-size: 13px;
-//   margin-bottom: 4px;
-// `;
-const DetailRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--povod-text-secondary);
-  font-size: 13px;
-  margin-bottom: 2px;
-
-  svg {
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-  }
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-`;
-
-const TagsContainer = styled.div`
+  border: none;
+  border-left: 3px solid ${(props) => (props.$unread ? "var(--povod-primary)" : "transparent")};
+  border-radius: var(--povod-radius-md);
+  padding: 14px 16px;
+  box-shadow: var(--povod-shadow-card);
+  cursor: ${(props) => (props.$clickable ? "pointer" : "default")};
   display: flex;
   flex-direction: column;
-  gap: 4px;
-`;
-const AcceptButton = styled.button`
-  background-color: var(--povod-primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-weight: 500;
-  font-size: 14px;
-  flex-grow: 1;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    opacity 0.2s ease;
-
-  &:disabled {
-    background-color: var(--povod-border-strong);
-    cursor: default;
-    opacity: 0.8;
-  }
+  gap: 6px;
+  font: inherit;
+  color: inherit;
 `;
 
-const DeleteButton = styled.button`
-  background-color: var(--povod-surface-muted);
-  border: none;
-  border-radius: 8px;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+const Text = styled.span`
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--povod-text);
+  overflow-wrap: anywhere;
 `;
 
-interface Notification {
-  id: number;
-  title: string;
-  startsAt: string;
-  timezone: string;
-  location: string;
-  image: string;
-}
+const Meta = styled.time`
+  font-size: 13px;
+  color: var(--povod-text-secondary);
+`;
 
-export function NotificationsPage() {
+export const NotificationsPage = observer(() => {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [accepted, setAccepted] = useState<Set<number>>(new Set());
+  const { items, unread, isLoading, error } = notificationsStore;
 
-  const handleDelete = (id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
+  useEffect(() => {
+    void notificationsStore.load();
+  }, []);
 
-  const handleAccept = (notification: Notification) => {
-    setAccepted((prev) => new Set([...prev, notification.id]));
-    eventStore.addAcceptedEvent({
-      id: String(notification.id),
-      title: notification.title,
-      startsAt: notification.startsAt,
-      timezone: notification.timezone,
-      location: notification.location,
-      image: notification.image,
-    });
+  const openEvent = (notification: Notification) => {
+    // Отменённое событие открывать негде — ссылки на него больше не существует.
+    if (notification.eventId) navigate(`/page-1/${notification.eventId}`);
   };
 
   return (
     <Container>
       <Header>
-        <Title>Мои уведомления</Title>
-        <CloseButton onClick={() => navigate(-1)}>
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
+        <Title>Уведомления</Title>
+        <HeaderActions>
+          <TextButton
+            type="button"
+            disabled={unread === 0}
+            onClick={() => void notificationsStore.markAllRead()}
           >
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </CloseButton>
+            Прочитать все
+          </TextButton>
+          <CloseButton onClick={() => navigate(-1)} aria-label="Закрыть">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              aria-hidden="true"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </CloseButton>
+        </HeaderActions>
       </Header>
 
       <Content>
-        {notifications.length > 0 ? (
-          notifications.map((notification) => (
-            <NotificationCard key={notification.id}>
-              <EventImage src={notification.image} alt={notification.title} />
-              <InfoSection>
-                <EventTitle>{notification.title}</EventTitle>
-                <TagsContainer>
-                  <DetailRow>
-                    <Icon28CalendarOutline
-                      width={16}
-                      height={16}
-                      fill="var(--vkui--color_icon_secondary)"
-                    />
-                    {formatEventDate(notification.startsAt, notification.timezone)}
-                    <Icon28ClockOutline
-                      style={{ marginLeft: "8px" }}
-                      width={16}
-                      height={16}
-                      fill="var(--vkui--color_icon_secondary)"
-                    />
-                    {formatEventTime(notification.startsAt, notification.timezone)}
-                  </DetailRow>
-
-                  <DetailRow>
-                    <Icon28PlaceOutline
-                      width={16}
-                      height={16}
-                      fill="var(--vkui--color_icon_secondary)"
-                    />
-                    {notification.location}
-                  </DetailRow>
-                </TagsContainer>
-
-                <Actions>
-                  <AcceptButton
-                    disabled={accepted.has(notification.id)}
-                    onClick={() => handleAccept(notification)}
-                  >
-                    {accepted.has(notification.id) ? "Вы записаны" : "Принять приглашение"}
-                  </AcceptButton>
-                  <DeleteButton onClick={() => handleDelete(notification.id)}>
-                    <DeleteIcon />
-                  </DeleteButton>
-                </Actions>
-              </InfoSection>
-            </NotificationCard>
-          ))
-        ) : (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "40px 20px",
-              color: "var(--povod-text-secondary)",
-            }}
-          >
-            Пока нет уведомлений. Здесь появятся приглашения на поводы.
-          </div>
-        )}
+        <AsyncContent
+          loading={isLoading && items.length === 0}
+          error={error}
+          empty={items.length === 0}
+          loadingTitle="Загружаем уведомления…"
+          errorTitle="Не удалось загрузить уведомления"
+          emptyTitle="Пока тихо"
+          emptyDescription="Здесь появятся комментарии и новые участники ваших событий, а также изменения в тех, куда вы записаны."
+          onRetry={() => void notificationsStore.load()}
+        >
+          {items.map((notification) => (
+            <Card
+              key={notification.id}
+              type="button"
+              $unread={!notification.readAt}
+              $clickable={Boolean(notification.eventId)}
+              onClick={() => openEvent(notification)}
+            >
+              <Text>{formatNotification(notification)}</Text>
+              <Meta dateTime={notification.createdAt}>{relativeTime(notification.createdAt)}</Meta>
+            </Card>
+          ))}
+        </AsyncContent>
       </Content>
     </Container>
   );
-}
+});

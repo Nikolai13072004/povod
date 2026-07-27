@@ -14,6 +14,7 @@ import {
 } from "../services/api";
 import { eventStore } from "./EventStore";
 import { filtersStore } from "./filtersStore";
+import { notificationsStore } from "./notificationsStore";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -142,6 +143,7 @@ class SessionStore {
     clearLocalSession();
     eventStore.resetSessionState();
     filtersStore.resetAll(); // фильтры не должны переезжать к следующему пользователю
+    notificationsStore.reset(); // как и чужие уведомления со счётчиком на колокольчике
     runInAction(() => {
       this.user = CURRENT_USER;
       this.authenticated = false;

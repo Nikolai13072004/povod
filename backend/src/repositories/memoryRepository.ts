@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Comment, Event, User } from "../types";
+import type { Comment, Event, Notification, User } from "../types";
 import type {
   AuthSession,
   CreateCommentInput,
@@ -21,6 +21,7 @@ interface Snapshot {
   users: User[];
   events: Event[];
   comments: Comment[];
+  notifications?: Notification[];
   passwordCredentials?: Array<[string, string]>;
   sessions?: AuthSession[];
   externalIdentities?: ExternalIdentity[];
@@ -36,6 +37,7 @@ export class MemoryRepository implements PovodRepository {
   private users: User[] = clone(seedUsers);
   private events: Event[] = clone(seedEvents);
   private comments: Comment[] = clone(seedComments);
+  private notifications: Notification[] = [];
   private passwordCredentials = new Map<string, string>();
   private sessions = new Map<string, AuthSession>();
   private externalIdentities = new Map<string, ExternalIdentity>();
@@ -59,6 +61,7 @@ export class MemoryRepository implements PovodRepository {
       this.users = clone(snapshot.users ?? []);
       this.events = clone(snapshot.events ?? []);
       this.comments = clone(snapshot.comments ?? []);
+      this.notifications = clone(snapshot.notifications ?? []);
       this.passwordCredentials = new Map(snapshot.passwordCredentials ?? []);
       this.sessions = new Map(
         (snapshot.sessions ?? []).map((session) => [session.tokenHash, session]),
@@ -148,6 +151,12 @@ export class MemoryRepository implements PovodRepository {
     this.events = this.events.filter((event) => event.id !== id);
     if (this.events.length === before) return false;
     this.comments = this.comments.filter((comment) => comment.eventId !== id);
+    // Уведомления не удаляются вместе с событием, а лишь теряют ссылку на него:
+    // в БД на `event_id` стоит ON DELETE SET NULL (миграция 007). Иначе весть об
+    // отмене исчезала бы одновременно с самой отменой.
+    for (const notification of this.notifications) {
+      if (notification.eventId === id) notification.eventId = undefined;
+    }
     this.scheduleSave();
     return true;
   }
@@ -220,6 +229,12 @@ export class MemoryRepository implements PovodRepository {
       event.participantIds = event.participantIds.filter((userId) => userId !== id);
       event.participants = event.participantIds.length;
     }
+    // Как в БД: свои уведомления удаляются вместе с пользователем (CASCADE),
+    // а чужие лишь перестают на него ссылаться (SET NULL).
+    this.notifications = this.notifications.filter((item) => item.userId !== id);
+    for (const notification of this.notifications) {
+      if (notification.actorId === id) notification.actorId = undefined;
+    }
     this.scheduleSave();
     return true;
   }
@@ -286,6 +301,38 @@ export class MemoryRepository implements PovodRepository {
     if (this.comments.length === before) return false;
     this.scheduleSave();
     return true;
+  }
+
+  async createNotifications(notifications: Notification[]): Promise<void> {
+    if (notifications.length === 0) return;
+    this.notifications.push(...clone(notifications));
+    this.scheduleSave();
+  }
+
+  async listNotifications(userId: string, limit: number): Promise<Notification[]> {
+    return clone(
+      this.notifications
+        .filter((item) => item.userId === userId)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .slice(0, limit),
+    );
+  }
+
+  async countUnreadNotifications(userId: string): Promise<number> {
+    return this.notifications.filter((item) => item.userId === userId && !item.readAt).length;
+  }
+
+  async markNotificationsRead(userId: string, readAt: string, ids?: string[]): Promise<number> {
+    const wanted = ids ? new Set(ids) : undefined;
+    let updated = 0;
+    for (const item of this.notifications) {
+      if (item.userId !== userId || item.readAt) continue;
+      if (wanted && !wanted.has(item.id)) continue;
+      item.readAt = readAt;
+      updated += 1;
+    }
+    if (updated > 0) this.scheduleSave();
+    return updated;
   }
 
   async getPasswordHash(userId: string): Promise<string | undefined> {
@@ -362,6 +409,7 @@ export class MemoryRepository implements PovodRepository {
               users: this.users,
               events: this.events,
               comments: this.comments,
+              notifications: this.notifications,
               passwordCredentials: [...this.passwordCredentials.entries()],
               sessions: [...this.sessions.values()],
               externalIdentities: [...this.externalIdentities.values()],

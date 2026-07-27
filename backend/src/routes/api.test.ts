@@ -596,6 +596,175 @@ test("escalation: private events stay inaccessible to uninvited users", async (c
   assert.equal(comments.status, 404);
 });
 
+/** Лента уведомлений пользователя по токену. */
+async function notificationsOf(baseUrl: string, token: string) {
+  const response = await fetch(`${baseUrl}/api/Notifications`, authorized(token));
+  assert.equal(response.status, 200);
+  return (await response.json()) as {
+    unread: number;
+    items: Array<{
+      id: string;
+      type: string;
+      eventId?: string;
+      eventTitle: string;
+      actorName?: string;
+      changes?: string[];
+      readAt?: string;
+    }>;
+  };
+}
+
+test("notifications: joining and commenting reach the event author, not the actor", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl); // Эльмира (u1) — автор события 1
+  const guest = await registerUser(baseUrl, { email: "guest@povod.app", name: "Гость" });
+
+  await fetch(`${baseUrl}/api/Events/1/join`, authorized(guest.token, { method: "POST" }));
+  await fetch(
+    `${baseUrl}/api/Comments`,
+    authorized(guest.token, {
+      method: "POST",
+      body: JSON.stringify({ eventId: "1", text: "иду!" }),
+    }),
+  );
+
+  const feed = await notificationsOf(baseUrl, owner);
+  assert.deepEqual(feed.items.map((item) => item.type).sort(), ["event_comment", "event_joined"]);
+  assert.equal(feed.unread, 2);
+  assert.equal(feed.items[0].actorName, "Гость");
+
+  // Действия самого автора себе не приходят — иначе лента станет отчётом
+  // о собственных нажатиях.
+  await fetch(
+    `${baseUrl}/api/Comments`,
+    authorized(owner, { method: "POST", body: JSON.stringify({ eventId: "1", text: "жду" }) }),
+  );
+  assert.equal((await notificationsOf(baseUrl, owner)).items.length, 2);
+
+  // Гостю не приходит ничего: он не автор события.
+  assert.equal((await notificationsOf(baseUrl, guest.token)).items.length, 0);
+});
+
+test("notifications: repeated join does not produce a duplicate", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const guest = await registerUser(baseUrl, { email: "twice@povod.app" });
+
+  // Запись идемпотентна, значит и уведомление должно быть одно.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await fetch(`${baseUrl}/api/Events/1/join`, authorized(guest.token, { method: "POST" }));
+  }
+
+  const feed = await notificationsOf(baseUrl, owner);
+  assert.equal(feed.items.filter((item) => item.type === "event_joined").length, 1);
+});
+
+test("notifications: participants hear about a moved event, but not about a new description", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const guest = await registerUser(baseUrl, { email: "moved@povod.app" });
+  await fetch(`${baseUrl}/api/Events/1/join`, authorized(guest.token, { method: "POST" }));
+
+  // Правка описания участника не касается — рассылать её незачем.
+  await fetch(
+    `${baseUrl}/api/Events/1`,
+    authorized(owner, { method: "PUT", body: JSON.stringify({ description: "чуть подробнее" }) }),
+  );
+  assert.equal((await notificationsOf(baseUrl, guest.token)).items.length, 0);
+
+  await fetch(
+    `${baseUrl}/api/Events/1`,
+    authorized(owner, {
+      method: "PUT",
+      body: JSON.stringify({ startsAt: "2026-09-09T18:00:00.000Z", location: "Другое место" }),
+    }),
+  );
+
+  const feed = await notificationsOf(baseUrl, guest.token);
+  assert.equal(feed.items.length, 1);
+  assert.equal(feed.items[0].type, "event_updated");
+  assert.deepEqual(feed.items[0].changes, ["время", "место"]);
+});
+
+test("notifications: a cancellation outlives the event it is about", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const guest = await registerUser(baseUrl, { email: "cancelled@povod.app" });
+
+  const created = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(owner, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Отменяемая встреча",
+        startsAt: "2026-10-01T12:00:00.000Z",
+        timezone: "Europe/Moscow",
+        location: "Парк",
+      }),
+    }),
+  );
+  const event = (await created.json()) as { id: string };
+  await fetch(
+    `${baseUrl}/api/Events/${event.id}/join`,
+    authorized(guest.token, { method: "POST" }),
+  );
+
+  await fetch(`${baseUrl}/api/Events/${event.id}`, authorized(owner, { method: "DELETE" }));
+
+  const feed = await notificationsOf(baseUrl, guest.token);
+  const cancelled = feed.items.find((item) => item.type === "event_cancelled");
+  assert.ok(cancelled, "участник должен узнать об отмене");
+  // Ссылки на удалённое событие нет, но название сохранено — иначе весть об
+  // отмене исчезла бы ровно тогда, когда нужнее всего.
+  assert.equal(cancelled.eventId, undefined);
+  assert.equal(cancelled.eventTitle, "Отменяемая встреча");
+});
+
+test("notifications: reading is per user and cannot touch someone else's feed", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const guest = await registerUser(baseUrl, { email: "reader@povod.app" });
+  await fetch(`${baseUrl}/api/Events/1/join`, authorized(guest.token, { method: "POST" }));
+
+  const before = await notificationsOf(baseUrl, owner);
+  assert.equal(before.unread, 1);
+
+  // Чужой пытается пометить уведомление автора прочитанным по его id.
+  const foreign = await fetch(
+    `${baseUrl}/api/Notifications/read`,
+    authorized(guest.token, {
+      method: "POST",
+      body: JSON.stringify({ ids: [before.items[0].id] }),
+    }),
+  );
+  assert.equal(foreign.status, 200);
+  assert.equal(
+    (await notificationsOf(baseUrl, owner)).unread,
+    1,
+    "чужое чтение не должно засчитаться",
+  );
+
+  const counted = await fetch(`${baseUrl}/api/Notifications/unread`, authorized(owner));
+  assert.deepEqual(await counted.json(), { unread: 1 });
+
+  const marked = await fetch(
+    `${baseUrl}/api/Notifications/read`,
+    authorized(owner, { method: "POST", body: JSON.stringify({}) }),
+  );
+  assert.deepEqual(await marked.json(), { unread: 0 });
+
+  const after = await notificationsOf(baseUrl, owner);
+  assert.equal(after.unread, 0);
+  assert.ok(after.items[0].readAt, "запись должна получить отметку о прочтении");
+});
+
+test("notifications require a session", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  assert.equal((await fetch(`${baseUrl}/api/Notifications`)).status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/Notifications/unread`)).status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/Notifications/read`, { method: "POST" })).status, 401);
+});
+
 test("event creation validates image type and rejects spoofed MIME (SEC-005)", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const token = await loginDemo(baseUrl);

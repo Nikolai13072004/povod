@@ -1,4 +1,4 @@
-import type { Comment, Event, User } from "../types";
+import type { Comment, Event, Notification, User } from "../types";
 
 export interface EventFilters {
   search?: string;
@@ -64,6 +64,13 @@ export interface PovodRepository {
   getComment(id: string): Promise<Comment | undefined>;
   createComment(input: CreateCommentInput): Promise<Comment>;
   deleteComment(id: string): Promise<boolean>;
+
+  /** Пишет пачку уведомлений одним вызовом: одно действие обычно касается многих. */
+  createNotifications(notifications: Notification[]): Promise<void>;
+  listNotifications(userId: string, limit: number): Promise<Notification[]>;
+  countUnreadNotifications(userId: string): Promise<number>;
+  /** Отмечает прочитанными указанные уведомления пользователя (все, если `ids` не задан). */
+  markNotificationsRead(userId: string, readAt: string, ids?: string[]): Promise<number>;
 
   getPasswordHash(userId: string): Promise<string | undefined>;
   setPasswordHash(userId: string, passwordHash: string): Promise<void>;
