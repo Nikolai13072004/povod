@@ -43,6 +43,16 @@ describe("CreateEventForm", () => {
     expect(mockEventStore.createEvent).not.toHaveBeenCalled();
   });
 
+  it("does not offer a choice it cannot honour", () => {
+    renderForm();
+
+    // Переключатель «Точный повод / Идея» ничего не менял: значение не попадало
+    // ни в запрос, ни в состояние формы — только подсвечивало кнопку. Пользователю
+    // это обещало два разных сценария создания, которых не существует.
+    expect(screen.queryByText("Идея")).toBeNull();
+    expect(screen.queryByText("Точный повод")).toBeNull();
+  });
+
   it("submits a normalized payload when required fields are filled", async () => {
     const { container } = renderForm();
 
