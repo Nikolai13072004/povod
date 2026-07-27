@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import styled from "@emotion/styled";
 import { CalendarIcon, LocationIcon } from "../icons/icons";
 import { validateDate, validateLocation, validateTime } from "./validationUtils";
@@ -99,6 +99,30 @@ const ApplyButton = styled.button`
   cursor: pointer;
 `;
 
+/** Пропсы, общие для всех фильтров-листов. */
+interface FilterSheetBaseProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export interface DateFilterProps extends FilterSheetBaseProps {
+  onSave: (date: string) => void;
+}
+
+export interface LocationFilterProps extends FilterSheetBaseProps {
+  onSave: (location: string) => void;
+}
+
+export interface TimeFilterProps extends FilterSheetBaseProps {
+  onSave: (startTime: string, endTime: string) => void;
+}
+
+export interface InterestsFilterProps extends FilterSheetBaseProps {
+  options: FilterOption[];
+  onToggle: (id: string) => void;
+  onApply?: () => void;
+}
+
 export interface FilterOption {
   id: string;
   label: string;
@@ -122,16 +146,17 @@ function maskTime(raw: string): string {
   return out;
 }
 
-interface BaseModalProps {
+interface FilterBottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: () => void;
-  onSave: () => void;
   title: string;
   children: ReactNode;
 }
 
-function FilterBottomSheet({ isOpen, onClose, onApply, title, children }: BaseModalProps) {
+function FilterBottomSheet({ isOpen, onClose, onApply, title, children }: FilterBottomSheetProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!isOpen) return;
     // Блокируем скролл фона только пока лист открыт и ГАРАНТИРОВАННО снимаем блокировку
@@ -143,9 +168,59 @@ function FilterBottomSheet({ isOpen, onClose, onApply, title, children }: BaseMo
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Возвращаем фокус туда, откуда лист открыли, — иначе после закрытия
+    // фокус «терялся» в начале страницы.
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const firstField = contentRef.current?.querySelector<HTMLElement>(
+      "input, button, [tabindex]:not([tabindex='-1'])",
+    );
+    firstField?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+      // Простая ловушка фокуса: Tab не должен уводить за пределы открытого листа.
+      if (event.key !== "Tab" || !contentRef.current) return;
+      const focusable = Array.from(
+        contentRef.current.querySelectorAll<HTMLElement>(
+          "input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex='-1'])",
+        ),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [isOpen, onClose]);
+
   return (
-    <ModalOverlay $isOpen={isOpen} onClick={onClose}>
-      <ModalContent $isOpen={isOpen} onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay $isOpen={isOpen} onClick={onClose} aria-hidden={!isOpen}>
+      <ModalContent
+        ref={contentRef}
+        $isOpen={isOpen}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
         <DragHandle />
         <Title>{title}</Title>
         {children}
@@ -155,7 +230,7 @@ function FilterBottomSheet({ isOpen, onClose, onApply, title, children }: BaseMo
   );
 }
 
-export const DateFilter = ({ onSave, ...props }: any) => {
+export const DateFilter = ({ onSave, isOpen, onClose }: DateFilterProps) => {
   const [value, setValue] = useState("");
   const [hasError, setHasError] = useState(false);
 
@@ -163,14 +238,14 @@ export const DateFilter = ({ onSave, ...props }: any) => {
     if (validateDate(value)) {
       setHasError(false);
       onSave(value);
-      props.onClose();
+      onClose();
     } else {
       setHasError(true);
     }
   };
 
   return (
-    <FilterBottomSheet {...props} title="Введите дату" onApply={handleApply}>
+    <FilterBottomSheet isOpen={isOpen} onClose={onClose} title="Введите дату" onApply={handleApply}>
       <InputWrapper>
         <IconInside>
           <CalendarIcon />
@@ -194,7 +269,7 @@ export const DateFilter = ({ onSave, ...props }: any) => {
   );
 };
 
-export const LocationFilter = ({ onSave, ...props }: any) => {
+export const LocationFilter = ({ onSave, isOpen, onClose }: LocationFilterProps) => {
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
 
@@ -202,14 +277,19 @@ export const LocationFilter = ({ onSave, ...props }: any) => {
     if (validateLocation(value)) {
       setError(false);
       onSave(value);
-      props.onClose();
+      onClose();
     } else {
       setError(true);
     }
   };
 
   return (
-    <FilterBottomSheet {...props} title="Введите место" onApply={handleApply}>
+    <FilterBottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Введите место"
+      onApply={handleApply}
+    >
       <InputWrapper>
         <StyledInput
           style={{ borderColor: error ? "red" : "#2d78df" }}
@@ -224,7 +304,7 @@ export const LocationFilter = ({ onSave, ...props }: any) => {
   );
 };
 
-export const TimeFilter = ({ onSave, ...props }: any) => {
+export const TimeFilter = ({ onSave, isOpen, onClose }: TimeFilterProps) => {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [hasError, setHasError] = useState(false);
@@ -233,14 +313,19 @@ export const TimeFilter = ({ onSave, ...props }: any) => {
     if (validateTime(startTime) && validateTime(endTime)) {
       setHasError(false);
       onSave(startTime, endTime);
-      props.onClose();
+      onClose();
     } else {
       setHasError(true);
     }
   };
 
   return (
-    <FilterBottomSheet {...props} title="Введите время" onApply={handleApply}>
+    <FilterBottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Введите время"
+      onApply={handleApply}
+    >
       <InputWrapper>
         <TimeInput
           type="text"
@@ -310,12 +395,29 @@ const Chip = styled.button<{ $selected: boolean }>`
   }
 `;
 
-export const InterestsFilter = ({ options, onToggle, onApply, ...props }: any) => {
+export const InterestsFilter = ({
+  options,
+  onToggle,
+  onApply,
+  isOpen,
+  onClose,
+}: InterestsFilterProps) => {
   return (
-    <FilterBottomSheet {...props} title="Выберите свои интересы" onApply={onApply || props.onClose}>
+    <FilterBottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Выберите свои интересы"
+      onApply={onApply ?? onClose}
+    >
       <ChipContainer>
-        {options.map((option: any) => (
-          <Chip key={option.id} $selected={option.selected} onClick={() => onToggle(option.id)}>
+        {options.map((option) => (
+          <Chip
+            key={option.id}
+            type="button"
+            aria-pressed={option.selected ?? false}
+            $selected={option.selected ?? false}
+            onClick={() => onToggle(option.id)}
+          >
             {option.label}
           </Chip>
         ))}
