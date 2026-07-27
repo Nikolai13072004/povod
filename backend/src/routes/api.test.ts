@@ -54,6 +54,72 @@ const authorized = (token: string, init: RequestInit = {}): RequestInit => ({
   },
 });
 
+/** Заголовки `Set-Cookie` ответа: имя куки → полная директива. */
+function setCookies(response: Response): Map<string, string> {
+  const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+  const directives = headers.getSetCookie
+    ? headers.getSetCookie()
+    : (headers.get("set-cookie") ?? "").split(/,(?=[^;]+?=)/).filter(Boolean);
+  const result = new Map<string, string>();
+  for (const directive of directives) {
+    const name = directive.split("=")[0]?.trim();
+    if (name) result.set(name, directive);
+  }
+  return result;
+}
+
+function cookieValue(directive: string): string {
+  return (
+    directive
+      .slice(directive.indexOf("=") + 1)
+      .split(";")[0]
+      ?.trim() ?? ""
+  );
+}
+
+interface BrowserSession {
+  cookieHeader: string;
+  csrf: string;
+  setCookie: Map<string, string>;
+}
+
+/** Вход демо-пользователя «как из браузера»: наружу отдаются куки, а не токен (SEC-001). */
+async function loginWithCookies(baseUrl: string): Promise<BrowserSession> {
+  const response = await fetch(`${baseUrl}/api/Auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "elmira@povod.app", password: "povod-demo" }),
+  });
+  assert.equal(response.status, 200);
+  await response.json();
+
+  const setCookie = setCookies(response);
+  const session = cookieValue(setCookie.get("povod_session") ?? "");
+  const csrf = cookieValue(setCookie.get("povod_csrf") ?? "");
+  assert.ok(session, "ожидалась кука povod_session");
+  assert.ok(csrf, "ожидалась кука povod_csrf");
+  return {
+    cookieHeader: `povod_session=${session}; povod_csrf=${csrf}`,
+    csrf,
+    setCookie,
+  };
+}
+
+/** Запрос из браузера: куки + (для изменяющих методов) заголовок double submit. */
+const withCookies = (
+  browser: BrowserSession,
+  init: RequestInit = {},
+  csrf = browser.csrf,
+): RequestInit => ({
+  ...init,
+  headers: {
+    "Content-Type": "application/json",
+    Cookie: browser.cookieHeader,
+    ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+    ...init.headers,
+  },
+});
+
 /** Регистрирует нового пользователя (по умолчанию — «атакующего») и возвращает его токен и id. */
 async function registerUser(
   baseUrl: string,
@@ -91,6 +157,128 @@ test("session lifecycle supports login, lookup and logout", async (context) => {
 
   const revokedResponse = await fetch(`${baseUrl}/api/Auth/session`, authorized(token));
   assert.equal(revokedResponse.status, 401);
+});
+
+test("login puts the session into an HttpOnly cookie and CSRF into a readable one", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const browser = await loginWithCookies(baseUrl);
+
+  const sessionCookie = browser.setCookie.get("povod_session") ?? "";
+  const csrfCookie = browser.setCookie.get("povod_csrf") ?? "";
+
+  // Главное свойство SEC-001: токен недоступен скриптам на странице.
+  assert.match(sessionCookie, /HttpOnly/i);
+  assert.doesNotMatch(csrfCookie, /HttpOnly/i);
+
+  for (const cookie of [sessionCookie, csrfCookie]) {
+    assert.match(cookie, /SameSite=Lax/i);
+    assert.match(cookie, /Path=\//i);
+    assert.match(cookie, /Expires=/i); // не сессионная кука — переживает перезапуск вкладки
+  }
+
+  // CSRF-кука не должна быть самим токеном: иначе HttpOnly теряет смысл.
+  assert.notEqual(cookieValue(csrfCookie), cookieValue(sessionCookie));
+});
+
+test("a cookie session authenticates requests without the Authorization header", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const browser = await loginWithCookies(baseUrl);
+
+  const response = await fetch(`${baseUrl}/api/Auth/session`, withCookies(browser));
+  assert.equal(response.status, 200);
+  const session = (await response.json()) as { user: { id: string } };
+  assert.equal(session.user.id, "u1");
+});
+
+test("cookie-authenticated writes require a matching CSRF header", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const browser = await loginWithCookies(baseUrl);
+
+  // Так выглядит запрос, подделанный чужим сайтом: куку браузер приложит сам,
+  // а заголовок поставить неоткуда — читать нашу куку с другого origin нельзя.
+  const forged = await fetch(
+    `${baseUrl}/api/Events/2/join`,
+    withCookies(browser, { method: "POST" }, ""),
+  );
+  assert.equal(forged.status, 403);
+
+  const wrongToken = await fetch(
+    `${baseUrl}/api/Events/2/join`,
+    withCookies(browser, { method: "POST" }, "not-the-right-token"),
+  );
+  assert.equal(wrongToken.status, 403);
+
+  const allowed = await fetch(
+    `${baseUrl}/api/Events/2/join`,
+    withCookies(browser, { method: "POST" }),
+  );
+  assert.equal(allowed.status, 200);
+
+  // Чтение не трогаем: GET проверку не проходит и работать не перестал.
+  const read = await fetch(`${baseUrl}/api/Events/2`, withCookies(browser, {}, ""));
+  assert.equal(read.status, 200);
+});
+
+test("a stale session cookie without its CSRF pair does not lock the user out", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const browser = await loginWithCookies(baseUrl);
+
+  // Видимую CSRF-куку стёрли (расширение, чистка кук), HttpOnly-кука осталась.
+  const stale: BrowserSession = { ...browser, cookieHeader: browser.cookieHeader.split(";")[0]! };
+
+  const relogin = await fetch(
+    `${baseUrl}/api/Auth/login`,
+    withCookies(
+      stale,
+      {
+        method: "POST",
+        body: JSON.stringify({ email: "elmira@povod.app", password: "povod-demo" }),
+      },
+      "", // заголовка нет: копировать его больше неоткуда
+    ),
+  );
+  // Иначе — ловушка: чтобы войти, нужен токен, который выдаётся только при входе.
+  assert.equal(relogin.status, 200);
+
+  // И вход действительно чинит состояние: пришла свежая пара кук.
+  const reissued = setCookies(relogin);
+  assert.ok(cookieValue(reissued.get("povod_session") ?? ""));
+  assert.ok(cookieValue(reissued.get("povod_csrf") ?? ""));
+});
+
+test("Bearer clients keep working without CSRF headers", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  // VK Mini App и не-браузерные клиенты ходят с заголовком Authorization: его
+  // чужой сайт подставить не может, поэтому double submit там не нужен.
+  const response = await fetch(
+    `${baseUrl}/api/Events/2/join`,
+    authorized(token, { method: "POST" }),
+  );
+  assert.equal(response.status, 200);
+});
+
+test("logout clears both cookies and revokes the server session", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const browser = await loginWithCookies(baseUrl);
+
+  const logout = await fetch(
+    `${baseUrl}/api/Auth/logout`,
+    withCookies(browser, { method: "POST" }),
+  );
+  assert.equal(logout.status, 204);
+
+  const cleared = setCookies(logout);
+  for (const name of ["povod_session", "povod_csrf"]) {
+    const directive = cleared.get(name) ?? "";
+    assert.ok(directive, `logout должен сбрасывать куку ${name}`);
+    assert.equal(cookieValue(directive), "");
+  }
+
+  // Сброс куки — только половина дела: сессия отозвана и на сервере.
+  const replayed = await fetch(`${baseUrl}/api/Auth/session`, withCookies(browser));
+  assert.equal(replayed.status, 401);
 });
 
 test("event API uses authenticated normalized participation", async (context) => {

@@ -26,7 +26,7 @@ npm test           # unit- и API-тесты
 
 ## Конфигурация
 
-Переменные окружения (см. [`env.example`](./env.example)) валидируются через Zod **до** запуска; небезопасная production-конфигурация (wildcard CORS, включённый демо-вход, VK-вход без секрета) останавливает старт с понятной ошибкой. Ключевые: `PORT`, `HOST`, `CORS_ORIGIN`, `PERSIST`, `DATABASE_URL`, `DEMO_AUTH_ENABLED`, `VK_APP_SECRET`.
+Переменные окружения (см. [`env.example`](./env.example)) валидируются через Zod **до** запуска; небезопасная production-конфигурация (wildcard CORS, включённый демо-вход, VK-вход без секрета) останавливает старт с понятной ошибкой. Ключевые: `PORT`, `HOST`, `CORS_ORIGIN`, `PERSIST`, `DATABASE_URL`, `DEMO_AUTH_ENABLED`, `VK_APP_SECRET`, а также флаги сессионной куки `AUTH_COOKIE_SAMESITE`/`AUTH_COOKIE_SECURE`/`AUTH_COOKIE_DOMAIN` (см. [решение по SEC-001](../docs/decisions/SEC-001-cookie-sessions.md)).
 
 ## API
 
