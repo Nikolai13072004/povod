@@ -79,16 +79,16 @@ const FilterWrapper = styled.button<{ $active?: boolean }>`
   padding: 8px 12px;
   min-height: 40px;
   box-sizing: border-box;
-  background: ${(props) => (props.$active ? "#2d81e0" : "#f2f3f5")};
-  border: 1px solid #2d81e0;
+  background: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-surface-muted)")};
+  border: 1px solid var(--povod-primary);
   border-radius: 10px;
   cursor: pointer;
   font: inherit;
-  color: ${(props) => (props.$active ? "#ffffff" : "#2d81e0")};
+  color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--povod-primary)")};
   white-space: nowrap;
 
   &:focus-visible {
-    outline: 2px solid #2d81e0;
+    outline: 2px solid var(--povod-primary);
     outline-offset: 2px;
   }
 
@@ -98,9 +98,9 @@ const FilterWrapper = styled.button<{ $active?: boolean }>`
 `;
 
 const ResetChip = styled(FilterWrapper)`
-  background: #ffffff;
-  border-color: #e05b5b;
-  color: #e05b5b;
+  background: var(--povod-surface);
+  border-color: var(--povod-danger);
+  color: var(--povod-danger);
 `;
 
 const FilterButton = styled.span`

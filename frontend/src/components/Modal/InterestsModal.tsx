@@ -17,7 +17,7 @@ const InterestTag = styled.button<{ $active?: boolean }>`
     props.$active
       ? "var(--vkui--color_background_accent_themed)"
       : "var(--vkui--color_background_content)"};
-  color: ${(props) => (props.$active ? "#fff" : "var(--vkui--color_text_secondary)")};
+  color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--vkui--color_text_secondary)")};
   font-size: 15px;
   cursor: pointer;
   transition: all 0.2s ease;

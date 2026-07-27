@@ -6,7 +6,7 @@ import { Icon28CalendarOutline, Icon28ClockOutline, Icon28PlaceOutline } from "@
 import { eventStore } from "../../stores/EventStore";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 const Container = styled.div`
-  background-color: #ebf2fa;
+  background-color: var(--povod-bg);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -24,7 +24,7 @@ const Title = styled.h1`
   font-size: 20px;
   font-weight: 700;
   margin: 0;
-  color: #000;
+  color: var(--povod-text);
 `;
 
 const CloseButton = styled.button`
@@ -32,7 +32,7 @@ const CloseButton = styled.button`
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #2d81e0;
+  color: var(--povod-primary);
   display: flex;
   align-items: center;
 `;
@@ -45,7 +45,7 @@ const Content = styled.div`
 `;
 
 const NotificationCard = styled.div`
-  background: white;
+  background: var(--povod-surface);
   border-radius: 12px;
   padding: 12px;
   margin: 12px 0px;
@@ -76,7 +76,7 @@ const EventTitle = styled.div`
 //   display: flex;
 //   align-items: center;
 //   gap: 4px;
-//   color: #818c99;
+//   color: var(--povod-text-secondary);
 //   font-size: 13px;
 //   margin-bottom: 4px;
 // `;
@@ -84,7 +84,7 @@ const DetailRow = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #818c99;
+  color: var(--povod-text-secondary);
   font-size: 13px;
   margin-bottom: 2px;
 
@@ -107,7 +107,7 @@ const TagsContainer = styled.div`
   gap: 4px;
 `;
 const AcceptButton = styled.button`
-  background-color: #2d81e0;
+  background-color: var(--povod-primary);
   color: white;
   border: none;
   border-radius: 8px;
@@ -121,14 +121,14 @@ const AcceptButton = styled.button`
     opacity 0.2s ease;
 
   &:disabled {
-    background-color: #d0d6dd;
+    background-color: var(--povod-border-strong);
     cursor: default;
     opacity: 0.8;
   }
 `;
 
 const DeleteButton = styled.button`
-  background-color: #f2f3f5;
+  background-color: var(--povod-surface-muted);
   border: none;
   border-radius: 8px;
   width: 44px;
@@ -240,7 +240,7 @@ export function NotificationsPage() {
             style={{
               textAlign: "center",
               padding: "40px 20px",
-              color: "#818c99",
+              color: "var(--povod-text-secondary)",
             }}
           >
             Пока нет уведомлений. Здесь появятся приглашения на поводы.

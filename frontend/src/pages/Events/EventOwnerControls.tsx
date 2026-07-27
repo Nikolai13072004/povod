@@ -51,7 +51,7 @@ const ErrorText = styled.p`
   margin: 0;
   font-size: 13px;
   line-height: 1.4;
-  color: var(--vkui--color_text_negative, #e64646);
+  color: var(--vkui--color_text_negative, var(--povod-danger));
   overflow-wrap: anywhere;
 `;
 
@@ -249,7 +249,7 @@ export function EventOwnerControls({ event, onDeleted }: EventOwnerControlsProps
             loading={busy}
             disabled={busy}
             onClick={handleDelete}
-            style={{ background: "#e05b5b", color: "#ffffff" }}
+            style={{ background: "var(--povod-danger)", color: "var(--povod-surface)" }}
           >
             Удалить
           </Button>
