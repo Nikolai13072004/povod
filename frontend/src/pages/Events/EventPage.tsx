@@ -9,6 +9,7 @@ import { useToast } from "../../components/Toast/ToastProvider";
 import { EventOwnerControls } from "./EventOwnerControls";
 import { downloadEventIcs } from "../../utils/calendar";
 import { EventCover } from "../../components/EventCover/EventCover";
+import { FavoriteButton } from "../../components/Favorite/FavoriteButton";
 import bridge from "@vkontakte/vk-bridge";
 import {
   Panel,
@@ -236,9 +237,13 @@ function EventPageComponent() {
 
       <Group>
         <div style={{ padding: "16px" }}>
-          <Title level="1" weight="1" style={{ marginBottom: 8 }}>
-            {eventData.title}
-          </Title>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
+            <Title level="1" weight="1" style={{ minWidth: 0, flexGrow: 1 }}>
+              {eventData.title}
+            </Title>
+            {/* Сердечко рядом с названием: на карточке события всплывать некуда. */}
+            <FavoriteButton eventId={String(eventData.id)} stopPropagation={false} />
+          </div>
           <Text style={{ color: "var(--vkui--color_text_secondary)" }}>
             {eventData.description}
           </Text>

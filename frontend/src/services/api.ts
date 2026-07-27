@@ -223,6 +223,15 @@ export const eventsAPI = {
 
   getMine: () => fetchApi<{ created: Event[]; attending: Event[] }>("api/Events/mine"),
 
+  /** Избранное текущего пользователя (PROD-001). */
+  getFavorites: () => fetchApi<Event[]>("api/Events/favorites"),
+
+  addFavorite: (eventId: string) =>
+    fetchApi<void>(`api/Events/${eventId}/favorite`, { method: "POST" }),
+
+  removeFavorite: (eventId: string) =>
+    fetchApi<void>(`api/Events/${eventId}/favorite`, { method: "DELETE" }),
+
   join: (eventId: string) =>
     fetchApi<Event>(`api/Events/${eventId}/join`, {
       method: "POST",

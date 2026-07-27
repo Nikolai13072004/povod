@@ -27,6 +27,7 @@ process.env.ENABLE_EXTERNAL_EVENTS = "false";
 const TABLES = [
   "app_metadata",
   "notifications",
+  "event_favorites",
   "auth_sessions",
   "password_credentials",
   "external_identities",
@@ -91,6 +92,10 @@ test("migrations create the full schema and are recorded", { skip }, async () =>
   assert.ok(
     applied.rows.some((row) => row.version.startsWith("007")),
     "миграция 007 (уведомления) должна быть применена",
+  );
+  assert.ok(
+    applied.rows.some((row) => row.version.startsWith("008")),
+    "миграция 008 (избранное) должна быть применена",
   );
 
   const userColumns = await pool.query<{ column_name: string }>(
@@ -182,6 +187,40 @@ test("notifications survive the deletion of what they refer to", { skip }, async
   assert.equal(notification.eventTitle, "Вечернее караоке");
   assert.equal(notification.actorName, "Тимур");
 });
+
+test(
+  "favorites: concurrent adds produce no duplicate and deletion cascades",
+  { skip },
+  async () => {
+    const repository = await freshRepository();
+    const [{ getPool }] = await Promise.all([import("../db/pg")]);
+
+    // Десять одновременных нажатий: первичный ключ по паре плюс ON CONFLICT
+    // DO NOTHING не дают появиться дублю даже при гонке.
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () => repository.addFavorite("u1", "2")),
+    );
+    assert.ok(results.every(Boolean));
+
+    const rows = await getPool().query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM event_favorites WHERE user_id = $1",
+      ["u1"],
+    );
+    assert.equal(rows.rows[0]?.count, "1");
+
+    assert.deepEqual(
+      (await repository.listEvents({ favoritedBy: "u1", viewerId: "u1" })).map((event) => event.id),
+      ["2"],
+    );
+
+    // Несуществующее событие отличается от повторного нажатия.
+    assert.equal(await repository.addFavorite("u1", "does-not-exist"), false);
+    assert.equal(await repository.removeFavorite("u1", "does-not-exist"), false);
+
+    await repository.deleteEvent("2");
+    assert.deepEqual(await repository.listEvents({ favoritedBy: "u1", viewerId: "u1" }), []);
+  },
+);
 
 test("seed data is imported into normalized tables", { skip }, async () => {
   const repository = await freshRepository();
