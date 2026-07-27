@@ -143,7 +143,7 @@ const FiltersContainer = styled.div`
   }
 `;
 
-const FilterWrapper = styled.div<{ $active?: boolean }>`
+const FilterWrapper = styled.button<{ $active?: boolean }>`
   display: flex;
   align-items: center;
   gap: 4px;
@@ -154,8 +154,15 @@ const FilterWrapper = styled.div<{ $active?: boolean }>`
   border: 1px solid #2d81e0;
   border-radius: 10px;
   cursor: pointer;
+  font: inherit;
   color: ${(props) => (props.$active ? "#ffffff" : "#2d81e0")};
   white-space: nowrap;
+
+  &:focus-visible {
+    outline: 2px solid #2d81e0;
+    outline-offset: 2px;
+  }
+
   &:active {
     opacity: 0.8;
   }
@@ -343,6 +350,7 @@ function SignUpEventsPage() {
 
         <FiltersContainer>
           <FilterWrapper
+            type="button"
             $active={selectedInterests.length > 0}
             onClick={() => setActiveModal("interests")}
           >
@@ -352,12 +360,20 @@ function SignUpEventsPage() {
             <OpenFilterIcon />
           </FilterWrapper>
 
-          <FilterWrapper $active={Boolean(filters.date)} onClick={() => setActiveModal("date")}>
+          <FilterWrapper
+            type="button"
+            $active={Boolean(filters.date)}
+            onClick={() => setActiveModal("date")}
+          >
             <FilterButton>{filters.date ? `Дата: ${filters.date}` : "Дата"}</FilterButton>
             <OpenFilterIcon />
           </FilterWrapper>
 
-          <FilterWrapper $active={filters.timeActive} onClick={() => setActiveModal("time")}>
+          <FilterWrapper
+            type="button"
+            $active={filters.timeActive}
+            onClick={() => setActiveModal("time")}
+          >
             <FilterButton>
               {filters.timeActive ? `${filters.startTime}–${filters.endTime}` : "Время"}
             </FilterButton>
@@ -365,6 +381,7 @@ function SignUpEventsPage() {
           </FilterWrapper>
 
           <FilterWrapper
+            type="button"
             $active={Boolean(filters.location)}
             onClick={() => setActiveModal("place")}
           >
@@ -373,7 +390,7 @@ function SignUpEventsPage() {
           </FilterWrapper>
 
           {filters.hasActiveFilters && (
-            <ResetChip onClick={() => filters.reset()}>
+            <ResetChip type="button" onClick={() => filters.reset()}>
               <FilterButton>Сбросить ✕</FilterButton>
             </ResetChip>
           )}
