@@ -444,3 +444,77 @@ test("event creation validates image type and rejects spoofed MIME (SEC-005)", a
   );
   assert.equal(accepted.status, 201);
 });
+
+test("profile update saves name, city and interests for the owner (BE-010)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  const response = await fetch(
+    `${baseUrl}/api/Users/me`,
+    authorized(token, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: "Эльмира Г.",
+        city: "Казань",
+        interests: ["IT", "Музыка"],
+      }),
+    }),
+  );
+  assert.equal(response.status, 200);
+  const updated = (await response.json()) as {
+    id: string;
+    name: string;
+    city?: string;
+    interests?: string[];
+  };
+  assert.equal(updated.id, "u1");
+  assert.equal(updated.name, "Эльмира Г.");
+  assert.equal(updated.city, "Казань");
+  assert.deepEqual(updated.interests, ["IT", "Музыка"]);
+
+  // Изменения видны и в публичном профиле, но без email.
+  const publicUser = (await (await fetch(`${baseUrl}/api/Users/u1`)).json()) as Record<
+    string,
+    unknown
+  >;
+  assert.equal(publicUser.name, "Эльмира Г.");
+  assert.equal(publicUser.city, "Казань");
+  assert.equal("email" in publicUser, false);
+});
+
+test("profile update requires a session and validates input (BE-010)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+
+  const anonymous = await fetch(`${baseUrl}/api/Users/me`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "Кто-то" }),
+  });
+  assert.equal(anonymous.status, 401);
+
+  const token = await loginDemo(baseUrl);
+
+  const tooShort = await fetch(
+    `${baseUrl}/api/Users/me`,
+    authorized(token, { method: "PUT", body: JSON.stringify({ name: "Я" }) }),
+  );
+  assert.equal(tooShort.status, 400);
+
+  const empty = await fetch(
+    `${baseUrl}/api/Users/me`,
+    authorized(token, { method: "PUT", body: JSON.stringify({}) }),
+  );
+  assert.equal(empty.status, 400);
+
+  // Аватар проходит ту же проверку изображений, что и события (SEC-005).
+  const spoofedAvatar = await fetch(
+    `${baseUrl}/api/Users/me`,
+    authorized(token, {
+      method: "PUT",
+      body: JSON.stringify({
+        avatar: `data:image/png;base64,${Buffer.from("<svg onload=alert(1)>").toString("base64")}`,
+      }),
+    }),
+  );
+  assert.equal(spoofedAvatar.status, 400);
+});

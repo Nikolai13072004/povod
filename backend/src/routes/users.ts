@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getRepository } from "../store";
 import { asyncHandler, HttpError } from "../middleware";
-import { friendAddSchema } from "../validation";
+import { friendAddSchema, profileUpdateSchema } from "../validation";
 import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware";
 import { presentPublicUser } from "../presenters";
 
@@ -11,6 +11,30 @@ usersRouter.get(
   "/",
   asyncHandler(async (_req, res) => {
     res.json((await getRepository().listUsers()).map(presentPublicUser));
+  }),
+);
+
+/**
+ * Обновление собственного профиля (BE-010).
+ * Объявлен до `/:id`, иначе «me» попал бы в параметр маршрута.
+ */
+usersRouter.put(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const current = getAuthUser(res.locals as AuthLocals);
+    const patch = profileUpdateSchema.parse(req.body);
+
+    const updated = await getRepository().upsertUser({
+      ...current,
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.city !== undefined ? { city: patch.city || undefined } : {}),
+      ...(patch.avatar !== undefined ? { avatar: patch.avatar || undefined } : {}),
+      ...(patch.interests !== undefined ? { interests: patch.interests } : {}),
+    });
+
+    // Себе отдаём полный профиль (с email), а не публичное представление.
+    res.json(updated);
   }),
 );
 

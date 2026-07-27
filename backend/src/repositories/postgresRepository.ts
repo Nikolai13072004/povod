@@ -36,6 +36,7 @@ interface UserRow {
   name: string;
   email: string;
   avatar_url: string | null;
+  city: string | null;
   interests: string[];
   friend_ids?: string[];
   created_at: Date | string;
@@ -104,7 +105,7 @@ const EVENT_SELECT = `
 
 const USER_SELECT = `
   SELECT
-    u.id, u.name, u.email, u.avatar_url, u.interests, u.created_at,
+    u.id, u.name, u.email, u.avatar_url, u.city, u.interests, u.created_at,
     COALESCE(friends.ids, '{}') AS friend_ids
   FROM users u
   LEFT JOIN LATERAL (
@@ -150,6 +151,7 @@ function mapUser(row: UserRow): User {
     name: row.name,
     email: row.email,
     avatar: row.avatar_url ?? undefined,
+    city: row.city ?? undefined,
     interests: row.interests ?? [],
     friends: row.friend_ids ?? [],
     createdAt: toIso(row.created_at),
@@ -410,14 +412,23 @@ export class PostgresRepository implements PovodRepository {
 
   async upsertUser(user: User): Promise<User> {
     await this.pool.query(
-      `INSERT INTO users (id, name, email, avatar_url, interests, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO users (id, name, email, avatar_url, city, interests, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (id) DO UPDATE SET
          name = EXCLUDED.name,
          email = EXCLUDED.email,
          avatar_url = EXCLUDED.avatar_url,
+         city = EXCLUDED.city,
          interests = EXCLUDED.interests`,
-      [user.id, user.name, user.email, user.avatar ?? null, user.interests ?? [], user.createdAt],
+      [
+        user.id,
+        user.name,
+        user.email,
+        user.avatar ?? null,
+        user.city ?? null,
+        user.interests ?? [],
+        user.createdAt,
+      ],
     );
     return (await this.getUser(user.id))!;
   }
