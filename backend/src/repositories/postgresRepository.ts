@@ -196,6 +196,30 @@ export class PostgresRepository implements PovodRepository {
     return true;
   }
 
+  /**
+   * Выполняет составную операцию в одной транзакции (BE-004).
+   *
+   * Раньше такие операции шли отдельными запросами через пул: между проверкой
+   * («событие существует?») и записью состояние могло измениться, а частичный
+   * результат оставался в базе. Здесь всё выполняется на одном соединении и
+   * откатывается целиком при любой ошибке.
+   */
+  private async withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await fn(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      // Откат не должен подменять исходную ошибку, поэтому его сбои гасим.
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listEvents(filters: EventFilters = {}): Promise<Event[]> {
     const conditions: string[] = [];
     const values: unknown[] = [];
@@ -293,32 +317,43 @@ export class PostgresRepository implements PovodRepository {
   }
 
   async updateEvent(id: string, patch: Partial<Event>): Promise<Event | undefined> {
-    const current = await this.getEvent(id);
-    if (!current) return undefined;
-    const next = { ...current, ...patch, id };
-    await this.pool.query(
-      `UPDATE events SET
+    // Чтение и запись — в одной транзакции с блокировкой строки: иначе два
+    // одновременных обновления читали бы одно состояние и одно из них терялось.
+    return this.withTransaction(async (client) => {
+      const locked = await client.query("SELECT 1 FROM events WHERE id = $1 FOR UPDATE", [id]);
+      if ((locked.rowCount ?? 0) === 0) return undefined;
+
+      const currentRow = await client.query<EventRow>(`${EVENT_SELECT} WHERE e.id = $1`, [id]);
+      const current = currentRow.rows[0] ? mapEvent(currentRow.rows[0]) : undefined;
+      if (!current) return undefined;
+
+      const next = { ...current, ...patch, id };
+      await client.query(
+        `UPDATE events SET
         title = $2, description = $3, starts_at = $4, timezone = $5, location = $6,
         category = $7, author_id = $8, image_url = $9, tags = $10,
         latitude = $11, longitude = $12, visibility = $13
        WHERE id = $1`,
-      [
-        id,
-        next.title,
-        next.description,
-        next.startsAt,
-        next.timezone,
-        next.location,
-        next.category ?? null,
-        next.authorId,
-        next.image ?? null,
-        next.tags ?? [],
-        next.coords?.[0] ?? null,
-        next.coords?.[1] ?? null,
-        next.format ?? "public",
-      ],
-    );
-    return this.getEvent(id);
+        [
+          id,
+          next.title,
+          next.description,
+          next.startsAt,
+          next.timezone,
+          next.location,
+          next.category ?? null,
+          next.authorId,
+          next.image ?? null,
+          next.tags ?? [],
+          next.coords?.[0] ?? null,
+          next.coords?.[1] ?? null,
+          next.format ?? "public",
+        ],
+      );
+
+      const updated = await client.query<EventRow>(`${EVENT_SELECT} WHERE e.id = $1`, [id]);
+      return updated.rows[0] ? mapEvent(updated.rows[0]) : undefined;
+    });
   }
 
   async deleteEvent(id: string): Promise<boolean> {
@@ -327,24 +362,32 @@ export class PostgresRepository implements PovodRepository {
   }
 
   async joinEvent(eventId: string, userId: string): Promise<Event | undefined> {
-    const exists = await this.getEvent(eventId);
-    if (!exists) return undefined;
-    await this.pool.query(
-      `INSERT INTO event_participants (event_id, user_id)
-       VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [eventId, userId],
-    );
-    return this.getEvent(eventId);
+    // Блокируем строку события на время вставки: конкурентное удаление подождёт,
+    // поэтому участник не может быть записан на уже исчезнувшее событие.
+    const joined = await this.withTransaction(async (client) => {
+      const exists = await client.query("SELECT 1 FROM events WHERE id = $1 FOR SHARE", [eventId]);
+      if ((exists.rowCount ?? 0) === 0) return false;
+      await client.query(
+        `INSERT INTO event_participants (event_id, user_id)
+         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [eventId, userId],
+      );
+      return true;
+    });
+    return joined ? this.getEvent(eventId) : undefined;
   }
 
   async leaveEvent(eventId: string, userId: string): Promise<Event | undefined> {
-    const exists = await this.getEvent(eventId);
-    if (!exists) return undefined;
-    await this.pool.query("DELETE FROM event_participants WHERE event_id = $1 AND user_id = $2", [
-      eventId,
-      userId,
-    ]);
-    return this.getEvent(eventId);
+    const left = await this.withTransaction(async (client) => {
+      const exists = await client.query("SELECT 1 FROM events WHERE id = $1 FOR SHARE", [eventId]);
+      if ((exists.rowCount ?? 0) === 0) return false;
+      await client.query("DELETE FROM event_participants WHERE event_id = $1 AND user_id = $2", [
+        eventId,
+        userId,
+      ]);
+      return true;
+    });
+    return left ? this.getEvent(eventId) : undefined;
   }
 
   async listUsers(): Promise<User[]> {
@@ -404,8 +447,21 @@ export class PostgresRepository implements PovodRepository {
   }
 
   async deleteUser(id: string): Promise<boolean> {
-    const result = await this.pool.query("DELETE FROM users WHERE id = $1", [id]);
-    return (result.rowCount ?? 0) > 0;
+    // Проверка владения и удаление — атомарно. Дополнительно это выравнивает
+    // поведение адаптеров: раньше PostgreSQL бросал ошибку внешнего ключа (23503),
+    // а in-memory возвращал false. Теперь оба возвращают false.
+    return this.withTransaction(async (client) => {
+      const owns = await client.query(
+        `SELECT 1
+         WHERE EXISTS (SELECT 1 FROM events WHERE author_id = $1)
+            OR EXISTS (SELECT 1 FROM comments WHERE author_id = $1)`,
+        [id],
+      );
+      if ((owns.rowCount ?? 0) > 0) return false;
+
+      const deleted = await client.query("DELETE FROM users WHERE id = $1", [id]);
+      return (deleted.rowCount ?? 0) > 0;
+    });
   }
 
   async listFriends(userId: string): Promise<User[] | undefined> {
@@ -423,28 +479,44 @@ export class PostgresRepository implements PovodRepository {
     return result.rows.map(mapUser);
   }
 
+  /**
+   * Блокирует обе строки пользователей строго в каноническом (отсортированном)
+   * порядке. Разный порядок блокировок во встречных вызовах `add(a, b)` и
+   * `add(b, a)` мог бы привести к взаимной блокировке.
+   */
+  private async lockUserPair(client: PoolClient, left: string, right: string): Promise<boolean> {
+    for (const id of [left, right]) {
+      const found = await client.query("SELECT 1 FROM users WHERE id = $1 FOR SHARE", [id]);
+      if ((found.rowCount ?? 0) === 0) return false;
+    }
+    return true;
+  }
+
   async addFriend(userId: string, friendId: string): Promise<User | undefined> {
     if (userId === friendId) return this.getUser(userId);
-    const [user, friend] = await Promise.all([this.getUser(userId), this.getUser(friendId)]);
-    if (!user || !friend) return undefined;
     const [left, right] = canonicalFriendship(userId, friendId);
-    await this.pool.query(
-      `INSERT INTO friendships (user_id, friend_id)
-       VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [left, right],
-    );
-    return this.getUser(userId);
+    const linked = await this.withTransaction(async (client) => {
+      if (!(await this.lockUserPair(client, left, right))) return false;
+      await client.query(
+        `INSERT INTO friendships (user_id, friend_id)
+         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [left, right],
+      );
+      return true;
+    });
+    return linked ? this.getUser(userId) : undefined;
   }
 
   async removeFriend(userId: string, friendId: string): Promise<boolean | undefined> {
-    const [user, friend] = await Promise.all([this.getUser(userId), this.getUser(friendId)]);
-    if (!user || !friend) return undefined;
     const [left, right] = canonicalFriendship(userId, friendId);
-    const result = await this.pool.query(
-      "DELETE FROM friendships WHERE user_id = $1 AND friend_id = $2",
-      [left, right],
-    );
-    return (result.rowCount ?? 0) > 0;
+    return this.withTransaction(async (client) => {
+      if (!(await this.lockUserPair(client, left, right))) return undefined;
+      const result = await client.query(
+        "DELETE FROM friendships WHERE user_id = $1 AND friend_id = $2",
+        [left, right],
+      );
+      return (result.rowCount ?? 0) > 0;
+    });
   }
 
   async listComments(eventId: string): Promise<Comment[]> {
