@@ -278,30 +278,6 @@ const SubmitError = styled.div`
   text-align: center;
 `;
 
-const SegmentedControlWrapper = styled(Section)`
-  display: flex;
-  padding: 8px;
-  gap: 8px;
-`;
-
-const SegmentButton = styled.button<{ $active: boolean }>`
-  flex: 1;
-  padding: 12px;
-  border: none;
-  border-radius: 14px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  background: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-surface-muted)")};
-  color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
-
-  &:hover {
-    opacity: 0.9;
-  }
-`;
-
 const categories = [
   "Спорт",
   "Искусство",
@@ -337,7 +313,6 @@ export default function CreateEventForm() {
   const navigate = useNavigate();
   const showToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeType, setActiveType] = useState<"exact" | "idea">("idea");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -457,22 +432,6 @@ export default function CreateEventForm() {
         Создать повод
       </div>
 
-      <SegmentedControlWrapper>
-        <SegmentButton
-          type="button"
-          $active={activeType === "exact"}
-          onClick={() => setActiveType("exact")}
-        >
-          Точный повод
-        </SegmentButton>
-        <SegmentButton
-          type="button"
-          $active={activeType === "idea"}
-          onClick={() => setActiveType("idea")}
-        >
-          Идея
-        </SegmentButton>
-      </SegmentedControlWrapper>
       <Section>
         <Label>Название события *</Label>
         <Input
