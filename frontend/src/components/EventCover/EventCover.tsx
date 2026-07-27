@@ -15,7 +15,7 @@ const Frame = styled.div<{ $ratio: string; $rounded: string }>`
   aspect-ratio: ${({ $ratio }) => $ratio};
   border-radius: ${({ $rounded }) => $rounded};
   overflow: hidden;
-  background: linear-gradient(135deg, #67b5ff 0%, #3d88ff 100%);
+  background: linear-gradient(135deg, var(--povod-primary) 0%, var(--povod-primary) 100%);
   display: grid;
   place-items: center;
 `;
@@ -29,7 +29,7 @@ const Image = styled.img`
 
 const Placeholder = styled.span`
   padding: 8px 12px;
-  color: #ffffff;
+  color: var(--povod-on-primary);
   font-size: 13px;
   font-weight: 600;
   text-align: center;

@@ -25,9 +25,9 @@ const Nav = styled("nav", { shouldForwardProp })`
   margin: 0 auto;
   height: 60px;
   padding: 0 10px 20px 10px;
-  background: #ffffff;
+  background: var(--povod-surface);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
-  border-top: 2px solid #e8efff;
+  border-top: 2px solid var(--povod-border-strong);
 `;
 
 const NavInner = styled("div", { shouldForwardProp })`
@@ -47,14 +47,14 @@ const StyledNavLink = styled(NavLink, { shouldForwardProp })`
   text-decoration: none;
   transition: color 0.2s ease;
 
-  color: #6b7a99;
+  color: var(--povod-text-secondary);
 
   &.active {
-    color: #2688eb;
+    color: var(--povod-primary);
   }
 
   &:hover {
-    color: #2688eb;
+    color: var(--povod-primary);
   }
 `;
 

@@ -25,7 +25,7 @@ const ModalContent = styled.div<{ $isOpen: boolean }>`
   margin: 0 auto;
   max-height: 90dvh;
   overflow-y: auto;
-  background-color: #f0f5fb;
+  background-color: var(--povod-surface);
   border-radius: 28px 28px 0 0;
   padding: 8px 20px 24px;
   transform: translateY(${(props) => (props.$isOpen ? "0" : "100%")});
@@ -36,7 +36,7 @@ const ModalContent = styled.div<{ $isOpen: boolean }>`
 const DragHandle = styled.div`
   width: 36px;
   height: 4px;
-  background: #ccd4e0;
+  background: var(--povod-border-strong);
   border-radius: 2px;
   margin: 8px auto 16px;
 `;
@@ -44,7 +44,7 @@ const DragHandle = styled.div`
 const Title = styled.h2`
   font-size: 20px;
   font-weight: 700;
-  color: #2d78df;
+  color: var(--povod-primary);
   margin: 0 0 20px 0;
 `;
 
@@ -61,14 +61,14 @@ const StyledInput = styled.input`
   width: 100%;
   padding: 14px 16px 14px 44px;
   border-radius: 14px;
-  border: 1.5px solid #2d78df;
-  background: #ffffff;
+  border: 1.5px solid var(--povod-primary);
+  background: var(--povod-surface);
   font-size: 16px;
-  color: #818c99;
+  color: var(--povod-text-secondary);
   outline: none;
 
   &::placeholder {
-    color: #b2b8bf;
+    color: var(--povod-text-secondary);
   }
 `;
 
@@ -84,13 +84,13 @@ const IconInside = styled.div`
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #818c99;
+  color: var(--povod-text-secondary);
 `;
 
 const ApplyButton = styled.button`
   width: 100%;
-  background: #2d78df;
-  color: #ffffff;
+  background: var(--povod-primary);
+  color: var(--povod-on-primary);
   border: none;
   border-radius: 14px;
   padding: 14px;
@@ -251,7 +251,7 @@ export const DateFilter = ({ onSave, isOpen, onClose }: DateFilterProps) => {
           <CalendarIcon />
         </IconInside>
         <StyledInput
-          style={{ borderColor: hasError ? "red" : "#2d78df" }}
+          style={{ borderColor: hasError ? "red" : "var(--povod-primary)" }}
           type="text"
           inputMode="numeric"
           placeholder="26.06.2026"
@@ -292,7 +292,7 @@ export const LocationFilter = ({ onSave, isOpen, onClose }: LocationFilterProps)
     >
       <InputWrapper>
         <StyledInput
-          style={{ borderColor: error ? "red" : "#2d78df" }}
+          style={{ borderColor: error ? "red" : "var(--povod-primary)" }}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Город или район"
         />
@@ -332,19 +332,19 @@ export const TimeFilter = ({ onSave, isOpen, onClose }: TimeFilterProps) => {
           inputMode="numeric"
           placeholder="16:00"
           value={startTime}
-          style={{ borderColor: hasError ? "red" : "#2d78df" }}
+          style={{ borderColor: hasError ? "red" : "var(--povod-primary)" }}
           onChange={(e) => {
             setStartTime(maskTime(e.target.value));
             if (hasError) setHasError(false);
           }}
         />
-        <span style={{ color: "#818c99" }}>—</span>
+        <span style={{ color: "var(--povod-text-secondary)" }}>—</span>
         <TimeInput
           type="text"
           inputMode="numeric"
           placeholder="18:00"
           value={endTime}
-          style={{ borderColor: hasError ? "red" : "#2d78df" }}
+          style={{ borderColor: hasError ? "red" : "var(--povod-primary)" }}
           onChange={(e) => {
             setEndTime(maskTime(e.target.value));
             if (hasError) setHasError(false);
@@ -355,7 +355,7 @@ export const TimeFilter = ({ onSave, isOpen, onClose }: TimeFilterProps) => {
       {hasError && (
         <div
           style={{
-            color: "#FF4C4C",
+            color: "var(--povod-danger)",
             fontSize: "12px",
             marginTop: "8px",
             textAlign: "center",
@@ -384,8 +384,8 @@ const Chip = styled.button<{ $selected: boolean }>`
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: ${(props) => (props.$selected ? "#2d78df" : "#ffffff")};
-  color: ${(props) => (props.$selected ? "#ffffff" : "#818c99")};
+  background: ${(props) => (props.$selected ? "var(--povod-primary)" : "var(--povod-surface)")};
+  color: ${(props) => (props.$selected ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   overflow-wrap: anywhere;
   max-width: 100%;

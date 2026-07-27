@@ -24,7 +24,7 @@ const Section = styled.div`
 `;
 
 const SectionTitle = styled(Title)`
-  color: #3388ee;
+  color: var(--povod-primary);
   font-size: clamp(18px, 5vw, 22px) !important;
 `;
 
@@ -36,11 +36,12 @@ const ChipsFlex = styled.div`
 
 const ChipButton = styled.button<{ $selected: boolean }>`
   appearance: none;
-  border: 1px solid ${(props) => (props.$selected ? "#3388ee" : "#e1e4e8")};
+  border: 1px solid
+    ${(props) => (props.$selected ? "var(--povod-primary)" : "var(--povod-border-strong)")};
   border-radius: 12px;
   padding: 8px 16px;
-  background: ${(props) => (props.$selected ? "#3388ee" : "#ffffff")};
-  color: ${(props) => (props.$selected ? "#ffffff" : "#919cb5")};
+  background: ${(props) => (props.$selected ? "var(--povod-primary)" : "var(--povod-surface)")};
+  color: ${(props) => (props.$selected ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
   font-size: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -51,7 +52,7 @@ const ChipButton = styled.button<{ $selected: boolean }>`
 `;
 
 const Card = styled.div`
-  background: #ffffff;
+  background: var(--povod-surface);
   border-radius: 16px;
   padding: 20px;
   display: flex;
@@ -63,8 +64,8 @@ const InputWrapper = styled.div`
   position: relative;
   .vkuiInput__el {
     padding-left: 36px;
-    background: #f2f3f5;
-    // border: 1px solid #3388ee;
+    background: var(--povod-surface-muted);
+    // border: 1px solid var(--povod-primary);
   }
 `;
 
@@ -75,8 +76,8 @@ const RangeContainer = styled.div`
 
   .vkuiInput {
     flex: 1;
-    background: #f2f3f5;
-    border: 1px solid #3388ee;
+    background: var(--povod-surface-muted);
+    border: 1px solid var(--povod-primary);
     border-radius: 8px;
   }
 `;
@@ -169,7 +170,7 @@ export function SelectInterestPage() {
           </SectionTitle>
           <InputWrapper>
             <Icon16Place
-              fill="#919cb5"
+              fill="var(--povod-text-secondary)"
               style={{ position: "absolute", left: 12, top: 12, zIndex: 1 }}
             />
             <Input
@@ -193,7 +194,7 @@ export function SelectInterestPage() {
               onChange={(e) => setPeopleFrom(e.target.value)}
               onBlur={handleBlurFrom}
             />
-            <span style={{ color: "#919cb5" }}>—</span>
+            <span style={{ color: "var(--povod-text-secondary)" }}>—</span>
             <Input
               type="number"
               value={peopleTo}
@@ -214,7 +215,7 @@ export function SelectInterestPage() {
           disabled={!isValid || selected.length === 0}
           appearance="accent"
           style={{
-            background: isValid ? "#3388ee" : "#ccc",
+            background: isValid ? "var(--povod-primary)" : "var(--povod-border-strong)",
             borderRadius: 12,
             height: 52,
           }}
