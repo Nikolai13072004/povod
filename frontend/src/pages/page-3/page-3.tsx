@@ -161,6 +161,31 @@ const FilterWrapper = styled.div<{ $active?: boolean }>`
   }
 `;
 
+const TabsRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+`;
+
+const TabButton = styled.button<{ $active: boolean }>`
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid ${(props) => (props.$active ? "#2d81e0" : "#e1e3e6")};
+  border-radius: 12px;
+  background: ${(props) => (props.$active ? "#2d81e0" : "#ffffff")};
+  color: ${(props) => (props.$active ? "#ffffff" : "#818c99")};
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:active {
+    opacity: 0.85;
+  }
+`;
+
 /** Чип сброса — как в ленте, появляется только при активных фильтрах. */
 const ResetChip = styled(FilterWrapper)`
   background: #ffffff;
@@ -238,11 +263,17 @@ function SignUpEventsPage() {
   const searchQuery = filters.search;
   const selectedInterests = filters.selectedInterests;
 
-  const allEvents: EventItem[] = Array.from(
-    new Map(
-      [...eventStore.acceptedEvents, ...eventStore.createdEvents].map((event) => [event.id, event]),
-    ).values(),
+  // Вкладки «Все / Созданные / Посещаю» (FE-008): раздел раньше показывал
+  // созданные и посещаемые события одной кучей, без счётчиков.
+  const createdEvents: EventItem[] = eventStore.createdEvents;
+  const attendingEvents: EventItem[] = eventStore.acceptedEvents;
+  const combinedEvents: EventItem[] = Array.from(
+    new Map([...attendingEvents, ...createdEvents].map((event) => [event.id, event])).values(),
   );
+
+  const tab = filtersStore.myEventsTab;
+  const allEvents: EventItem[] =
+    tab === "created" ? createdEvents : tab === "attending" ? attendingEvents : combinedEvents;
 
   const filteredEvents = allEvents.filter((event) => {
     const matchesCategory =
@@ -289,6 +320,27 @@ function SignUpEventsPage() {
       </ContentPadding>
 
       <ContentPadding style={{ marginTop: "16px" }}>
+        <TabsRow role="tablist" aria-label="Мои события">
+          {(
+            [
+              { id: "all", label: "Все", count: combinedEvents.length },
+              { id: "created", label: "Созданные", count: createdEvents.length },
+              { id: "attending", label: "Посещаю", count: attendingEvents.length },
+            ] as const
+          ).map((item) => (
+            <TabButton
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              $active={tab === item.id}
+              onClick={() => filtersStore.setMyEventsTab(item.id)}
+            >
+              {item.label} ({item.count})
+            </TabButton>
+          ))}
+        </TabsRow>
+
         <FiltersContainer>
           <FilterWrapper
             $active={selectedInterests.length > 0}
@@ -333,11 +385,21 @@ function SignUpEventsPage() {
           empty={filteredEvents.length === 0}
           loadingTitle="Загружаем ваши поводы…"
           errorTitle="Не удалось загрузить ваши события"
-          emptyTitle={allEvents.length === 0 ? "У вас пока нет событий" : "События не найдены"}
+          emptyTitle={
+            allEvents.length > 0
+              ? "События не найдены"
+              : tab === "created"
+                ? "Вы ещё не создавали события"
+                : tab === "attending"
+                  ? "Вы пока никуда не записались"
+                  : "У вас пока нет событий"
+          }
           emptyDescription={
-            allEvents.length === 0
-              ? "Создайте новый повод или запишитесь на событие из общей ленты."
-              : "Попробуйте изменить параметры поиска или фильтры."
+            allEvents.length > 0
+              ? "Попробуйте изменить параметры поиска или фильтры."
+              : tab === "created"
+                ? "Создайте свой повод — он появится здесь."
+                : "Запишитесь на событие из общей ленты — оно появится здесь."
           }
           onRetry={() => eventStore.fetchMyEvents(true)}
         >
