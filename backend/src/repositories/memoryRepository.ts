@@ -206,7 +206,10 @@ export class MemoryRepository implements PovodRepository {
   }
 
   async deleteUser(id: string): Promise<boolean> {
+    // Владение проверяем и по событиям, и по комментариям — как это делает
+    // PostgreSQL-адаптер (в БД на обе связи стоит ON DELETE RESTRICT).
     if (this.events.some((event) => event.authorId === id)) return false;
+    if (this.comments.some((comment) => comment.author.id === id)) return false;
     const before = this.users.length;
     this.users = this.users.filter((user) => user.id !== id);
     if (this.users.length === before) return false;
