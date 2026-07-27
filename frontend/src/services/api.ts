@@ -47,6 +47,15 @@ export interface User {
   name: string;
   email?: string;
   avatar?: string;
+  city?: string;
+  interests?: string[];
+}
+
+/** Поля профиля, доступные владельцу для изменения (BE-010). */
+export interface ProfileUpdate {
+  name?: string;
+  city?: string;
+  avatar?: string;
   interests?: string[];
 }
 
@@ -153,6 +162,13 @@ export const eventsAPI = {
 
 export const usersAPI = {
   getAll: () => fetchApi<User[]>("api/Users"),
+
+  /** Обновление собственного профиля (BE-010). */
+  updateMe: (patch: ProfileUpdate) =>
+    fetchApi<User>("api/Users/me", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
 
   getById: (id: string) => fetchApi<User>(`api/Users/${id}`),
 

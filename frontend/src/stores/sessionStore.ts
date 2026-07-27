@@ -5,7 +5,9 @@ import {
   authAPI,
   getSessionToken,
   setSessionToken,
+  usersAPI,
   type AuthSession,
+  type ProfileUpdate,
   type User,
 } from "../services/api";
 import { eventStore } from "./EventStore";
@@ -109,6 +111,28 @@ class SessionStore {
 
   register = async (name: string, email: string, password: string): Promise<boolean> => {
     return this.authenticate(() => authAPI.register({ name, email, password }));
+  };
+
+  /** Сохранение профиля на сервере (FE-009): раньше интересы и город жили только локально. */
+  updateProfile = async (patch: ProfileUpdate): Promise<boolean> => {
+    runInAction(() => {
+      this.isLoading = true;
+      this.error = null;
+    });
+    const response = await usersAPI.updateMe(patch);
+    if (response.data) {
+      runInAction(() => {
+        this.user = response.data!;
+        if (response.data!.city !== undefined) this.city = response.data!.city;
+        this.isLoading = false;
+      });
+      return true;
+    }
+    runInAction(() => {
+      this.error = response.error ?? "Не удалось сохранить профиль";
+      this.isLoading = false;
+    });
+    return false;
   };
 
   logout = async (): Promise<void> => {

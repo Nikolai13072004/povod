@@ -44,6 +44,19 @@ export const commentCreateSchema = z.object({
   eventId: z.string().min(1, "eventId обязателен"),
 });
 
+/** Обновление собственного профиля: все поля необязательны (BE-010). */
+export const profileUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2, "Имя слишком короткое").max(100),
+    city: z.string().trim().max(100).or(z.literal("")),
+    avatar: imageSchema.or(z.literal("")),
+    interests: z.array(z.string().trim().min(1).max(50)).max(30, "Слишком много интересов"),
+  })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "Нужно передать хотя бы одно поле",
+  });
+
 export const friendAddSchema = z.object({
   friendId: z.string().min(1, "friendId обязателен"),
 });
