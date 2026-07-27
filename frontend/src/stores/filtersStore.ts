@@ -107,16 +107,30 @@ export class FilterState {
   }
 }
 
+/** Вкладки раздела «Мои события» (FE-008). */
+export type MyEventsTab = "all" | "created" | "attending";
+
 class FiltersStore {
   /** Фильтры ленты (`/page-1`). */
   readonly feed = new FilterState();
   /** Фильтры раздела «Мои события» (`/events`). */
   readonly myEvents = new FilterState();
+  /** Выбранная вкладка «Моих событий» — тоже переживает переходы между страницами. */
+  myEventsTab: MyEventsTab = "all";
+
+  constructor() {
+    makeAutoObservable(this);
+  }
+
+  setMyEventsTab(tab: MyEventsTab): void {
+    this.myEventsTab = tab;
+  }
 
   /** Сброс всего — используется при выходе из аккаунта. */
   resetAll(): void {
     this.feed.reset();
     this.myEvents.reset();
+    this.myEventsTab = "all";
   }
 }
 
