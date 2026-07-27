@@ -143,7 +143,7 @@ git push -u origin feature/FE-001-responsive-layout
 
 | ID | Приоритет | Режим | Задача и ожидаемый результат |
 | --- | --- | --- | --- |
-| SEC-001 | P0 | DECISION | Исследовать переход browser-сессии из `sessionStorage` в Secure HttpOnly SameSite cookie. Описать CSRF-модель и план миграции. |
+| SEC-001 | P0 | DONE | Browser-сессия переведена в Secure HttpOnly SameSite cookie; CSRF-модель и план миграции — в [`docs/decisions/SEC-001-cookie-sessions.md`](./decisions/SEC-001-cookie-sessions.md). |
 | SEC-002 | P0 | READY | Добавить `helmet`, Content Security Policy, `X-Content-Type-Options`, frame policy и безопасные production headers. |
 | SEC-003 | P0 | READY | Ввести централизованный redaction секретов и персональных данных в логах. Токены, пароли и подписи не должны логироваться. |
 | SEC-004 | P1 | DECISION | Перенести rate limit из памяти в общий store (например Redis) для нескольких backend-инстансов. |

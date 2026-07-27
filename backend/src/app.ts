@@ -9,6 +9,7 @@ import { usersRouter } from "./routes/users";
 import { commentsRouter } from "./routes/comments";
 import { authRouter } from "./routes/auth";
 import { health, live, ready, ping, dbTime } from "./routes/health";
+import { csrfProtection } from "./auth/csrf";
 import { notFound, errorHandler } from "./middleware";
 
 /** Сборка Express-приложения (без listen — удобно для тестов). */
@@ -20,9 +21,17 @@ export function createApp() {
   // доступ к ресурсам, не ослабляя остальные заголовки.
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
-  app.use(cors({ origin: config.corsOrigin }));
+  // credentials: true — сессия живёт в HttpOnly-куке (SEC-001), а без этого флага
+  // браузер её не отправит. С `*` credentials несовместим, поэтому в dev отражаем
+  // origin запроса; в production wildcard и так запрещён валидацией конфига.
+  app.use(
+    cors({ origin: config.corsOrigin === "*" ? true : config.corsOrigin, credentials: true }),
+  );
   // limit 10mb — фронт может слать фото как base64 data URL (до 5MB)
   app.use(express.json({ limit: "10mb" }));
+  // Куку браузер прикладывает к запросу сам, в том числе с чужого сайта, — поэтому
+  // изменяющие запросы с сессионной кукой обязаны нести заголовок X-CSRF-Token.
+  app.use(csrfProtection);
   // Логи запросов проходят через централизованную редакцию (SEC-003): URL с секретами
   // в query-параметрах не попадёт в вывод, а сам поток идёт через logger.
   morgan.token("url", (req: express.Request) => redactText(req.originalUrl ?? req.url ?? ""));
