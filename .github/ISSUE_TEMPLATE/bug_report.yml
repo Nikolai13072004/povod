@@ -1,0 +1,62 @@
+name: Баг
+description: Что-то работает не так, как ожидалось
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за отчёт. **Об уязвимостях безопасности не сообщайте здесь** —
+        используйте приватный канал из [SECURITY.md](../blob/main/SECURITY.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Что происходит
+      description: Опишите проблему и чем фактическое поведение отличается от ожидаемого.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      placeholder: |
+        1. Войти как …
+        2. Открыть …
+        3. Нажать …
+        4. Видим …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Где проявляется
+      options:
+        - Frontend
+        - Backend
+        - Инфраструктура / запуск
+        - Не знаю
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Окружение
+      description: Браузер и ОС, способ запуска (Docker Compose или локально), ветка или коммит.
+      placeholder: "Chrome 120, Windows 11, docker compose, main@abc1234"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи и скриншоты
+      description: Ошибки из консоли браузера или вывод backend. Уберите токены и личные данные.
+      render: shell
