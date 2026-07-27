@@ -17,7 +17,7 @@ const OptionTag = styled.button<{ $active?: boolean }>`
     props.$active
       ? "var(--vkui--color_background_accent)"
       : "var(--vkui--color_background_content)"};
-  color: ${(props) => (props.$active ? "#fff" : "var(--vkui--color_text_primary)")};
+  color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--vkui--color_text_primary)")};
   font-size: 15px;
   cursor: pointer;
   transition: all 0.2s ease;

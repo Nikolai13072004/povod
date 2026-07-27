@@ -46,7 +46,7 @@ const ToastCard = styled.div<{ $type: ToastType }>`
   box-sizing: border-box;
   padding: 12px 16px;
   border-radius: 14px;
-  color: #ffffff;
+  color: var(--povod-on-primary);
   font-size: 14px;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -54,7 +54,11 @@ const ToastCard = styled.div<{ $type: ToastType }>`
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
   white-space: pre-line;
   background: ${({ $type }) =>
-    $type === "error" ? "#e64646" : $type === "success" ? "#3fa060" : "#2d81e0"};
+    $type === "error"
+      ? "var(--povod-danger)"
+      : $type === "success"
+        ? "var(--povod-success)"
+        : "var(--povod-primary)"};
   animation: povod-toast-in 0.2s ease-out;
 
   @keyframes povod-toast-in {

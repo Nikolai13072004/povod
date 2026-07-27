@@ -11,8 +11,8 @@ const Screen = styled.div`
   gap: 16px;
   padding: 32px 20px;
   text-align: center;
-  background: var(--vkui--color_background, #ebf2fa);
-  color: var(--vkui--color_text_primary, #1d1d1f);
+  background: var(--vkui--color_background, var(--povod-bg));
+  color: var(--vkui--color_text_primary, var(--povod-text));
   box-sizing: border-box;
 `;
 
@@ -32,7 +32,7 @@ const Description = styled.p`
   margin: 0;
   font-size: 15px;
   line-height: 1.5;
-  color: var(--vkui--color_text_secondary, #6d7885);
+  color: var(--vkui--color_text_secondary, var(--povod-text-secondary));
   overflow-wrap: anywhere;
 `;
 
@@ -48,9 +48,9 @@ const ActionButton = styled.button<{ $primary?: boolean }>`
   min-height: 44px;
   padding: 12px 20px;
   border-radius: 12px;
-  border: 1px solid #2d81e0;
-  background: ${(props) => (props.$primary ? "#2d81e0" : "transparent")};
-  color: ${(props) => (props.$primary ? "#ffffff" : "#2d81e0")};
+  border: 1px solid var(--povod-primary);
+  background: ${(props) => (props.$primary ? "var(--povod-primary)" : "transparent")};
+  color: ${(props) => (props.$primary ? "var(--povod-on-primary)" : "var(--povod-primary)")};
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;

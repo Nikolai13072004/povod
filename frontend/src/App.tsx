@@ -11,6 +11,7 @@ import "@vkontakte/vkui/dist/vkui.css";
 import { ContentWidth } from "./components/Layout/ContentWidth";
 import { ToastProvider } from "./components/Toast/ToastProvider";
 import { ScrollToTop } from "./components/ScrollToTop/ScrollToTop";
+import { useTheme } from "./context/ThemeContext";
 
 const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
   min-height: 100vh;
@@ -18,7 +19,7 @@ const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
   display: flex;
   flex-direction: column;
   /* Проверка пропса + !important, чтобы перебить index.css */
-  background: ${(props) => (props.isWhiteBg ? "#ffffff" : "var(--bg-color)")} !important;
+  background: ${(props) => (props.isWhiteBg ? "var(--povod-surface)" : "var(--bg-color)")} !important;
   color: var(--text-color);
   /* Когда снизу висит фиксированная навигация (высота ~80px), резервируем под неё
      место — иначе конец страницы уезжал под меню и был недоступен. */
@@ -48,6 +49,8 @@ function contentMaxWidth(pathname: string): string {
 
 const App = observer(() => {
   const location = useLocation();
+  // VKUI был жёстко зафиксирован в светлой схеме — теперь следует выбранной теме (UX-001).
+  const { theme } = useTheme();
   const isChatPage = location.pathname === "/chats";
   const isSelectInterestPage = location.pathname === "/SelectInterestPage";
   const isProfilePage = location.pathname === "/Profile";
@@ -70,13 +73,13 @@ const App = observer(() => {
   }, []);
 
   const chatSceneTokens = {
-    "--vkui--color_background_primary": "#ffffff",
-    "--vkui--color_background_content": "#ffffff",
-    "--vkui--color_background_tertiary": "#ffffff",
+    "--vkui--color_background_primary": "var(--povod-surface)",
+    "--vkui--color_background_content": "var(--povod-surface)",
+    "--vkui--color_background_tertiary": "var(--povod-surface)",
   } as React.CSSProperties;
 
   return (
-    <ConfigProvider colorScheme="light">
+    <ConfigProvider colorScheme={theme}>
       <AdaptivityProvider>
         <AppRoot style={isChatPage ? chatSceneTokens : {}}>
           <ScrollToTop />

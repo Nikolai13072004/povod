@@ -9,7 +9,7 @@ const WhitePanel = styled(Panel)`
 `;
 
 const ChatContainer = styled.div`
-  background-color: #ffffff;
+  background-color: var(--povod-surface);
   min-height: 100vh;
   min-height: 100dvh;
 `;
@@ -32,12 +32,12 @@ const EmptyEmoji = styled.div`
 const EmptyTitle = styled.div`
   font-size: 18px;
   font-weight: 600;
-  color: #000000;
+  color: var(--povod-text);
 `;
 
 const EmptyText = styled.div`
   font-size: 14px;
-  color: #818c99;
+  color: var(--povod-text-secondary);
   max-width: 280px;
   line-height: 1.4;
 `;

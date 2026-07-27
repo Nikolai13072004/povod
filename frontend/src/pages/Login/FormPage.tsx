@@ -16,7 +16,7 @@ const PageContainer = styled.div`
   flex-direction: column;
   padding: 20px 18px 24px;
   min-height: 94dvh;
-  background: #ebf2fa;
+  background: var(--povod-bg);
   box-sizing: border-box;
   overflow-y: auto;
   margin: 0;
@@ -69,7 +69,7 @@ const TextCard = styled.div`
 const PageTitle = styled.h1`
   font-size: clamp(22px, 6vw, 30px);
   font-weight: 800;
-  color: #000000;
+  color: var(--povod-text);
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -77,7 +77,7 @@ const PageTitle = styled.h1`
 
 const PageDescription = styled.p`
   font-size: 16px;
-  color: #818c99;
+  color: var(--povod-text-secondary);
   margin: 0 0 10px 0;
 `;
 
@@ -94,14 +94,14 @@ const UserAvatar = styled.img`
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--povod-surface);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 `;
 
 const UserName = styled.span`
   font-size: 15px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--povod-text);
 `;
 
 const ActionButtonWrapper = styled.div`
@@ -115,7 +115,7 @@ const ActionButtonWrapper = styled.div`
 const FooterText = styled.div`
   padding-top: 20px;
   font-size: 12px;
-  color: #818c99;
+  color: var(--povod-text-secondary);
   text-align: center;
   opacity: 0.8;
   line-height: 1.4;
@@ -127,10 +127,10 @@ const FooterText = styled.div`
 `;
 
 const EnterButton = styled(Button)`
-  background-color: #2d81e0 !important;
-  color: #ffffff !important;
+  background-color: var(--povod-primary) !important;
+  color: var(--povod-on-primary) !important;
   &:active {
-    background-color: #0062d4 !important;
+    background-color: var(--povod-primary-active) !important;
   }
 `;
 const AuthForm = styled.form`
@@ -142,16 +142,16 @@ const AuthForm = styled.form`
 const AuthInput = styled.input`
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #d7d8d9;
+  border: 1px solid var(--povod-border-strong);
   border-radius: 12px;
   padding: 12px 14px;
-  background: #ffffff;
-  color: #1d1d1f;
+  background: var(--povod-surface);
+  color: var(--povod-text);
   font-size: 15px;
   outline: none;
 
   &:focus {
-    border-color: #2d81e0;
+    border-color: var(--povod-primary);
     box-shadow: 0 0 0 3px rgba(45, 129, 224, 0.12);
   }
 `;
@@ -159,7 +159,7 @@ const AuthInput = styled.input`
 const AuthModeButton = styled.button`
   border: 0;
   background: transparent;
-  color: #2d81e0;
+  color: var(--povod-primary);
   cursor: pointer;
   font-size: 14px;
   padding: 10px 8px;
@@ -167,7 +167,7 @@ const AuthModeButton = styled.button`
 `;
 
 const AuthError = styled.div`
-  color: #e64646;
+  color: var(--povod-danger);
   font-size: 13px;
   line-height: 1.35;
 `;
