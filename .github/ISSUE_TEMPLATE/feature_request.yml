@@ -1,0 +1,49 @@
+name: Идея или улучшение
+description: Предложить новую возможность или улучшить существующую
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую проблему решаем
+      description: Опишите ситуацию пользователя, а не сразу решение.
+      placeholder: "Создав событие с опечаткой, автор не может её исправить…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предлагаемое решение
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Какие ещё варианты рассматривали
+      description: Почему предложенный вариант лучше.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Что затрагивает
+      multiple: true
+      options:
+        - Frontend
+        - Backend
+        - API-контракт
+        - Схема базы данных
+        - Инфраструктура / CI
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: decision
+    attributes:
+      label: Нужно решение по архитектуре
+      description: >-
+        Изменения API, схемы PostgreSQL, аутентификации или общей архитектуры
+        сначала оформляются как proposal и согласуются с владельцем проекта.
+      options:
+        - label: Изменение затрагивает API-контракт, схему БД или аутентификацию
