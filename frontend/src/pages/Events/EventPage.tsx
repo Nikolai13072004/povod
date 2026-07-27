@@ -8,6 +8,7 @@ import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 import { useToast } from "../../components/Toast/ToastProvider";
 import { EventOwnerControls } from "./EventOwnerControls";
 import { downloadEventIcs } from "../../utils/calendar";
+import { EventCover } from "../../components/EventCover/EventCover";
 import bridge from "@vkontakte/vk-bridge";
 import {
   Panel,
@@ -33,16 +34,6 @@ import { EventMap } from "../../components/EventMap/EventMap";
 import { AsyncContent } from "../../components/AsyncContent";
 import "@vkontakte/vkui/dist/vkui.css";
 import styled from "@emotion/styled";
-
-const EventImage = styled.img`
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  height: auto;
-  object-fit: cover;
-  border-radius: 12px;
-  display: block;
-  margin-bottom: 16px;
-`;
 
 const CommentInput = styled.input`
   flex: 1;
@@ -251,13 +242,13 @@ function EventPageComponent() {
           <Text style={{ color: "var(--vkui--color_text_secondary)" }}>
             {eventData.description}
           </Text>
-          {eventData.image && (
-            <EventImage
-              src={typeof eventData.image === "string" ? eventData.image : ""}
-              alt={eventData.title}
-              style={{ marginTop: 16 }}
+          <div style={{ marginTop: 16 }}>
+            <EventCover
+              src={typeof eventData.image === "string" ? eventData.image : undefined}
+              title={eventData.title}
+              rounded="12px"
             />
-          )}
+          </div>
         </div>
 
         <Spacing size={16} />
