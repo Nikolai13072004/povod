@@ -28,6 +28,11 @@ export default tseslint.config(
     },
   },
   {
+    // Вспомогательные скрипты сборки во frontend исполняются в Node, а не в браузере.
+    files: ["frontend/scripts/**/*.mjs", "frontend/src/**/*.test.{ts,tsx}"],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
     // Backend: Node
     files: ["backend/**/*.ts"],
     languageOptions: { globals: { ...globals.node } },
