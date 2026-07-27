@@ -98,6 +98,23 @@ describe("ThemeProvider", () => {
     expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
   });
 
+  it("keeps the browser theme-color in sync with the active theme", async () => {
+    // В установленном приложении системная панель — продолжение экрана,
+    // поэтому её цвет обязан следовать за темой, включая ручной выбор (PWA-001).
+    const meta = document.createElement("meta");
+    meta.name = "theme-color";
+    meta.content = "#ebf2fa";
+    document.head.append(meta);
+
+    renderProbe();
+    expect(meta.content).toBe("#ebf2fa");
+
+    await userEvent.click(screen.getByRole("button", { name: "переключить" }));
+    expect(meta.content).toBe("#0f151d");
+
+    meta.remove();
+  });
+
   it("survives unavailable localStorage", () => {
     const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("denied");
