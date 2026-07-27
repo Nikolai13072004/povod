@@ -16,6 +16,9 @@ const SelectInterestPage = lazy(() =>
   import("../pages/SelectInterestPage").then((m) => ({ default: m.SelectInterestPage })),
 );
 const UserProfile = lazy(() => import("../pages/Profile/ProfilePage"));
+const AuthorProfilePage = lazy(() =>
+  import("../pages/Profile/AuthorProfilePage").then((m) => ({ default: m.AuthorProfilePage })),
+);
 const EventPage = lazy(() =>
   import("../pages/Events/EventPage").then((m) => ({ default: m.EventPage })),
 );
@@ -45,6 +48,7 @@ export const router = createBrowserRouter([
           { path: "events", element: <SignUpEventsPage /> },
           { path: "SelectInterestPage", element: <SelectInterestPage /> },
           { path: "Profile", element: <UserProfile /> },
+          { path: "users/:id", element: <AuthorProfilePage /> },
           { path: "chats", element: <ChatPage /> },
           { path: "notifications", element: <NotificationsPage /> },
         ],
