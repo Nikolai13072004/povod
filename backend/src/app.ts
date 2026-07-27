@@ -8,6 +8,7 @@ import { eventsRouter } from "./routes/events";
 import { usersRouter } from "./routes/users";
 import { commentsRouter } from "./routes/comments";
 import { authRouter } from "./routes/auth";
+import { notificationsRouter } from "./routes/notifications";
 import { health, live, ready, ping, dbTime } from "./routes/health";
 import { csrfProtection } from "./auth/csrf";
 import { notFound, errorHandler } from "./middleware";
@@ -49,6 +50,7 @@ export function createApp() {
   app.use("/api/Events", eventsRouter);
   app.use("/api/Users", usersRouter);
   app.use("/api/Comments", commentsRouter);
+  app.use("/api/Notifications", notificationsRouter);
 
   app.get("/", (_req, res) => {
     res.json({
