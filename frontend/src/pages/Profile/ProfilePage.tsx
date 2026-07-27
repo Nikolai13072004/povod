@@ -9,6 +9,7 @@ import {
   ModalPage,
   ModalPageHeader,
   ModalDismissButton,
+  Button,
 } from "@vkontakte/vkui";
 import { Icon28CancelOutline, Icon20PlaceOutline, Icon24AddOutline } from "@vkontakte/icons";
 import styled from "@emotion/styled";
@@ -85,18 +86,22 @@ const UserName = styled.h2`
   color: var(--vkui--color_text_primary);
 `;
 
-const LocationWrapper = styled.div`
-  display: flex;
+/** Город кликабелен: открывает редактирование (FE-009). */
+const CityButton = styled.button`
+  display: inline-flex;
   align-items: center;
-  color: var(--vkui--color_text_secondary);
-  font-size: 14px;
-  gap: 4px;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
+  gap: 6px;
+  padding: 4px 8px;
+  min-height: 32px;
+  border: none;
+  background: none;
+  color: var(--vkui--color_text_secondary, #818c99);
+  font: inherit;
+  cursor: pointer;
 
-  svg {
-    flex-shrink: 0;
+  &:focus-visible {
+    outline: 2px solid #2d81e0;
+    outline-offset: 2px;
   }
 `;
 
@@ -193,6 +198,8 @@ const UserProfile = () => {
 
   const [friends, setFriends] = useState<{ id: string; name: string; avatar?: string }[]>([]);
   const [city, setCity] = useState("");
+  const [cityEditing, setCityEditing] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     // Реальные интересы пользователя (его выбор) — из локального хранилища
@@ -303,14 +310,24 @@ const UserProfile = () => {
     );
   };
 
-  const handleAddInterests = () => {
-    setInterests((prev) => {
-      const next = [...prev, ...selectedNewInterests.filter((i) => !prev.includes(i))];
-      setStoredInterests(sessionStore.user.id, next);
-      return next;
-    });
+  /** Интересы сохраняются на сервере (FE-009), локальный список — только кэш для мгновенного отклика. */
+  const handleAddInterests = async () => {
+    const next = [...interests, ...selectedNewInterests.filter((i) => !interests.includes(i))];
+    setInterests(next);
+    setStoredInterests(sessionStore.user.id, next);
     setActiveModal(null);
     setSelectedNewInterests([]);
+
+    const saved = await sessionStore.updateProfile({ interests: next });
+    if (!saved) setProfileError(sessionStore.error ?? "Не удалось сохранить интересы");
+  };
+
+  /** Сохранение города вручную (раньше он брался из VK и никуда не записывался). */
+  const handleSaveCity = async () => {
+    setProfileError(null);
+    const saved = await sessionStore.updateProfile({ city: city.trim() });
+    if (saved) setCityEditing(false);
+    else setProfileError(sessionStore.error ?? "Не удалось сохранить город");
   };
 
   return (
@@ -327,11 +344,41 @@ const UserProfile = () => {
           <ProfileWrapper>
             <Avatar size={96} src={sessionStore.user.avatar} />
             <UserName>{sessionStore.user.name}</UserName>
-            {(city || sessionStore.city) && (
-              <LocationWrapper>
+            {cityEditing ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  aria-label="Город"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Ваш город"
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #99c2f8",
+                    minWidth: 0,
+                  }}
+                />
+                <Button size="s" mode="primary" onClick={handleSaveCity}>
+                  Сохранить
+                </Button>
+                <Button size="s" mode="secondary" onClick={() => setCityEditing(false)}>
+                  Отмена
+                </Button>
+              </div>
+            ) : (
+              <CityButton
+                type="button"
+                onClick={() => setCityEditing(true)}
+                aria-label={city || sessionStore.city ? "Изменить город" : "Указать город"}
+              >
                 <Icon20PlaceOutline width={16} height={16} />
-                {city || sessionStore.city}
-              </LocationWrapper>
+                {city || sessionStore.city || "Указать город"}
+              </CityButton>
+            )}
+            {profileError && (
+              <div role="alert" style={{ color: "#e64646", fontSize: 13, marginTop: 6 }}>
+                {profileError}
+              </div>
             )}
           </ProfileWrapper>
 

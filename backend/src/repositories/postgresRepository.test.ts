@@ -83,6 +83,19 @@ test("migrations create the full schema and are recorded", { skip }, async () =>
     applied.rows.some((row) => row.version.startsWith("005")),
     "миграция 005 (индекс сортировки ленты) должна быть применена",
   );
+  assert.ok(
+    applied.rows.some((row) => row.version.startsWith("006")),
+    "миграция 006 (город пользователя) должна быть применена",
+  );
+
+  const userColumns = await pool.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = 'users'`,
+  );
+  assert.ok(
+    userColumns.rows.some((row) => row.column_name === "city"),
+    "у пользователей должна быть колонка city (BE-010)",
+  );
 
   const indexes = await pool.query<{ indexname: string }>(
     "SELECT indexname FROM pg_indexes WHERE schemaname = 'public'",
@@ -401,4 +414,19 @@ test("a user without content can be deleted", { skip }, async () => {
 
   assert.equal(await repository.deleteUser("u-temp"), true);
   assert.equal(await repository.getUser("u-temp"), undefined);
+});
+
+test("profile fields round-trip through SQL, including city (BE-010)", { skip }, async () => {
+  const repository = await freshRepository();
+
+  const before = await repository.getUser("u1");
+  assert.ok(before);
+  assert.equal(before.city, undefined, "у сид-пользователя города нет");
+
+  await repository.upsertUser({ ...before, name: "Эльмира Г.", city: "Казань", interests: ["IT"] });
+
+  const after = await repository.getUser("u1");
+  assert.equal(after?.name, "Эльмира Г.");
+  assert.equal(after?.city, "Казань");
+  assert.deepEqual(after?.interests, ["IT"]);
 });

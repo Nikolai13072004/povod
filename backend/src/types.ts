@@ -10,6 +10,8 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+  /** Город пользователя (BE-010). */
+  city?: string;
   interests?: string[];
   /** id-шники друзей */
   friends?: string[];
