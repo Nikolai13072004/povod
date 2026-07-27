@@ -7,6 +7,7 @@ import { sessionStore } from "../../stores/sessionStore";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 import { useToast } from "../../components/Toast/ToastProvider";
 import { EventOwnerControls } from "./EventOwnerControls";
+import { downloadEventIcs } from "../../utils/calendar";
 import bridge from "@vkontakte/vk-bridge";
 import {
   Panel,
@@ -206,6 +207,23 @@ function EventPageComponent() {
     }
   };
 
+  /** Экспорт события в календарь через .ics — работает без серверной части (PROD-010). */
+  const handleAddToCalendar = () => {
+    try {
+      downloadEventIcs({
+        id: eventData.id,
+        title: eventData.title,
+        description: eventData.description,
+        location: eventData.place ?? eventData.location,
+        startsAt: eventData.startsAt,
+        url: `${window.location.origin}/page-1/${eventData.id}`,
+      });
+      showToast("Файл календаря скачан", { type: "success" });
+    } catch {
+      showToast("Не удалось создать файл календаря", { type: "error" });
+    }
+  };
+
   const handleAddComment = async () => {
     const text = commentText.trim();
     if (!text || posting || !id) return;
@@ -320,6 +338,17 @@ function EventPageComponent() {
             onClick={handleInvite}
           >
             Пригласить друзей
+          </Button>
+
+          <div style={{ height: 8 }} />
+          <Button
+            size="l"
+            stretched
+            mode="tertiary"
+            before={<Icon28CalendarOutline width={20} height={20} />}
+            onClick={handleAddToCalendar}
+          >
+            Добавить в календарь
           </Button>
         </div>
 
