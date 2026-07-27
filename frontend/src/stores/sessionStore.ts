@@ -15,6 +15,7 @@ import {
 import { eventStore } from "./EventStore";
 import { filtersStore } from "./filtersStore";
 import { notificationsStore } from "./notificationsStore";
+import { favoritesStore } from "./favoritesStore";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -65,6 +66,9 @@ class SessionStore {
           this.initialized = true;
           this.isLoading = false;
         });
+        // Отметки нужны сразу: сердечки в ленте иначе покажут пустое состояние
+        // на уже отмеченных событиях (PROD-001).
+        void favoritesStore.load();
         return;
       }
       clearLocalSession();
@@ -144,6 +148,7 @@ class SessionStore {
     eventStore.resetSessionState();
     filtersStore.resetAll(); // фильтры не должны переезжать к следующему пользователю
     notificationsStore.reset(); // как и чужие уведомления со счётчиком на колокольчике
+    favoritesStore.reset(); // и чужое избранное
     runInAction(() => {
       this.user = CURRENT_USER;
       this.authenticated = false;
@@ -186,6 +191,7 @@ class SessionStore {
       this.authenticated = true;
       this.error = null;
     });
+    void favoritesStore.load();
   }
 
   private handleUnauthorized = (): void => {

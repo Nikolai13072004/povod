@@ -107,8 +107,8 @@ export class FilterState {
   }
 }
 
-/** Вкладки раздела «Мои события» (FE-008). */
-export type MyEventsTab = "all" | "created" | "attending";
+/** Вкладки раздела «Мои события» (FE-008, избранное — PROD-001). */
+export type MyEventsTab = "all" | "created" | "attending" | "favorites";
 
 class FiltersStore {
   /** Фильтры ленты (`/page-1`). */

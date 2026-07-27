@@ -23,6 +23,7 @@ import {
 import { InterestsFilter, DateFilter, TimeFilter, LocationFilter } from "../../components/Filters";
 import { filtersStore } from "../../stores/filtersStore";
 import { EventCover } from "../../components/EventCover/EventCover";
+import { FavoriteButton } from "../../components/Favorite/FavoriteButton";
 
 const PageContainer = styled.div`
   display: flex;
@@ -110,6 +111,7 @@ const FilterButton = styled.span`
 `;
 
 const EventCard = styled.div`
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -117,6 +119,14 @@ const EventCard = styled.div`
   background: var(--vkui--color_background_secondary);
   border-radius: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+`;
+
+/** Сердечко поверх обложки — там, где его ищут по привычке. */
+const CardFavorite = styled(FavoriteButton)`
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 1;
 `;
 const EventTitle = styled.h3`
   font-size: 16px;
@@ -294,6 +304,7 @@ function FirstPageComponent() {
             {filteredEvents.map((event) => (
               <EventCard key={event.id} onClick={() => navigate(`/page-1/${event.id}`)}>
                 <EventCover src={event.image} title={event.title} />
+                <CardFavorite eventId={event.id} />
                 <EventTitle>{event.title}</EventTitle>
                 <EventMeta>
                   <MetaRow>

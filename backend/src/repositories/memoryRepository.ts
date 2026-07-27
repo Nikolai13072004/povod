@@ -22,6 +22,7 @@ interface Snapshot {
   events: Event[];
   comments: Comment[];
   notifications?: Notification[];
+  favorites?: Array<[string, string[]]>;
   passwordCredentials?: Array<[string, string]>;
   sessions?: AuthSession[];
   externalIdentities?: ExternalIdentity[];
@@ -38,6 +39,8 @@ export class MemoryRepository implements PovodRepository {
   private events: Event[] = clone(seedEvents);
   private comments: Comment[] = clone(seedComments);
   private notifications: Notification[] = [];
+  /** Избранное: пользователь → идентификаторы событий (PROD-001). */
+  private favorites = new Map<string, Set<string>>();
   private passwordCredentials = new Map<string, string>();
   private sessions = new Map<string, AuthSession>();
   private externalIdentities = new Map<string, ExternalIdentity>();
@@ -62,6 +65,9 @@ export class MemoryRepository implements PovodRepository {
       this.events = clone(snapshot.events ?? []);
       this.comments = clone(snapshot.comments ?? []);
       this.notifications = clone(snapshot.notifications ?? []);
+      this.favorites = new Map(
+        (snapshot.favorites ?? []).map(([userId, eventIds]) => [userId, new Set(eventIds)]),
+      );
       this.passwordCredentials = new Map(snapshot.passwordCredentials ?? []);
       this.sessions = new Map(
         (snapshot.sessions ?? []).map((session) => [session.tokenHash, session]),
@@ -103,6 +109,10 @@ export class MemoryRepository implements PovodRepository {
     }
     if (filters.participant) {
       items = items.filter((event) => event.participantIds.includes(filters.participant!));
+    }
+    if (filters.favoritedBy) {
+      const favorites = this.favorites.get(filters.favoritedBy);
+      items = favorites ? items.filter((event) => favorites.has(event.id)) : [];
     }
     items = items.filter(
       (event) =>
@@ -157,6 +167,9 @@ export class MemoryRepository implements PovodRepository {
     for (const notification of this.notifications) {
       if (notification.eventId === id) notification.eventId = undefined;
     }
+    // А вот отметки «в избранном» уходят вместе с событием — ON DELETE CASCADE
+    // (миграция 008): иначе раздел показывал бы ссылки в никуда.
+    for (const owned of this.favorites.values()) owned.delete(id);
     this.scheduleSave();
     return true;
   }
@@ -177,6 +190,22 @@ export class MemoryRepository implements PovodRepository {
     event.participants = event.participantIds.length;
     this.scheduleSave();
     return clone(event);
+  }
+
+  async addFavorite(userId: string, eventId: string): Promise<boolean> {
+    if (!this.events.some((event) => event.id === eventId)) return false;
+    const owned = this.favorites.get(userId) ?? new Set<string>();
+    owned.add(eventId);
+    this.favorites.set(userId, owned);
+    this.scheduleSave();
+    return true;
+  }
+
+  async removeFavorite(userId: string, eventId: string): Promise<boolean> {
+    if (!this.events.some((event) => event.id === eventId)) return false;
+    // Удаление несуществующей отметки — не ошибка: нажали «убрать» дважды.
+    if (this.favorites.get(userId)?.delete(eventId)) this.scheduleSave();
+    return true;
   }
 
   async listUsers(): Promise<User[]> {
@@ -235,6 +264,7 @@ export class MemoryRepository implements PovodRepository {
     for (const notification of this.notifications) {
       if (notification.actorId === id) notification.actorId = undefined;
     }
+    this.favorites.delete(id);
     this.scheduleSave();
     return true;
   }
@@ -410,6 +440,7 @@ export class MemoryRepository implements PovodRepository {
               events: this.events,
               comments: this.comments,
               notifications: this.notifications,
+              favorites: [...this.favorites.entries()].map(([userId, ids]) => [userId, [...ids]]),
               passwordCredentials: [...this.passwordCredentials.entries()],
               sessions: [...this.sessions.values()],
               externalIdentities: [...this.externalIdentities.values()],

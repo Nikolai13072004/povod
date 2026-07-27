@@ -277,6 +277,12 @@ export class PostgresRepository implements PovodRepository {
         filters.participant,
       );
     }
+    if (filters.favoritedBy) {
+      add(
+        "EXISTS (SELECT 1 FROM event_favorites fav WHERE fav.event_id = e.id AND fav.user_id = ?)",
+        filters.favoritedBy,
+      );
+    }
     if (filters.viewerId) {
       values.push(filters.viewerId);
       conditions.push(
@@ -418,6 +424,35 @@ export class PostgresRepository implements PovodRepository {
       return true;
     });
     return left ? this.getEvent(eventId) : undefined;
+  }
+
+  async addFavorite(userId: string, eventId: string): Promise<boolean> {
+    // ON CONFLICT DO NOTHING по первичному ключу (user_id, event_id): повторное
+    // нажатие не ошибка и не дубль даже при одновременных запросах.
+    const result = await this.pool.query(
+      `INSERT INTO event_favorites (user_id, event_id)
+       SELECT $1, $2 WHERE EXISTS (SELECT 1 FROM events WHERE id = $2)
+       ON CONFLICT DO NOTHING`,
+      [userId, eventId],
+    );
+    // Вставки могло не быть по двум причинам: событие отсутствует или отметка
+    // уже стоит. Различаем их отдельной проверкой, чтобы не отвечать 404 на
+    // повторное нажатие.
+    if ((result.rowCount ?? 0) > 0) return true;
+    return this.eventExists(eventId);
+  }
+
+  async removeFavorite(userId: string, eventId: string): Promise<boolean> {
+    await this.pool.query("DELETE FROM event_favorites WHERE user_id = $1 AND event_id = $2", [
+      userId,
+      eventId,
+    ]);
+    return this.eventExists(eventId);
+  }
+
+  private async eventExists(eventId: string): Promise<boolean> {
+    const result = await this.pool.query("SELECT 1 FROM events WHERE id = $1", [eventId]);
+    return (result.rowCount ?? 0) > 0;
   }
 
   async listUsers(): Promise<User[]> {

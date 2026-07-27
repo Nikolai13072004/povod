@@ -88,6 +88,18 @@ eventsRouter.get(
   }),
 );
 
+// Объявлено до «/:id», иначе слово favorites было бы разобрано как идентификатор.
+eventsRouter.get(
+  "/favorites",
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    const user = getAuthUser(res.locals as AuthLocals);
+    // viewerId тот же: если открытое событие позже стало приватным, оно уйдёт
+    // из избранного само, без отдельной чистки.
+    res.json(await getRepository().listEvents({ favoritedBy: user.id, viewerId: user.id }));
+  }),
+);
+
 eventsRouter.get(
   "/author/:authorId",
   optionalAuth,
@@ -213,6 +225,35 @@ eventsRouter.post(
     // Повторное нажатие идемпотентно и не должно рождать второе уведомление.
     if (event && !alreadyJoined) await notifyEventJoined(event, user);
     res.json(event);
+  }),
+);
+
+/**
+ * Избранное идемпотентно: повторное нажатие возвращает тот же 204, а не ошибку.
+ * Интерфейс не обязан знать текущее состояние отметки, чтобы её выставить.
+ */
+eventsRouter.post(
+  "/:id/favorite",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = getAuthUser(res.locals as AuthLocals);
+    const event = await getRepository().getEvent(req.params.id);
+    // Приватное чужое событие не должно даже подтверждать своё существование.
+    if (!event || !canViewEvent(event, user.id)) throw new HttpError(404, "Event not found");
+    await getRepository().addFavorite(user.id, event.id);
+    res.status(204).send();
+  }),
+);
+
+eventsRouter.delete(
+  "/:id/favorite",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = getAuthUser(res.locals as AuthLocals);
+    if (!(await getRepository().removeFavorite(user.id, req.params.id))) {
+      throw new HttpError(404, "Event not found");
+    }
+    res.status(204).send();
   }),
 );
 

@@ -875,3 +875,112 @@ test("profile update requires a session and validates input (BE-010)", async (co
   );
   assert.equal(spoofedAvatar.status, 400);
 });
+
+async function favoritesOf(baseUrl: string, token: string): Promise<string[]> {
+  const response = await fetch(`${baseUrl}/api/Events/favorites`, authorized(token));
+  assert.equal(response.status, 200);
+  return ((await response.json()) as Array<{ id: string }>).map((event) => event.id);
+}
+
+test("favorites: adding and removing are idempotent", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  assert.deepEqual(await favoritesOf(baseUrl, token), []);
+
+  // Повторное нажатие не ошибка и не дубль: интерфейс не обязан знать текущее
+  // состояние отметки, чтобы её выставить.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(
+      `${baseUrl}/api/Events/2/favorite`,
+      authorized(token, { method: "POST" }),
+    );
+    assert.equal(response.status, 204);
+  }
+  assert.deepEqual(await favoritesOf(baseUrl, token), ["2"]);
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(
+      `${baseUrl}/api/Events/2/favorite`,
+      authorized(token, { method: "DELETE" }),
+    );
+    assert.equal(response.status, 204);
+  }
+  assert.deepEqual(await favoritesOf(baseUrl, token), []);
+});
+
+test("favorites are private to their owner and independent of participation", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const other = await registerUser(baseUrl, { email: "fav-other@povod.app" });
+
+  await fetch(`${baseUrl}/api/Events/2/favorite`, authorized(owner, { method: "POST" }));
+
+  // Чужое избранное не видно и не смешивается.
+  assert.deepEqual(await favoritesOf(baseUrl, other.token), []);
+
+  // Отметка не означает участие: событие не должно появиться в «Посещаю».
+  const mine = await fetch(`${baseUrl}/api/Events/mine`, authorized(owner));
+  const { attending } = (await mine.json()) as { attending: Array<{ id: string }> };
+  assert.equal(
+    attending.some((event) => event.id === "2"),
+    false,
+  );
+});
+
+test("favorites hide a private event instead of revealing it", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const stranger = await registerUser(baseUrl, { email: "fav-stranger@povod.app" });
+
+  const created = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(owner, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Закрытая встреча",
+        startsAt: "2026-11-01T12:00:00.000Z",
+        timezone: "Europe/Moscow",
+        location: "Дом",
+        format: "private",
+      }),
+    }),
+  );
+  const event = (await created.json()) as { id: string };
+
+  // 404, а не 403: иначе ответ подтвердил бы существование приватного события.
+  const forbidden = await fetch(
+    `${baseUrl}/api/Events/${event.id}/favorite`,
+    authorized(stranger.token, { method: "POST" }),
+  );
+  assert.equal(forbidden.status, 404);
+  assert.deepEqual(await favoritesOf(baseUrl, stranger.token), []);
+});
+
+test("favorites disappear together with the event and require a session", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  const created = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Исчезающее событие",
+        startsAt: "2026-11-02T12:00:00.000Z",
+        timezone: "Europe/Moscow",
+        location: "Парк",
+      }),
+    }),
+  );
+  const event = (await created.json()) as { id: string };
+  await fetch(`${baseUrl}/api/Events/${event.id}/favorite`, authorized(token, { method: "POST" }));
+  assert.deepEqual(await favoritesOf(baseUrl, token), [event.id]);
+
+  await fetch(`${baseUrl}/api/Events/${event.id}`, authorized(token, { method: "DELETE" }));
+  // Иначе раздел показывал бы ссылки в никуда.
+  assert.deepEqual(await favoritesOf(baseUrl, token), []);
+
+  assert.equal((await fetch(`${baseUrl}/api/Events/favorites`)).status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/Events/2/favorite`, { method: "POST" })).status, 401);
+});
