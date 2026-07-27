@@ -27,11 +27,29 @@ const environmentSchema = z
       }),
     DATABASE_SSL: z.enum(["auto", "true", "false"]).default("auto"),
     AUTH_SESSION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    // Куки браузерной сессии (SEC-001). `lax` подходит, когда фронт и API живут
+    // на одном сайте (в т.ч. разные порты localhost или поддомены одного домена).
+    // `none` нужен только для настоящего cross-site и требует HTTPS.
+    AUTH_COOKIE_SAMESITE: z.enum(["lax", "strict", "none"]).default("lax"),
+    AUTH_COOKIE_SECURE: z.enum(["auto", "true", "false"]).default("auto"),
+    AUTH_COOKIE_DOMAIN: z.string().trim().default(""),
     DEMO_AUTH_ENABLED: booleanValue.optional(),
     DEMO_AUTH_PASSWORD: z.string().min(8).default("povod-demo"),
     ENABLE_EXTERNAL_EVENTS: booleanValue.default("true"),
   })
   .superRefine((environment, context) => {
+    // Браузер молча отбрасывает `SameSite=None` без `Secure` — ловим это на старте,
+    // иначе вход просто перестанет работать без единой ошибки в логах.
+    if (
+      environment.AUTH_COOKIE_SAMESITE === "none" &&
+      resolveCookieSecure(environment.AUTH_COOKIE_SECURE, environment.NODE_ENV) === false
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["AUTH_COOKIE_SECURE"],
+        message: "must be true when AUTH_COOKIE_SAMESITE is 'none' (browsers drop such cookies)",
+      });
+    }
     if (environment.NODE_ENV !== "production") return;
     if (environment.CORS_ORIGIN === "*") {
       context.addIssue({
@@ -48,6 +66,12 @@ const environmentSchema = z
       });
     }
   });
+
+/** `auto` = «включить Secure там, где точно HTTPS», то есть в production. */
+function resolveCookieSecure(value: "auto" | "true" | "false", nodeEnv: string): boolean {
+  if (value === "auto") return nodeEnv === "production";
+  return value === "true";
+}
 
 function isHttpOrigin(value: string): boolean {
   try {
@@ -84,6 +108,9 @@ export interface AppConfig {
   databaseUrl: string;
   databaseSsl: "auto" | "true" | "false";
   authSessionDays: number;
+  authCookieSameSite: "lax" | "strict" | "none";
+  authCookieSecure: boolean;
+  authCookieDomain: string;
   demoAuthEnabled: boolean;
   demoAuthPassword: string;
   externalEvents: boolean;
@@ -111,6 +138,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     databaseUrl: values.DATABASE_URL,
     databaseSsl: values.DATABASE_SSL,
     authSessionDays: values.AUTH_SESSION_DAYS,
+    authCookieSameSite: values.AUTH_COOKIE_SAMESITE,
+    authCookieSecure: resolveCookieSecure(values.AUTH_COOKIE_SECURE, values.NODE_ENV),
+    authCookieDomain: values.AUTH_COOKIE_DOMAIN,
     demoAuthEnabled: values.DEMO_AUTH_ENABLED ?? values.NODE_ENV !== "production",
     demoAuthPassword: values.DEMO_AUTH_PASSWORD,
     externalEvents: values.ENABLE_EXTERNAL_EVENTS,

@@ -1,6 +1,7 @@
 import type { Request, RequestHandler } from "express";
 import { asyncHandler, HttpError } from "../middleware";
 import { resolveSession } from "./session";
+import { SESSION_COOKIE, readCookie } from "./cookies";
 import type { User } from "../types";
 
 export interface AuthLocals {
@@ -14,8 +15,22 @@ function getBearerToken(req: Request): string {
   return match?.[1]?.trim() ?? "";
 }
 
+/**
+ * Источники токена в порядке приоритета: `HttpOnly`-кука браузера (SEC-001),
+ * затем заголовок `Authorization` — им пользуются VK Mini App внутри iframe,
+ * где сторонние куки могут быть заблокированы, и не-браузерные клиенты.
+ */
+async function resolveRequestSession(req: Request) {
+  for (const token of [readCookie(req, SESSION_COOKIE), getBearerToken(req)]) {
+    if (!token) continue;
+    const session = await resolveSession(token);
+    if (session) return session;
+  }
+  return undefined;
+}
+
 export const optionalAuth: RequestHandler = asyncHandler(async (req, res, next) => {
-  const session = await resolveSession(getBearerToken(req));
+  const session = await resolveRequestSession(req);
   if (session) {
     const locals = res.locals as AuthLocals;
     locals.authUser = session.user;
@@ -25,7 +40,7 @@ export const optionalAuth: RequestHandler = asyncHandler(async (req, res, next) 
 });
 
 export const requireAuth: RequestHandler = asyncHandler(async (req, res, next) => {
-  const session = await resolveSession(getBearerToken(req));
+  const session = await resolveRequestSession(req);
   if (!session) throw new HttpError(401, "Authentication required");
   const locals = res.locals as AuthLocals;
   locals.authUser = session.user;
