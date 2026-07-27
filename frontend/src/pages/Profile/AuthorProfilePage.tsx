@@ -66,7 +66,7 @@ const EventCard = styled.button`
   min-width: 0;
 
   &:focus-visible {
-    outline: 2px solid #2d81e0;
+    outline: 2px solid var(--povod-primary);
     outline-offset: 2px;
   }
 `;

@@ -1,32 +1,49 @@
-/* index.css — светлая палитра по умолчанию (VKUI и кастомные формы/модалки) */
-:root,
-[data-theme="light"],
-[data-theme="dark"] {
-  --bg-color: #ebf2fa;
-  --text-color: #1d1d1d;
-  --accent-color: #2d81e0;
+/**
+ * index.css — связывает токены POVOD с переменными VKUI (UX-001).
+ *
+ * Раньше здесь были захардкожены светлые цвета с `!important`, поэтому тёмная
+ * тема не могла заработать в принципе. Теперь всё ссылается на `tokens.css`,
+ * и обе темы переключаются одним атрибутом `data-theme` на <html>.
+ */
+
+@import "./styles/tokens.css";
+
+/* Совместимость: этими именами пользуются существующие компоненты. */
+:root {
+  --bg-color: var(--povod-bg);
+  --text-color: var(--povod-text);
+  --accent-color: var(--povod-primary);
 }
 
-body,
 html,
+body,
 #root {
-  background: #ebf2fa !important;
-  color: var(--text-color);
+  background: var(--povod-bg);
+  color: var(--povod-text);
 }
 
-/* #chat .vkuiGroup {
-  background-color: #ffffff !important;
-} */
-
+/* Переменные VKUI выводим из наших токенов, чтобы его компоненты
+   (Panel, Group, SimpleCell, Button…) следовали выбранной теме. */
 .vkui--force-custom-colors,
 :root {
-  --vkui--color_background_primary: #ebf2fa !important;
-  --vkui--color_background_secondary: #ffffff !important;
-  --vkui--color_background_tertiary: #ebf2fa !important;
-  --vkui--color_background_content: #ffffff !important;
-  --vkui--color_text_primary: #1d1d1d !important;
-  --vkui--color_text_secondary: #6b7a99 !important;
-  --vkui--color_text_tertiary: #818c99 !important;
-  --vkui--color_separator_primary: rgba(0, 0, 0, 0.08) !important;
-  --vkui--color_separator_primary_alpha: rgba(0, 0, 0, 0.08) !important;
+  --vkui--color_background: var(--povod-bg) !important;
+  --vkui--color_background_primary: var(--povod-bg) !important;
+  --vkui--color_background_secondary: var(--povod-surface) !important;
+  --vkui--color_background_tertiary: var(--povod-bg) !important;
+  --vkui--color_background_content: var(--povod-surface) !important;
+  --vkui--color_background_modal: var(--povod-surface) !important;
+
+  --vkui--color_text_primary: var(--povod-text) !important;
+  --vkui--color_text_secondary: var(--povod-text-secondary) !important;
+  --vkui--color_text_tertiary: var(--povod-text-secondary) !important;
+  --vkui--color_text_accent: var(--povod-primary) !important;
+  --vkui--color_text_negative: var(--povod-danger) !important;
+
+  --vkui--color_background_accent: var(--povod-primary) !important;
+  --vkui--color_background_accent_themed: var(--povod-primary) !important;
+
+  --vkui--color_separator_primary: var(--povod-border) !important;
+  --vkui--color_separator_primary_alpha: var(--povod-border) !important;
+
+  --vkui--color_icon_secondary: var(--povod-text-secondary) !important;
 }

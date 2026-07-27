@@ -33,8 +33,8 @@ const ModalContent = styled.div<{
   $mode: "light" | "dark";
   size: "sm" | "md" | "lg";
 }>`
-  background: #ffffff !important;
-  color: #1d1d1d !important;
+  background: var(--povod-surface) !important;
+  color: var(--povod-text) !important;
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
   ${(props) => getSizeStyles(props.size)}

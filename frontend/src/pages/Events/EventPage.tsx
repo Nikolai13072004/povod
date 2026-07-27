@@ -310,7 +310,7 @@ function EventPageComponent() {
                 stretched
                 loading={loading}
                 onClick={handleLeave}
-                style={{ background: "#e05b5b", color: "white" }}
+                style={{ background: "var(--povod-danger)", color: "white" }}
               >
                 Отписаться
               </Button>

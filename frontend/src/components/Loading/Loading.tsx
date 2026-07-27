@@ -14,7 +14,11 @@ interface SpinnerProps {
   color?: string;
 }
 
-const Spinner: React.FC<SpinnerProps> = ({ size = "md", strokeWidth = 6, color = "#3182ce" }) => {
+const Spinner: React.FC<SpinnerProps> = ({
+  size = "md",
+  strokeWidth = 6,
+  color = "var(--povod-primary)",
+}) => {
   const finalSize = typeof size === "number" ? size : sizeMap[size];
 
   const center = finalSize / 2;
@@ -28,7 +32,7 @@ const Spinner: React.FC<SpinnerProps> = ({ size = "md", strokeWidth = 6, color =
           cx={center}
           cy={center}
           r={radius}
-          stroke="#e2e8f0"
+          stroke="var(--povod-border-strong)"
           strokeWidth={1}
           fill="transparent"
         />

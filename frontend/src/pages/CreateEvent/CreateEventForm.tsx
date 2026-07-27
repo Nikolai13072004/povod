@@ -17,12 +17,12 @@ const FormContainer = styled.div`
   min-height: 100dvh;
   padding: 16px;
   /* Светло-голубой фон как на макете */
-  background: #ebf2fa;
+  background: var(--povod-bg);
   padding-bottom: 100px;
 `;
 
 const Section = styled.section`
-  background: #ffffff;
+  background: var(--povod-surface);
   margin-bottom: 12px;
   padding: 20px;
   border-radius: 20px;
@@ -34,7 +34,7 @@ const Label = styled.label`
   display: block;
   margin-bottom: 12px;
   font-weight: 500;
-  color: #909499; /* Серый текст меток */
+  color: var(--povod-text-secondary); /* Серый текст меток */
   font-size: 14px;
 `;
 
@@ -42,20 +42,20 @@ const Input = styled.input`
   width: 100%;
   box-sizing: border-box;
   padding: 12px 16px;
-  border: 1px solid #99c2f8; /* Голубая рамка */
+  border: 1px solid var(--povod-border-strong); /* Голубая рамка */
   border-radius: 12px;
   font-size: 16px;
-  background: #f2f5f9;
-  color: #2c3e50;
+  background: var(--povod-surface-muted);
+  color: var(--povod-text);
 
   &::placeholder {
-    color: #909499;
+    color: var(--povod-text-secondary);
   }
 
   &:focus {
     outline: none;
-    background: #ffffff;
-    border-color: #3f8ae0;
+    background: var(--povod-surface);
+    border-color: var(--povod-primary);
   }
 `;
 
@@ -74,14 +74,14 @@ const PhotoButton = styled.button<{ $isActive?: boolean }>`
   border: none;
   border-radius: 12px;
   /* Цвета кнопок из макета */
-  background: ${(props) => (props.$isActive ? "#94a3b8" : "#f0f2f5")};
-  color: ${(props) => (props.$isActive ? "#ffffff" : "#818c99")};
+  background: ${(props) => (props.$isActive ? "var(--povod-text-secondary)" : "var(--povod-surface-muted)")};
+  color: ${(props) => (props.$isActive ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
 
   svg {
-    color: ${(props) => (props.$isActive ? "#ffffff" : "#818c99")};
+    color: ${(props) => (props.$isActive ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
   }
 `;
 
@@ -93,16 +93,17 @@ const CategoryGrid = styled.div`
 
 const CategoryChip = styled.button<{ $active: boolean }>`
   padding: 10px 16px;
-  border: 1px solid ${(props) => (props.$active ? "#3f8ae0" : "#e1e3e6")};
+  border: 1px solid
+    ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-border-strong)")};
   border-radius: 10px;
-  background: #ffffff;
-  color: ${(props) => (props.$active ? "#3f8ae0" : "#818c99")};
+  background: var(--povod-surface);
+  color: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-text-secondary)")};
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    background: #f5f7f8;
+    background: var(--povod-surface-muted);
   }
 `;
 
@@ -187,7 +188,7 @@ const TextArea = styled.textarea`
 //     props.$isActive
 //       ? "var(--vkui--color_background_accent)"
 //       : "var(--vkui--color_background_canvas)"};
-//   color: ${(props) => (props.$isActive ? "#ffffff" : "var(--vkui--color_text_primary)")};
+//   color: ${(props) => (props.$isActive ? "var(--povod-on-primary)" : "var(--vkui--color_text_primary)")};
 //   font-size: 15px;
 //   cursor: pointer;
 //   transition:
@@ -200,7 +201,7 @@ const TextArea = styled.textarea`
 //   }
 
 //   svg {
-//     color: ${(props) => (props.$isActive ? "#ffffff" : "var(--vkui--color_icon_secondary)")};
+//     color: ${(props) => (props.$isActive ? "var(--povod-on-primary)" : "var(--vkui--color_icon_secondary)")};
 //   }
 // `;
 
@@ -220,7 +221,7 @@ const TextArea = styled.textarea`
 //     props.$active
 //       ? "var(--vkui--color_background_accent)"
 //       : "var(--vkui--color_background_canvas)"};
-//   color: ${(props) => (props.$active ? "#ffffff" : "var(--vkui--color_text_primary)")};
+//   color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--vkui--color_text_primary)")};
 //   font-size: 14px;
 //   font-weight: 600;
 //   cursor: pointer;
@@ -271,7 +272,7 @@ const SubmitSection = styled.div`
 
 const SubmitError = styled.div`
   margin-bottom: 12px;
-  color: var(--vkui--color_text_negative, #e64646);
+  color: var(--vkui--color_text_negative, var(--povod-danger));
   font-size: 14px;
   line-height: 1.4;
   text-align: center;
@@ -293,8 +294,8 @@ const SegmentButton = styled.button<{ $active: boolean }>`
   cursor: pointer;
   transition: all 0.2s ease;
 
-  background: ${(props) => (props.$active ? "#2D81E0" : "#EBEDF0")};
-  color: ${(props) => (props.$active ? "#FFFFFF" : "#818C99")};
+  background: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-surface-muted)")};
+  color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
 
   &:hover {
     opacity: 0.9;
@@ -444,7 +445,7 @@ export default function CreateEventForm() {
     <FormContainer>
       <div
         style={{
-          background: "#2D81E0",
+          background: "var(--povod-primary)",
           padding: "20px 16px",
           margin: "-16px -16px 16px -16px",
           textAlign: "center",

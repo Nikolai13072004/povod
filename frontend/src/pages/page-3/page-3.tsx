@@ -61,7 +61,7 @@ const CardGrid = styled.div`
 `;
 
 const Card = styled.div`
-  background: white;
+  background: var(--povod-surface);
   border-radius: 16px;
   padding: 12px;
   display: flex;
@@ -86,7 +86,7 @@ const EventTitle = styled.h3`
   margin: 0 0 4px 0;
   font-size: 15px;
   font-weight: 700;
-  color: #000;
+  color: var(--povod-text);
 `;
 
 const StatusTag = styled.span`
@@ -95,15 +95,15 @@ const StatusTag = styled.span`
   justify-content: center;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #d6f5e4;
-  color: #0f7a3c;
+  background: var(--povod-success-surface);
+  color: var(--povod-success);
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 6px;
 `;
 
 const ActionButton = styled.button`
-  background-color: #2d81e0;
+  background-color: var(--povod-primary);
   color: white;
   border: none;
   border-radius: 10px;
@@ -123,7 +123,7 @@ const DetailRow = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #818c99;
+  color: var(--povod-text-secondary);
   font-size: 12px;
   margin-bottom: 2px;
   padding-top: 4px;
@@ -149,16 +149,16 @@ const FilterWrapper = styled.button<{ $active?: boolean }>`
   padding: 8px 12px;
   min-height: 40px;
   box-sizing: border-box;
-  background: ${(props) => (props.$active ? "#2d81e0" : "#f2f3f5")};
-  border: 1px solid #2d81e0;
+  background: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-surface-muted)")};
+  border: 1px solid var(--povod-primary);
   border-radius: 10px;
   cursor: pointer;
   font: inherit;
-  color: ${(props) => (props.$active ? "#ffffff" : "#2d81e0")};
+  color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--povod-primary)")};
   white-space: nowrap;
 
   &:focus-visible {
-    outline: 2px solid #2d81e0;
+    outline: 2px solid var(--povod-primary);
     outline-offset: 2px;
   }
 
@@ -178,10 +178,11 @@ const TabButton = styled.button<{ $active: boolean }>`
   flex: 1 1 auto;
   min-height: 40px;
   padding: 8px 14px;
-  border: 1px solid ${(props) => (props.$active ? "#2d81e0" : "#e1e3e6")};
+  border: 1px solid
+    ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-border-strong)")};
   border-radius: 12px;
-  background: ${(props) => (props.$active ? "#2d81e0" : "#ffffff")};
-  color: ${(props) => (props.$active ? "#ffffff" : "#818c99")};
+  background: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-surface)")};
+  color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -194,9 +195,9 @@ const TabButton = styled.button<{ $active: boolean }>`
 
 /** Чип сброса — как в ленте, появляется только при активных фильтрах. */
 const ResetChip = styled(FilterWrapper)`
-  background: #ffffff;
-  border-color: #e05b5b;
-  color: #e05b5b;
+  background: var(--povod-surface);
+  border-color: var(--povod-danger);
+  color: var(--povod-danger);
 `;
 
 const FilterButton = styled.span`

@@ -1,0 +1,123 @@
+/**
+ * Токены оформления POVOD (UX-001).
+ *
+ * Единственный источник цветов, радиусов и теней. Раньше значения были
+ * захардкожены в компонентах: только «фирменных» синих было четыре почти
+ * неразличимых оттенка (#2d81e0, #2688eb, #2d78df, #3388ee), а тёмная тема
+ * не работала — под `[data-theme="dark"]` лежали те же светлые цвета.
+ *
+ * Тема выбирается так:
+ *   1. явный выбор пользователя — атрибут `data-theme` на <html>;
+ *   2. если выбора нет — системная настройка (`prefers-color-scheme`).
+ */
+
+:root {
+  /**
+   * Бренд. За основу взят самый частый прежний оттенок #2d81e0, но затемнён:
+   * белый текст на нём давал контраст 3.94:1 и не проходил WCAG AA (нужно 4.5:1).
+   * Текущий даёт 5:1 при том же тоне.
+   */
+  --povod-primary: #2170c6;
+  --povod-primary-hover: #1b68bd;
+  --povod-primary-active: #155ca8;
+  --povod-on-primary: #ffffff;
+
+  /* Поверхности */
+  --povod-bg: #ebf2fa;
+  --povod-surface: #ffffff;
+  --povod-surface-muted: #f2f3f5;
+
+  /* Текст */
+  --povod-text: #1d1d1d;
+  /* Прежний #818c99 на белом давал контраст ~2.9:1 и не проходил WCAG AA. */
+  --povod-text-secondary: #5b6b7f;
+
+  /* Границы и разделители */
+  --povod-border: rgba(0, 0, 0, 0.08);
+  --povod-border-strong: #d7dbe0;
+
+  /* Статусы */
+  --povod-danger: #c8383d;
+  --povod-danger-on-surface: #ffffff;
+  --povod-success: #0f7a3c;
+  --povod-success-surface: #d6f5e4;
+
+  /* Формы */
+  --povod-radius-sm: 10px;
+  --povod-radius-md: 14px;
+  --povod-radius-lg: 20px;
+  --povod-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --povod-focus-ring-width: 2px;
+  --povod-focus-ring-offset: 2px;
+}
+
+/* Тёмная тема: явный выбор пользователя. */
+[data-theme="dark"] {
+  /* На тёмном фоне исходный синий слишком тёмный — берём светлее той же гаммы. */
+  --povod-primary: #4f9bef;
+  --povod-primary-hover: #6cb0f5;
+  --povod-primary-active: #3d87d6;
+  --povod-on-primary: #0b1219;
+
+  --povod-bg: #0f151d;
+  --povod-surface: #19212c;
+  --povod-surface-muted: #232d3b;
+
+  --povod-text: #e9eff7;
+  --povod-text-secondary: #a4b2c4;
+
+  --povod-border: rgba(255, 255, 255, 0.1);
+  --povod-border-strong: #33404f;
+
+  --povod-danger: #f0787c;
+  --povod-danger-on-surface: #1a1010;
+  --povod-success: #5fd193;
+  --povod-success-surface: #143528;
+
+  --povod-shadow-card: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* Системная тёмная тема — пока пользователь не выбрал явно. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --povod-primary: #4f9bef;
+    --povod-primary-hover: #6cb0f5;
+    --povod-primary-active: #3d87d6;
+    --povod-on-primary: #0b1219;
+
+    --povod-bg: #0f151d;
+    --povod-surface: #19212c;
+    --povod-surface-muted: #232d3b;
+
+    --povod-text: #e9eff7;
+    --povod-text-secondary: #a4b2c4;
+
+    --povod-border: rgba(255, 255, 255, 0.1);
+    --povod-border-strong: #33404f;
+
+    --povod-danger: #f0787c;
+    --povod-danger-on-surface: #1a1010;
+    --povod-success: #5fd193;
+    --povod-success-surface: #143528;
+
+    --povod-shadow-card: 0 4px 14px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* Единый видимый фокус для клавиатурной навигации (UX-003). */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: var(--povod-focus-ring-width) solid var(--povod-primary);
+  outline-offset: var(--povod-focus-ring-offset);
+}
+
+/* Уважаем системную настройку «меньше движения» (UX-012). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

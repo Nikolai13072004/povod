@@ -32,7 +32,7 @@ const Avatar = styled.button<{ $avatar?: string }>`
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #ceddf7;
+  background-color: var(--povod-surface-muted);
   background-image: url(${(props) => props.$avatar || ""});
   background-size: cover;
   background-position: center;
@@ -41,7 +41,7 @@ const Avatar = styled.button<{ $avatar?: string }>`
   cursor: pointer;
 
   &:focus-visible {
-    outline: 2px solid var(--vkui--color_text_accent, #2d81e0);
+    outline: 2px solid var(--vkui--color_text_accent, var(--povod-primary));
     outline-offset: 2px;
   }
 `;

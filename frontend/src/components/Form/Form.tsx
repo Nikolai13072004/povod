@@ -58,7 +58,7 @@ export const Label = ({ htmlFor, children, required }: LabelProps) => {
   return (
     <StyledLabel htmlFor={htmlFor} $mode={theme}>
       {children}
-      {required && <span style={{ color: "#dc2626" }}> *</span>}
+      {required && <span style={{ color: "var(--povod-danger)" }}> *</span>}
     </StyledLabel>
   );
 };
@@ -66,27 +66,28 @@ export const Label = ({ htmlFor, children, required }: LabelProps) => {
 // Input component
 const StyledInput = styled.input<{ $mode: "light" | "dark"; error?: boolean }>`
   padding: 10px 12px;
-  border: 1px solid ${(props) => (props.error ? "#dc2626" : "#d0d5dd")};
+  border: 1px solid
+    ${(props) => (props.error ? "var(--povod-danger)" : "var(--povod-border-strong)")};
   border-radius: 6px;
   font-size: 14px;
   font-family: inherit;
-  background: #ffffff;
+  background: var(--povod-surface);
   color: var(--text-color);
   transition: all 0.3s ease;
 
   &:focus {
     outline: none;
-    border-color: ${(props) => (props.error ? "#dc2626" : "#2563eb")};
+    border-color: ${(props) => (props.error ? "var(--povod-danger)" : "var(--povod-primary)")};
     box-shadow: ${(props) =>
       props.error ? "0 0 0 3px rgba(220, 38, 38, 0.15)" : "0 0 0 3px rgba(37, 99, 235, 0.15)"};
   }
 
   &::placeholder {
-    color: #94a3b8;
+    color: var(--povod-text-secondary);
   }
 
   &:disabled {
-    background: #f5f7fb;
+    background: var(--povod-surface-muted);
     cursor: not-allowed;
   }
 `;
@@ -106,11 +107,12 @@ const StyledTextarea = styled.textarea<{
   error?: boolean;
 }>`
   padding: 10px 12px;
-  border: 1px solid ${(props) => (props.error ? "#dc2626" : "#d0d5dd")};
+  border: 1px solid
+    ${(props) => (props.error ? "var(--povod-danger)" : "var(--povod-border-strong)")};
   border-radius: 6px;
   font-size: 14px;
   font-family: inherit;
-  background: #ffffff;
+  background: var(--povod-surface);
   color: var(--text-color);
   resize: vertical;
   min-height: 90px;
@@ -118,17 +120,17 @@ const StyledTextarea = styled.textarea<{
 
   &:focus {
     outline: none;
-    border-color: ${(props) => (props.error ? "#dc2626" : "#2563eb")};
+    border-color: ${(props) => (props.error ? "var(--povod-danger)" : "var(--povod-primary)")};
     box-shadow: ${(props) =>
       props.error ? "0 0 0 3px rgba(220, 38, 38, 0.15)" : "0 0 0 3px rgba(37, 99, 235, 0.15)"};
   }
 
   &::placeholder {
-    color: #94a3b8;
+    color: var(--povod-text-secondary);
   }
 
   &:disabled {
-    background: #f5f7fb;
+    background: var(--povod-surface-muted);
     cursor: not-allowed;
   }
 `;
@@ -145,7 +147,7 @@ export const Textarea = ({ error = false, ...props }: TextareaProps) => {
 
 const ErrorContainer = styled.span<{ $mode: "light" | "dark" }>`
   font-size: 12px;
-  color: #dc2626;
+  color: var(--povod-danger);
   display: block;
 `;
 

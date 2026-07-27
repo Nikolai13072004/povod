@@ -20,6 +20,7 @@ import { sessionStore } from "../../stores/sessionStore";
 import { observer } from "mobx-react-lite";
 import bridge from "@vkontakte/vk-bridge";
 import { getStoredInterests, setStoredInterests } from "../../storage";
+import { useTheme } from "../../context/ThemeContext";
 
 const PageRoot = styled.div`
   display: flex;
@@ -58,14 +59,14 @@ const CloseButton = styled.button`
   margin: 0;
   cursor: pointer;
   line-height: 0;
-  color: #2688eb;
+  color: var(--povod-primary);
 
   svg {
     fill: currentColor;
   }
 
   &:focus-visible {
-    outline: 2px solid #2688eb;
+    outline: 2px solid var(--povod-primary);
     outline-offset: 2px;
     border-radius: 8px;
   }
@@ -95,12 +96,12 @@ const CityButton = styled.button`
   min-height: 32px;
   border: none;
   background: none;
-  color: var(--vkui--color_text_secondary, #818c99);
+  color: var(--vkui--color_text_secondary, var(--povod-text-secondary));
   font: inherit;
   cursor: pointer;
 
   &:focus-visible {
-    outline: 2px solid #2d81e0;
+    outline: 2px solid var(--povod-primary);
     outline-offset: 2px;
   }
 `;
@@ -121,23 +122,23 @@ const ChipsContainer = styled.div`
 `;
 
 const StyledChip = styled(Chip)`
-  background-color: #2688eb !important;
+  background-color: var(--povod-primary) !important;
   & .vkuiChip__content {
-    color: #ffffff !important;
+    color: var(--povod-on-primary) !important;
   }
 
   &[data-type="add"] {
     background-color: transparent !important;
-    border: 1px solid #d7d8d9;
+    border: 1px solid var(--povod-border-strong);
 
     & .vkuiChip__content {
-      color: #99a2ad !important;
+      color: var(--povod-text-secondary) !important;
     }
   }
 `;
 
 const LogoutButton = styled.div`
-  color: #e64646;
+  color: var(--povod-danger);
   font-weight: 500;
   font-size: 16px;
   background: transparent;
@@ -147,14 +148,14 @@ const LogoutButton = styled.div`
 `;
 
 const BrightSwitchScope = styled.div`
-  --vkui--color_background_accent: #2688eb;
-  --vkui--color_background_accent--hover: #1e7ad4;
-  --vkui--color_background_accent--active: #1a6bc4;
-  --vkui--color_background_accent_themed: #2688eb;
-  --vkui--color_background_accent_themed--hover: #1e7ad4;
-  --vkui--color_background_accent_themed--active: #1a6bc4;
-  --vkui--color_icon_accent: #2688eb;
-  --vkui--color_icon_accent_themed: #2688eb;
+  --vkui--color_background_accent: var(--povod-primary);
+  --vkui--color_background_accent--hover: var(--povod-primary);
+  --vkui--color_background_accent--active: var(--povod-primary-hover);
+  --vkui--color_background_accent_themed: var(--povod-primary);
+  --vkui--color_background_accent_themed--hover: var(--povod-primary);
+  --vkui--color_background_accent_themed--active: var(--povod-primary-hover);
+  --vkui--color_icon_accent: var(--povod-primary);
+  --vkui--color_icon_accent_themed: var(--povod-primary);
 
   .vkuiSimpleCell {
     background: transparent !important;
@@ -174,10 +175,11 @@ const InterestChip = styled.button<{ $selected?: boolean }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid ${(props) => (props.$selected ? "#2688eb" : "#d7d8d9")};
+  border: 1px solid
+    ${(props) => (props.$selected ? "var(--povod-primary)" : "var(--povod-border-strong)")};
   border-radius: 20px;
-  background: ${(props) => (props.$selected ? "#2688eb" : "transparent")};
-  color: ${(props) => (props.$selected ? "#ffffff" : "#818c99")};
+  background: ${(props) => (props.$selected ? "var(--povod-primary)" : "transparent")};
+  color: ${(props) => (props.$selected ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -189,6 +191,7 @@ const InterestChip = styled.button<{ $selected?: boolean }>`
 `;
 
 const UserProfile = () => {
+  const { theme, preference, toggleTheme, setPreference } = useTheme();
   const [notifications, setNotifications] = useState(true);
   const [invitations, setInvitations] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
@@ -354,7 +357,7 @@ const UserProfile = () => {
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
-                    border: "1px solid #99c2f8",
+                    border: "1px solid var(--povod-border-strong)",
                     minWidth: 0,
                   }}
                 />
@@ -376,7 +379,10 @@ const UserProfile = () => {
               </CityButton>
             )}
             {profileError && (
-              <div role="alert" style={{ color: "#e64646", fontSize: 13, marginTop: 6 }}>
+              <div
+                role="alert"
+                style={{ color: "var(--povod-danger)", fontSize: 13, marginTop: 6 }}
+              >
                 {profileError}
               </div>
             )}
@@ -421,7 +427,7 @@ const UserProfile = () => {
                   style={{
                     width: "calc(100% - 32px)",
                     margin: "16px",
-                    background: "#2688eb",
+                    background: "var(--povod-primary)",
                   }}
                 >
                   Добавить ({selectedNewInterests.length})
@@ -431,14 +437,19 @@ const UserProfile = () => {
                   style={{
                     width: "calc(100% - 32px)",
                     margin: "16px",
-                    background: "#2688eb",
+                    background: "var(--povod-primary)",
                     display: "flex",
                     justifyContent: "center",
                     position: "relative",
                   }}
                 >
                   <span
-                    style={{ flexGrow: 1, textAlign: "center", paddingLeft: "24px", color: "#fff" }}
+                    style={{
+                      flexGrow: 1,
+                      textAlign: "center",
+                      paddingLeft: "24px",
+                      color: "var(--povod-on-primary)",
+                    }}
                   >
                     Добавить ({selectedNewInterests.length})
                   </span>
@@ -492,6 +503,25 @@ const UserProfile = () => {
             >
               Приглашения на события
             </SimpleCell>
+
+            {/* Переключатель темы (UX-001): раньше тёмная тема существовала только в коде. */}
+            <SimpleCell
+              after={
+                <Switch
+                  checked={theme === "dark"}
+                  onChange={toggleTheme}
+                  aria-label="Тёмная тема"
+                />
+              }
+              subtitle={preference === "system" ? "Сейчас как в системе" : "Выбрано вручную"}
+            >
+              Тёмная тема
+            </SimpleCell>
+            {preference !== "system" && (
+              <SimpleCell onClick={() => setPreference("system")}>
+                Следовать настройке системы
+              </SimpleCell>
+            )}
           </BrightSwitchScope>
         </Group>
       </ContentWrapper>

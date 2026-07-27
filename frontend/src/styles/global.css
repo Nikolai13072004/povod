@@ -1,6 +1,8 @@
 html,
 body {
   font-family: Inter, sans-serif;
-  background: #ebf2fa;
-  color: var(--text-color, #1d1d1d);
+  /* Цвета берутся из токенов (см. tokens.css) — иначе тёмная тема
+     перебивалась захардкоженным светлым фоном. */
+  background: var(--povod-bg);
+  color: var(--povod-text);
 }
