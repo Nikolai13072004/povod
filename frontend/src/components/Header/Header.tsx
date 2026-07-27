@@ -28,7 +28,7 @@ const LeftSection = styled.div`
   min-width: 0;
 `;
 
-const Avatar = styled.div<{ $avatar?: string }>`
+const Avatar = styled.button<{ $avatar?: string }>`
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -36,7 +36,14 @@ const Avatar = styled.div<{ $avatar?: string }>`
   background-image: url(${(props) => props.$avatar || ""});
   background-size: cover;
   background-position: center;
+  border: none;
+  padding: 0;
   cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--vkui--color_text_accent, #2d81e0);
+    outline-offset: 2px;
+  }
 `;
 
 const PageTitle = styled.h1`
@@ -92,9 +99,11 @@ export const THeader = observer(function THeader() {
         <PageHeader>
           <LeftSection>
             <Avatar
+              type="button"
               $avatar={sessionStore.user.avatar}
               onClick={handleAvatarClick}
               title={sessionStore.user.name}
+              aria-label={`Профиль: ${sessionStore.user.name}`}
             />
             <PageTitle>{displayTitle}</PageTitle>
           </LeftSection>
