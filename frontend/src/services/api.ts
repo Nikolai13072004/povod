@@ -13,14 +13,59 @@ export interface AuthSession {
 }
 
 const SESSION_TOKEN_KEY = "povod.sessionToken";
+const CSRF_COOKIE = "povod_csrf";
+const CSRF_HEADER = "X-CSRF-Token";
 
+function readCookie(name: string): string {
+  const prefix = `${name}=`;
+  for (const part of document.cookie.split(";")) {
+    const entry = part.trim();
+    if (entry.startsWith(prefix)) return decodeURIComponent(entry.slice(prefix.length));
+  }
+  return "";
+}
+
+/**
+ * Сессия живёт в `HttpOnly`-куке (SEC-001) — из JS её не прочитать, но рядом
+ * сервер ставит читаемую CSRF-куку. Её наличие и есть признак живой куки-сессии.
+ */
+export function hasCookieSession(): boolean {
+  return readCookie(CSRF_COOKIE) !== "";
+}
+
+/**
+ * Резервный токен для окружений, где куки недоступны, — прежде всего VK Mini App
+ * в iframe, где браузер может резать сторонние куки. В обычном вебе не хранится.
+ */
 export function getSessionToken(): string {
-  return sessionStorage.getItem(SESSION_TOKEN_KEY) ?? "";
+  try {
+    return sessionStorage.getItem(SESSION_TOKEN_KEY) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 export function setSessionToken(token?: string): void {
-  if (token) sessionStorage.setItem(SESSION_TOKEN_KEY, token);
-  else sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  try {
+    if (token) sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    else sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  } catch {
+    /* хранилище недоступно (приватный режим) — работаем без резерва */
+  }
+}
+
+/** Стоит ли вообще спрашивать сервер о текущей сессии. */
+export function hasStoredSession(): boolean {
+  return hasCookieSession() || getSessionToken() !== "";
+}
+
+/**
+ * Локально помечает сессию завершённой. Саму `HttpOnly`-куку убирает сервер
+ * (`Set-Cookie` на `/logout` или ответ 401) — JS до неё не дотянется.
+ */
+export function clearLocalSession(): void {
+  setSessionToken();
+  document.cookie = `${CSRF_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
 export interface Event {
@@ -75,10 +120,16 @@ export type EventWrite = Omit<
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   try {
     const url = `${appConfig.apiBaseUrl}${endpoint}`;
+    const csrfToken = readCookie(CSRF_COOKIE);
+    const fallbackToken = csrfToken ? "" : getSessionToken();
     const response = await fetch(url, {
+      // Без этого браузер не приложит HttpOnly-куку сессии к cross-origin запросу.
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}),
+        // Double submit: сервер сверит заголовок с одноимённой кукой (SEC-001).
+        ...(csrfToken ? { [CSRF_HEADER]: csrfToken } : {}),
+        ...(fallbackToken ? { Authorization: `Bearer ${fallbackToken}` } : {}),
         ...options.headers,
       },
       ...options,
@@ -91,7 +142,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
         endpoint === "api/Auth/register" ||
         endpoint === "api/Auth/vk";
       if (response.status === 401 && !isCredentialAttempt) {
-        setSessionToken();
+        clearLocalSession();
         window.dispatchEvent(new Event("povod:unauthorized"));
       }
       return {

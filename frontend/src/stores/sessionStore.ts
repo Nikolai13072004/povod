@@ -3,7 +3,9 @@ import bridge from "@vkontakte/vk-bridge";
 import { CURRENT_USER } from "../currentUser";
 import {
   authAPI,
-  getSessionToken,
+  clearLocalSession,
+  hasCookieSession,
+  hasStoredSession,
   setSessionToken,
   usersAPI,
   type AuthSession,
@@ -53,7 +55,7 @@ class SessionStore {
       this.error = null;
     });
 
-    if (getSessionToken()) {
+    if (hasStoredSession()) {
       const current = await authAPI.session();
       if (current.data) {
         runInAction(() => {
@@ -64,7 +66,7 @@ class SessionStore {
         });
         return;
       }
-      setSessionToken();
+      clearLocalSession();
     }
 
     const launchParams = window.location.search.replace(/^\?/, "");
@@ -136,8 +138,8 @@ class SessionStore {
   };
 
   logout = async (): Promise<void> => {
-    if (getSessionToken()) await authAPI.logout();
-    setSessionToken();
+    if (hasStoredSession()) await authAPI.logout();
+    clearLocalSession();
     eventStore.resetSessionState();
     filtersStore.resetAll(); // фильтры не должны переезжать к следующему пользователю
     runInAction(() => {
@@ -173,7 +175,10 @@ class SessionStore {
     if (this.authenticated && this.user.id !== session.user.id) {
       eventStore.resetSessionState();
     }
-    setSessionToken(session.token);
+    // Куки сработали — токен в браузере не храним вовсе (SEC-001) и подчищаем
+    // возможный остаток от прежней схемы с sessionStorage. Резерв остаётся только
+    // там, где куки недоступны: VK Mini App внутри iframe.
+    setSessionToken(hasCookieSession() ? undefined : session.token);
     runInAction(() => {
       this.user = session.user;
       this.authenticated = true;
