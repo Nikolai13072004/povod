@@ -20,13 +20,8 @@ import {
   formatEventTime,
 } from "../../utils/eventDate";
 
-import {
-  InterestsFilter,
-  DateFilter,
-  TimeFilter,
-  LocationFilter,
-  type FilterOption,
-} from "../../components/Filters";
+import { InterestsFilter, DateFilter, TimeFilter, LocationFilter } from "../../components/Filters";
+import { filtersStore } from "../../stores/filtersStore";
 
 const PageContainer = styled.div`
   display: flex;
@@ -158,59 +153,22 @@ const ResultCount = styled.div`
   padding: 0 2px 4px;
 `;
 
-const INTEREST_OPTIONS: FilterOption[] = [
-  { id: "1", label: "Спорт", selected: false },
-  { id: "2", label: "Искусство", selected: false },
-  { id: "3", label: "Путешествия", selected: false },
-  { id: "4", label: "IT", selected: false },
-  { id: "5", label: "Компьютерные игры", selected: false },
-  { id: "6", label: "Технологии", selected: false },
-  { id: "7", label: "Еда", selected: false },
-  { id: "8", label: "Настольные игры", selected: false },
-  { id: "9", label: "Наука", selected: false },
-  { id: "10", label: "Музыка", selected: false },
-  { id: "11", label: "Саморазвитие", selected: false },
-  { id: "12", label: "Образование", selected: false },
-  { id: "13", label: "Кино", selected: false },
-  { id: "14", label: "Шопинг", selected: false },
-  { id: "15", label: "Ресторан", selected: false },
-  { id: "16", label: "Музей", selected: false },
-  { id: "17", label: "Отдых", selected: false },
-];
-
 function FirstPageComponent() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
+  // Фильтры живут в сторе, поэтому переживают уход на другую вкладку и возврат.
+  const filters = filtersStore.feed;
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
-  const [filters, setFilters] = useState({
-    date: "",
-    location: "",
-    startTime: "",
-    endTime: "",
-  });
   const [activeModal, setActiveModal] = useState<"interests" | "date" | "time" | "place" | null>(
     null,
   );
-  const [interestOptions, setInterestOptions] = useState<FilterOption[]>(INTEREST_OPTIONS);
 
   useEffect(() => {
     eventStore.fetchEvents();
   }, []);
 
-  const handleApplyDate = (date: string) => setFilters((prev) => ({ ...prev, date }));
-  const handleApplyLocation = (loc: string) => setFilters((prev) => ({ ...prev, location: loc }));
-  const handleApplyTime = (start: string, end: string) =>
-    setFilters((prev) => ({ ...prev, startTime: start, endTime: end }));
+  const selectedInterests = filters.selectedInterests;
 
-  const handleToggleInterest = (id: string) => {
-    setInterestOptions((prev) =>
-      prev.map((opt) => (opt.id === id ? { ...opt, selected: !opt.selected } : opt)),
-    );
-  };
-
-  const selectedInterests = interestOptions.filter((opt) => opt.selected).map((opt) => opt.label);
-
-  const query = searchQuery.toLowerCase().trim();
+  const query = filters.search.toLowerCase().trim();
   const fromDate = filterDateKey(filters.date);
 
   const filteredEvents = eventStore.events.filter((event) => {
@@ -258,19 +216,10 @@ function FirstPageComponent() {
 
   const handleHideEvent = (id: string) => setHiddenIds((prev) => [...prev, id]);
 
-  const timeActive = Boolean(filters.startTime && filters.endTime);
-  const hasActiveFilters =
-    Boolean(query) ||
-    selectedInterests.length > 0 ||
-    Boolean(filters.date) ||
-    Boolean(filters.location) ||
-    timeActive;
+  const timeActive = filters.timeActive;
+  const hasActiveFilters = filters.hasActiveFilters;
 
-  const resetFilters = () => {
-    setSearchQuery("");
-    setFilters({ date: "", location: "", startTime: "", endTime: "" });
-    setInterestOptions((prev) => prev.map((o) => ({ ...o, selected: false })));
-  };
+  const resetFilters = () => filters.reset();
 
   const isInitialLoading = eventStore.isLoading && eventStore.events.length === 0;
 
@@ -281,8 +230,8 @@ function FirstPageComponent() {
         <SearchInput
           type="text"
           placeholder="Поиск..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          value={filters.search}
+          onChange={(e) => filters.setSearch(e.target.value)}
         />
       </SearchContainer>
 
@@ -391,23 +340,23 @@ function FirstPageComponent() {
       <InterestsFilter
         isOpen={activeModal === "interests"}
         onClose={() => setActiveModal(null)}
-        options={interestOptions}
-        onToggle={handleToggleInterest}
+        options={filters.interestOptions}
+        onToggle={(id: string) => filters.toggleInterest(id)}
       />
       <DateFilter
         isOpen={activeModal === "date"}
         onClose={() => setActiveModal(null)}
-        onSave={handleApplyDate}
+        onSave={(date: string) => filters.setDate(date)}
       />
       <LocationFilter
         isOpen={activeModal === "place"}
         onClose={() => setActiveModal(null)}
-        onSave={handleApplyLocation}
+        onSave={(place: string) => filters.setLocation(place)}
       />
       <TimeFilter
         isOpen={activeModal === "time"}
         onClose={() => setActiveModal(null)}
-        onSave={handleApplyTime}
+        onSave={(start: string, end: string) => filters.setTimeRange(start, end)}
       />
     </PageContainer>
   );

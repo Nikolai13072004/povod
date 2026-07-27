@@ -9,6 +9,7 @@ import {
   type User,
 } from "../services/api";
 import { eventStore } from "./EventStore";
+import { filtersStore } from "./filtersStore";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -114,6 +115,7 @@ class SessionStore {
     if (getSessionToken()) await authAPI.logout();
     setSessionToken();
     eventStore.resetSessionState();
+    filtersStore.resetAll(); // фильтры не должны переезжать к следующему пользователю
     runInAction(() => {
       this.user = CURRENT_USER;
       this.authenticated = false;
