@@ -32,3 +32,36 @@ jobs:
 
       - name: Run checks
         run: npm run check
+
+  integration:
+    name: PostgreSQL integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: povod_test
+          POSTGRES_USER: povod
+          POSTGRES_PASSWORD: povod_test_password
+        options: >-
+          --health-cmd "pg_isready -U povod -d povod_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      # Прогоняет миграции с нуля и проверяет реальный SQL-адаптер (QA-006).
+      - name: Run PostgreSQL integration tests
+        run: npm --prefix backend run test:pg
+        env:
+          TEST_DATABASE_URL: postgresql://povod:povod_test_password@localhost:5432/povod_test
