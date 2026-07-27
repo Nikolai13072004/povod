@@ -14,6 +14,16 @@ export type ResolvedTheme = "light" | "dark";
 
 const STORAGE_KEY = "theme";
 
+/**
+ * Цвет системной панели браузера и заставки установленного приложения (PWA-001).
+ * Значения совпадают с `--povod-bg` из tokens.css: в режиме standalone панель
+ * является продолжением экрана, и расхождение сразу читается как чужая полоса.
+ */
+const THEME_COLOR: Record<ResolvedTheme, string> = {
+  light: "#ebf2fa",
+  dark: "#0f151d",
+};
+
 interface ThemeContextType {
   /** Что выбрал пользователь. */
   preference: ThemePreference;
@@ -69,6 +79,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     }
     // Подсказка браузеру: системные элементы (скроллбары, поля) тоже перекрасятся.
     root.style.colorScheme = theme;
+
+    // media-запрос в самом теге не подойдёт: тему можно выбрать вручную, вопреки
+    // системной настройке, и о таком выборе `prefers-color-scheme` не знает.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[theme]);
   }, [preference, theme]);
 
   const setPreference = useCallback((next: ThemePreference) => {

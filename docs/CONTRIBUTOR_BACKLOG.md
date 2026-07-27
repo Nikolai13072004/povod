@@ -280,7 +280,7 @@ git push -u origin feature/FE-001-responsive-layout
 
 | ID | Приоритет | Режим | Задача и ожидаемый результат |
 | --- | --- | --- | --- |
-| PWA-001 | P1 | READY | Добавить web manifest, иконки, theme colors и installability check. |
+| PWA-001 | P1 | DONE | Добавлены web manifest, иконки (включая `maskable` и `apple-touch-icon`), theme colors из токенов и тесты требований установимости. |
 | PWA-002 | P1 | DECISION | Определить offline-стратегию: shell и read-only cache публичных событий без кэширования приватных данных. |
 | PWA-003 | P1 | READY | Добавить безопасный service worker update flow и уведомление о новой версии. |
 | PWA-004 | P2 | DECISION | Исследовать Web Push: согласие, подписки, VAPID, отзыв и platform limitations. |
