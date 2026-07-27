@@ -9,7 +9,7 @@ import {
   Icon28SearchOutline,
 } from "@vkontakte/icons";
 import { OpenFilterIcon } from "../../icons/icons";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
 import { AsyncContent } from "../../components/AsyncContent";
 import {
@@ -22,6 +22,12 @@ import {
 
 import { InterestsFilter, DateFilter, TimeFilter, LocationFilter } from "../../components/Filters";
 import { filtersStore } from "../../stores/filtersStore";
+import {
+  filtersToSearchParams,
+  searchParamsToFilters,
+  shareableFilterUrl,
+} from "../../stores/filterParams";
+import { useToast } from "../../components/Toast/ToastProvider";
 import { EventCover } from "../../components/EventCover/EventCover";
 import { FavoriteButton } from "../../components/Favorite/FavoriteButton";
 
@@ -160,6 +166,8 @@ const ResultCount = styled.div`
 
 function FirstPageComponent() {
   const navigate = useNavigate();
+  const showToast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Фильтры живут в сторе, поэтому переживают уход на другую вкладку и возврат.
   const filters = filtersStore.feed;
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
@@ -170,6 +178,35 @@ function FirstPageComponent() {
   useEffect(() => {
     eventStore.fetchEvents();
   }, []);
+
+  // Фильтры в адресной строке (FE-006). Сначала читаем ссылку, и только потом
+  // разрешаем запись: иначе первый же переписанный адрес затёр бы пришедшие
+  // из ссылки значения ещё до того, как они успели примениться.
+  const [urlApplied, setUrlApplied] = useState(false);
+  useEffect(() => {
+    filters.applyAll(searchParamsToFilters(new URLSearchParams(window.location.search)));
+    setUrlApplied(true);
+  }, [filters]);
+
+  const serializedFilters = filtersToSearchParams(filters).toString();
+  useEffect(() => {
+    if (!urlApplied) return;
+    // replace, а не push: каждое нажатие в фильтрах не должно добавлять шаг,
+    // который потом придётся проматывать кнопкой «назад».
+    if (serializedFilters !== searchParams.toString()) {
+      setSearchParams(serializedFilters, { replace: true });
+    }
+  }, [urlApplied, serializedFilters, searchParams, setSearchParams]);
+
+  const handleShare = async () => {
+    const url = shareableFilterUrl(filters, window.location.origin, window.location.pathname);
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Ссылка на подборку скопирована", { type: "success" });
+    } catch {
+      showToast("Не удалось скопировать ссылку", { type: "error" });
+    }
+  };
 
   const selectedInterests = filters.selectedInterests;
 
@@ -278,9 +315,14 @@ function FirstPageComponent() {
         </FilterWrapper>
 
         {hasActiveFilters && (
-          <ResetChip type="button" onClick={resetFilters}>
-            <FilterButton>Сбросить ✕</FilterButton>
-          </ResetChip>
+          <>
+            <ResetChip type="button" onClick={handleShare}>
+              <FilterButton>Поделиться подборкой</FilterButton>
+            </ResetChip>
+            <ResetChip type="button" onClick={resetFilters}>
+              <FilterButton>Сбросить ✕</FilterButton>
+            </ResetChip>
+          </>
         )}
       </FiltersContainer>
 

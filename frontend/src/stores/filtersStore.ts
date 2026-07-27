@@ -97,6 +97,23 @@ export class FilterState {
       : [...this.interestIds, id];
   }
 
+  /** Применяет состояние целиком — например, разобранное из ссылки (FE-006). */
+  applyAll(next: {
+    search: string;
+    date: string;
+    location: string;
+    startTime: string;
+    endTime: string;
+    interestIds: string[];
+  }): void {
+    this.search = next.search;
+    this.date = next.date;
+    this.location = next.location;
+    this.startTime = next.startTime;
+    this.endTime = next.endTime;
+    this.interestIds = [...next.interestIds];
+  }
+
   reset(): void {
     this.search = "";
     this.date = "";
