@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { ToastProvider } from "../../components/Toast/ToastProvider";
 
 const mockEventStore = vi.hoisted(() => ({
   events: [] as Array<Record<string, unknown>>,
@@ -42,9 +43,13 @@ const sampleEvents = [
 ];
 
 function renderFeed() {
+  // ToastProvider — часть настоящего дерева приложения: карточки показывают
+  // toast при добавлении в избранное (PROD-001).
   return render(
     <MemoryRouter>
-      <FirstPage />
+      <ToastProvider>
+        <FirstPage />
+      </ToastProvider>
     </MemoryRouter>,
   );
 }

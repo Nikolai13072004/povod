@@ -12,6 +12,7 @@ import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
 import { filtersStore } from "../../stores/filtersStore";
+import { favoritesStore } from "../../stores/favoritesStore";
 import { EventCover } from "../../components/EventCover/EventCover";
 import { AsyncContent } from "../../components/AsyncContent";
 import {
@@ -261,6 +262,7 @@ function SignUpEventsPage() {
 
   useEffect(() => {
     eventStore.fetchMyEvents();
+    void favoritesStore.load();
   }, []);
 
   const [activeModal, setActiveModal] = useState<"interests" | "date" | "time" | "place" | null>(
@@ -278,9 +280,19 @@ function SignUpEventsPage() {
     new Map([...attendingEvents, ...createdEvents].map((event) => [event.id, event])).values(),
   );
 
+  // Избранное живёт в своём сторе: событие можно отметить, не записываясь на него,
+  // поэтому в созданные и посещаемые оно не попадает (PROD-001).
+  const favoriteEvents: EventItem[] = favoritesStore.items;
+
   const tab = filtersStore.myEventsTab;
   const allEvents: EventItem[] =
-    tab === "created" ? createdEvents : tab === "attending" ? attendingEvents : combinedEvents;
+    tab === "created"
+      ? createdEvents
+      : tab === "attending"
+        ? attendingEvents
+        : tab === "favorites"
+          ? favoriteEvents
+          : combinedEvents;
 
   const filteredEvents = allEvents.filter((event) => {
     const matchesCategory =
@@ -333,6 +345,7 @@ function SignUpEventsPage() {
               { id: "all", label: "Все", count: combinedEvents.length },
               { id: "created", label: "Созданные", count: createdEvents.length },
               { id: "attending", label: "Посещаю", count: attendingEvents.length },
+              { id: "favorites", label: "Избранное", count: favoriteEvents.length },
             ] as const
           ).map((item) => (
             <TabButton

@@ -5,6 +5,8 @@ export interface EventFilters {
   category?: string;
   author?: string;
   participant?: string;
+  /** Только события, добавленные этим пользователем в избранное (PROD-001). */
+  favoritedBy?: string;
   viewerId?: string;
   startsFrom?: Date;
   startsTo?: Date;
@@ -49,6 +51,14 @@ export interface PovodRepository {
   deleteEvent(id: string): Promise<boolean>;
   joinEvent(eventId: string, userId: string): Promise<Event | undefined>;
   leaveEvent(eventId: string, userId: string): Promise<Event | undefined>;
+
+  /**
+   * Добавляет событие в избранное. Идемпотентно: повторный вызов не ошибка.
+   * `false` — события не существует.
+   */
+  addFavorite(userId: string, eventId: string): Promise<boolean>;
+  /** Убирает из избранного. Идемпотентно: `false` только если события нет. */
+  removeFavorite(userId: string, eventId: string): Promise<boolean>;
 
   listUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
