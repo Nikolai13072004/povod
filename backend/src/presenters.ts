@@ -5,6 +5,7 @@ export function presentPublicUser(user: User) {
     id: user.id,
     name: user.name,
     avatar: user.avatar,
+    city: user.city,
     interests: user.interests ?? [],
   };
 }
