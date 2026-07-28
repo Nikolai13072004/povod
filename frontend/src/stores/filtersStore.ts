@@ -1,5 +1,6 @@
 import { makeAutoObservable } from "mobx";
 import type { FilterOption } from "../components/Filters";
+import { INTERESTS } from "../data/interests";
 
 /**
  * Состояние фильтров ленты и «Моих событий».
@@ -11,26 +12,10 @@ import type { FilterOption } from "../components/Filters";
  * Наборы независимы: у ленты и «Моих событий» свои фильтры.
  */
 
-/** Единый каталог интересов (раньше список дублировался на обеих страницах). */
-export const INTEREST_CATALOG: ReadonlyArray<{ id: string; label: string }> = [
-  { id: "1", label: "Спорт" },
-  { id: "2", label: "Искусство" },
-  { id: "3", label: "Путешествия" },
-  { id: "4", label: "IT" },
-  { id: "5", label: "Компьютерные игры" },
-  { id: "6", label: "Технологии" },
-  { id: "7", label: "Еда" },
-  { id: "8", label: "Настольные игры" },
-  { id: "9", label: "Наука" },
-  { id: "10", label: "Музыка" },
-  { id: "11", label: "Саморазвитие" },
-  { id: "12", label: "Образование" },
-  { id: "13", label: "Кино" },
-  { id: "14", label: "Шопинг" },
-  { id: "15", label: "Ресторан" },
-  { id: "16", label: "Музей" },
-  { id: "17", label: "Отдых" },
-];
+/** Каталог для чипов фильтра. Метки — из единого списка (frontend/src/data/interests.ts). */
+export const INTEREST_CATALOG: ReadonlyArray<{ id: string; label: string }> = INTERESTS.map(
+  (label, index) => ({ id: String(index + 1), label }),
+);
 
 export class FilterState {
   search = "";

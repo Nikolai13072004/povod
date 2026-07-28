@@ -7,7 +7,10 @@ dist/
 .env.*
 !.env.example
 .env.local
-data/
+# Только снимок in-memory хранилища бэкенда. Без ведущего слэша шаблон `data/`
+# матчил ЛЮБОЙ каталог с таким именем на любой глубине — так исходники
+# frontend/src/data молча не попадали в коммит, и сборка падала уже в CI.
+/backend/data/
 
 # Logs and operating system files
 *.log

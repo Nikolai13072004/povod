@@ -72,6 +72,23 @@ test("новый пользователь регистрируется, созд
   await expect(page.getByText(title)).toBeVisible();
 });
 
+test("выбор на онбординге доходит до сервера, а не остаётся в браузере", async ({ page }) => {
+  // Раньше интересы клались только в localStorage. Лента сортируется по
+  // интересам из профиля, поэтому персонализация не включалась ни у кого, кто
+  // прошёл онбординг, а город собирался и не сохранялся никуда.
+  await register(page, "E2E Онбординг", uniqueEmail("onboarding"));
+  await reachFeed(page);
+
+  await page.goto("/Profile");
+  await expect(page.getByText("Музыка", { exact: true })).toBeVisible();
+  await expect(page.getByText("Москва", { exact: true })).toBeVisible();
+
+  // Другой браузер того же пользователя: localStorage пуст, но профиль на месте.
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await expect(page.getByText("Музыка", { exact: true })).toBeVisible();
+});
+
 test("поиск находит событие по другой форме слова", async ({ page }) => {
   await login(page, "elmira@povod.app", "povod-demo");
   await reachFeed(page);
@@ -165,15 +182,20 @@ test("на широком экране навигация уходит из ни
   // Подписи появляются только на широком экране: внизу для них нет места.
   await expect(page.getByRole("link", { name: "Мои события" })).toBeVisible();
 
-  const navBox = await home.boundingBox();
-  const feedBox = await page.getByPlaceholder("Поиск...").boundingBox();
-  expect(navBox!.y).toBeLessThan(feedBox!.y);
+  // Через poll, а не однократным замером: смена размера окна перерисовывает
+  // страницу асинхронно, и boundingBox сразу после setViewportSize читает ещё
+  // старую геометрию.
+  const navAboveFeed = async () => {
+    const nav = await page.getByRole("link", { name: "Главная" }).boundingBox();
+    const feed = await page.getByPlaceholder("Поиск...").boundingBox();
+    return nav !== null && feed !== null && nav.y < feed.y;
+  };
+
+  await expect.poll(navAboveFeed).toBe(true);
 
   // На телефоне она возвращается вниз, к большому пальцу.
   await page.setViewportSize({ width: 390, height: 844 });
-  const mobileNav = await page.getByRole("link", { name: "Главная" }).boundingBox();
-  const mobileFeed = await page.getByPlaceholder("Поиск...").boundingBox();
-  expect(mobileNav!.y).toBeGreaterThan(mobileFeed!.y);
+  await expect.poll(navAboveFeed).toBe(false);
 });
 
 test("выход из аккаунта закрывает доступ к ленте", async ({ page }) => {

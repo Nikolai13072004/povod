@@ -71,7 +71,28 @@ class SessionStore {
         void favoritesStore.load();
         return;
       }
-      clearLocalSession();
+      /*
+       * Локальную сессию чистим, только когда сервер её действительно отверг.
+       *
+       * Раньше здесь стоял безусловный `clearLocalSession()`, а `fetchApi`
+       * возвращает `status: 0` на любое исключение fetch — офлайн, таймаут,
+       * сбой CORS, холодный старт бесплатного сервиса (~50 секунд). В этих
+       * случаях серверная HttpOnly-кука жива, а мы стирали CSRF-куку и
+       * оказывались в рассогласованном состоянии: чтение сервер по-прежнему
+       * аутентифицирует, а любая запись упирается в 403 «CSRF token missing».
+       * В интерфейсе при этом человека выкидывало на экран входа, хотя сессия
+       * действительна ещё неделю.
+       */
+      if (current.status === 401 || current.status === 403) {
+        clearLocalSession();
+      } else {
+        runInAction(() => {
+          this.initialized = true;
+          this.isLoading = false;
+          this.error = "Не удалось проверить сессию. Проверьте соединение";
+        });
+        return;
+      }
     }
 
     const launchParams = window.location.search.replace(/^\?/, "");

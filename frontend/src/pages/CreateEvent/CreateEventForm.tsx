@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
 import { browserTimezone, localDateTimeToIso } from "../../utils/eventDate";
 import { useToast } from "../../components/Toast/ToastProvider";
+import { INTERESTS } from "../../data/interests";
 
 const FormContainer = styled.div`
   min-height: 100vh;
@@ -290,24 +291,7 @@ const SubmitError = styled.div`
   text-align: center;
 `;
 
-const categories = [
-  "Спорт",
-  "Искусство",
-  "Путешествие",
-  "IT",
-  "Компьютерные игры",
-  "Технологии",
-  "Еда",
-  "Настольные игры",
-  "Наука",
-  "Музыка",
-  "Саморазвитие",
-  "ЗОЖ",
-  "Образование",
-  "Кино",
-  "Шопинг",
-  "Ресторан",
-];
+const categories = INTERESTS;
 
 interface FormData {
   title: string;
@@ -445,6 +429,11 @@ export default function CreateEventForm() {
       timezone,
       location: formData.location,
       category: formData.categories[0] || "Общее",
+      // Секция «Категории» — мультивыбор, но в событии поле `category` одно.
+      // Остальные выбранные уезжали в никуда: автор отмечал «IT, Наука,
+      // Образование», сохранялось «IT», и по «Науке» событие уже не находилось.
+      // Лента фильтрует и по тегам, поэтому остаток кладётся туда.
+      tags: formData.categories.slice(1),
       image:
         formData.photoData ||
         "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&q=80",

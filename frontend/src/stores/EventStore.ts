@@ -254,6 +254,7 @@ class EventStore {
     timezone: string;
     location?: string;
     category?: string;
+    tags?: string[];
     image?: string | null;
     coords?: [number, number];
     format?: "public" | "private";
@@ -271,6 +272,9 @@ class EventStore {
         timezone: payload.timezone,
         location: payload.location ?? "",
         category: payload.category,
+        // Пустой массив не отправляем: сервер отличает «тегов нет» от «теги
+        // очистили», и лишнее поле в запросе на создание только шумит.
+        tags: payload.tags?.length ? payload.tags : undefined,
         image: payload.image ?? undefined,
         coords: payload.coords,
         format: payload.format,
@@ -342,6 +346,16 @@ class EventStore {
         this.events = this.events.filter((item) => item.id !== id);
         this.createdEvents = this.createdEvents.filter((item) => item.id !== id);
         this.acceptedEvents = this.acceptedEvents.filter((item) => item.id !== id);
+        /*
+         * Кэш деталей тоже нужно погасить. Без этого id оставался в
+         * `eventDetailLoaded`, `fetchEventById` молча выходил без запроса, и
+         * страница события рендерила пустоту: «загружено», ошибки нет, «не
+         * найдено» нет, а самого события нет. Возврат по кнопке «Назад» после
+         * удаления давал белый экран без шапки и без выхода.
+         */
+        this.eventDetailLoaded.delete(id);
+        this.eventDetailErrors.delete(id);
+        this.eventDetailNotFound.add(id);
       });
       return true;
     } catch (error) {

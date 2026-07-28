@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
 import { AsyncContent } from "../../components/AsyncContent";
 import { EventListSkeleton } from "../../components/Skeleton";
+import { matchesAnyInterest } from "../../data/interests";
 import {
   eventDateKey,
   eventTimeKey,
@@ -231,13 +232,12 @@ function FirstPageComponent() {
       .toLowerCase();
     const matchesSearch = !query || haystack.includes(query);
 
-    // Интересы сверяем с категорией И тегами события
-    const eventLabels = [event.category, ...(event.tags ?? [])]
-      .filter(Boolean)
-      .map((s) => (s as string).toLowerCase());
-    const matchesCategory =
-      selectedInterests.length === 0 ||
-      selectedInterests.some((i) => eventLabels.includes(i.toLowerCase()));
+    // Интересы сверяем с категорией И тегами события. Нормализация общая с
+    // сервером: нижний регистр, ё → е, обрезка пробелов.
+    const matchesCategory = matchesAnyInterest(
+      [event.category, ...(event.tags ?? [])],
+      selectedInterests,
+    );
 
     // Дата: события в выбранный день или позже
     const matchesDate = !fromDate || eventDateKey(event.startsAt, event.timezone) >= fromDate;

@@ -16,6 +16,7 @@ import { favoritesStore } from "../../stores/favoritesStore";
 import { EventCover } from "../../components/EventCover/EventCover";
 import { AsyncContent } from "../../components/AsyncContent";
 import { MyEventListSkeleton } from "../../components/Skeleton";
+import { matchesAnyInterest } from "../../data/interests";
 import {
   eventDateKey,
   eventTimeKey,
@@ -296,8 +297,12 @@ function SignUpEventsPage() {
           : combinedEvents;
 
   const filteredEvents = allEvents.filter((event) => {
-    const matchesCategory =
-      selectedInterests.length === 0 || selectedInterests.includes(event.category ?? "");
+    // Регистр здесь вообще не приводился, и теги не учитывались — в «Моих
+    // событиях» фильтр работал строже, чем в ленте, на тех же данных.
+    const matchesCategory = matchesAnyInterest(
+      [event.category, ...(event.tags ?? [])],
+      selectedInterests,
+    );
 
     const selectedDate = filterDateKey(filters.date);
     const matchesDate =
