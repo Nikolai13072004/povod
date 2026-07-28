@@ -20,7 +20,10 @@ export const RequireAuth = observer(() => {
   }
 
   if (!sessionStore.authenticated) {
-    return <Navigate to="/" replace state={{ from: location.pathname }} />;
+    // Запоминаем адрес целиком, вместе с query. В нём живёт вся суть ссылки на
+    // подборку (`?category=...&startsFrom=...`): без search человек после входа
+    // попадал в ленту без фильтров, и пересланная ссылка теряла смысл.
+    return <Navigate to="/" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
   return <Outlet />;

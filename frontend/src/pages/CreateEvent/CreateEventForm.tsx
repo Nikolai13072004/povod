@@ -283,6 +283,17 @@ const SubmitSection = styled.div`
   margin-top: 8px;
 `;
 
+const RequiredHint = styled.p`
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--povod-text-secondary);
+`;
+
+const RequiredMark = styled.span`
+  color: var(--povod-danger);
+  font-weight: 600;
+`;
+
 const SubmitError = styled.div`
   margin-bottom: 12px;
   color: var(--vkui--color_text_negative, var(--povod-danger));
@@ -463,6 +474,12 @@ export default function CreateEventForm() {
       >
         Создать повод
       </div>
+
+      {/* Звёздочку в подписях надо расшифровать: сама по себе она ничего не
+          сообщает тому, кто видит форму впервые. */}
+      <RequiredHint>
+        Поля со звёздочкой <RequiredMark>*</RequiredMark> обязательны
+      </RequiredHint>
 
       <Section>
         <Label>Название события *</Label>

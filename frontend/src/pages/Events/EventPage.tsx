@@ -109,7 +109,9 @@ function EventPageComponent() {
   if (!eventData && (!detailLoaded || detailLoading)) {
     return (
       <Panel id="loading">
-        <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
+        <PanelHeader fixed={false} before={<PanelHeaderBack onClick={() => navigate(-1)} />}>
+          Событие
+        </PanelHeader>
         <Group>
           <AsyncContent
             loading
@@ -125,7 +127,9 @@ function EventPageComponent() {
   if (!eventData && detailError) {
     return (
       <Panel id="error">
-        <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
+        <PanelHeader fixed={false} before={<PanelHeaderBack onClick={() => navigate(-1)} />}>
+          Событие
+        </PanelHeader>
         <Group>
           <AsyncContent
             loading={false}
@@ -143,7 +147,9 @@ function EventPageComponent() {
   if (!eventData && detailNotFound) {
     return (
       <Panel id="not-found">
-        <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
+        <PanelHeader fixed={false} before={<PanelHeaderBack onClick={() => navigate(-1)} />}>
+          Событие
+        </PanelHeader>
         <Group>
           <AsyncContent
             loading={false}
@@ -164,7 +170,9 @@ function EventPageComponent() {
   if (!eventData) {
     return (
       <Panel id="unavailable">
-        <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
+        <PanelHeader fixed={false} before={<PanelHeaderBack onClick={() => navigate(-1)} />}>
+          Событие
+        </PanelHeader>
         <Group>
           <AsyncContent
             loading={false}
@@ -271,7 +279,9 @@ function EventPageComponent() {
 
   return (
     <Panel id="event-detail" style={{ marginBottom: "40px" }}>
-      <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
+      <PanelHeader fixed={false} before={<PanelHeaderBack onClick={() => navigate(-1)} />}>
+        Событие
+      </PanelHeader>
 
       <Group>
         <div style={{ padding: "16px" }}>

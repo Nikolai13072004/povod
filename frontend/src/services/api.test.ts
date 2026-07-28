@@ -76,6 +76,16 @@ describe("транспорт API и признаки сессии", () => {
     expect(lastHeaders(fetchMock)["x-csrf-token"]).toBe("derived-from-session");
   });
 
+  it("сохранённый CSRF-токен переживает открытие новой вкладки", async () => {
+    // sessionStorage живёт в пределах вкладки, а переход по присланной ссылке
+    // открывает новую: там токена не было, приложение считало, что входа нет,
+    // и показывало экран входа при живой серверной сессии.
+    setCsrfToken("общий-для-вкладок");
+    expect(localStorage.getItem("povod.csrfToken")).toBe("общий-для-вкладок");
+    expect(sessionStorage.getItem("povod.csrfToken")).toBeNull();
+    expect(hasStoredSession()).toBe(true);
+  });
+
   it("кука важнее сохранённого значения: она всегда свежая", async () => {
     setCsrfToken("устаревшее");
     setCsrfCookie("из-куки");
