@@ -313,6 +313,22 @@ export const authAPI = {
       body: JSON.stringify(payload),
     }),
 
+  /**
+   * Запрос ссылки восстановления (SEC-008). Ответ одинаков независимо от того,
+   * есть такой адрес или нет — форма не должна выдавать, кто зарегистрирован.
+   */
+  requestPasswordReset: (email: string) =>
+    fetchApi<void>("api/Auth/password-reset", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  confirmPasswordReset: (token: string, password: string) =>
+    fetchApi<void>("api/Auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
+
   session: () => fetchApi<{ user: User }>("api/Auth/session"),
 
   logout: () =>

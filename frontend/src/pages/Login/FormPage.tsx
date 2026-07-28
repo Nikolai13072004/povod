@@ -283,6 +283,11 @@ export const MyLoginForm = observer(() => {
               >
                 {mode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
               </AuthModeButton>
+              {mode === "login" && (
+                <AuthModeButton type="button" onClick={() => navigate("/reset-password")}>
+                  Забыли пароль?
+                </AuthModeButton>
+              )}
             </AuthForm>
           )}
         </ActionButtonWrapper>

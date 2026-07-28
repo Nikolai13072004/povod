@@ -4,7 +4,13 @@ import { getRepository } from "../store.js";
 import { asyncHandler, HttpError } from "../middleware.js";
 import { config } from "../config.js";
 import { verifyVkLaunch, getVkUserId } from "../vk.js";
-import { loginSchema, registerSchema } from "../validation.js";
+import {
+  loginSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
+  registerSchema,
+} from "../validation.js";
+import { confirmPasswordReset, requestPasswordReset } from "../auth/passwordReset.js";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "../auth/password.js";
 import { issueSession, type IssuedSession } from "../auth/session.js";
 import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware.js";
@@ -18,6 +24,9 @@ export const authRouter = Router();
 const loginRateLimit = createAuthRateLimit(10, 10 * 60 * 1000);
 const registerRateLimit = createAuthRateLimit(5, 60 * 60 * 1000);
 const vkRateLimit = createAuthRateLimit(20, 10 * 60 * 1000);
+// Строже входа: перебор адресов здесь бесполезен по ответу, зато рассылка
+// писем на чужие адреса — вполне себе злоупотребление.
+const passwordResetRateLimit = createAuthRateLimit(5, 60 * 60 * 1000);
 
 /**
  * Отдаёт выданную сессию: браузеру — в `HttpOnly`-куке (SEC-001), остальным — в теле.
@@ -86,6 +95,40 @@ authRouter.post(
   asyncHandler(async (_req, res) => {
     const sessionId = (res.locals as AuthLocals).authSessionId;
     if (sessionId) await getRepository().revokeSession(sessionId);
+    clearSessionCookies(res);
+    res.status(204).send();
+  }),
+);
+
+/**
+ * Ответ одинаков независимо от того, есть такой адрес или нет (SEC-008).
+ * Иначе форма превращается в способ выяснить, зарегистрирован ли человек.
+ */
+authRouter.post(
+  "/password-reset",
+  passwordResetRateLimit,
+  asyncHandler(async (req, res) => {
+    const { email } = passwordResetRequestSchema.parse(req.body);
+    if (config.mailTransport === "none") {
+      throw new HttpError(503, "Восстановление пароля сейчас недоступно");
+    }
+    await requestPasswordReset(email);
+    res.status(204).send();
+  }),
+);
+
+authRouter.post(
+  "/password-reset/confirm",
+  passwordResetRateLimit,
+  asyncHandler(async (req, res) => {
+    const { token, password } = passwordResetConfirmSchema.parse(req.body);
+    const outcome = await confirmPasswordReset(token, password);
+    if (outcome === "invalid-token") {
+      // Просроченный, использованный и выдуманный токены неотличимы: любой из
+      // них — просто «ссылка не подошла».
+      throw new HttpError(400, "Ссылка недействительна или уже использована");
+    }
+    // Все сессии отозваны — включая эту, если пользователь был в аккаунте.
     clearSessionCookies(res);
     res.status(204).send();
   }),

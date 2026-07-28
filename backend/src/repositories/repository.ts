@@ -71,6 +71,16 @@ export interface AuthSession {
   revokedAt?: string;
 }
 
+/** Одноразовый токен смены пароля (SEC-008). В хранилище — только его SHA-256. */
+export interface PasswordResetToken {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  createdAt: string;
+  expiresAt: string;
+  usedAt?: string;
+}
+
 export interface ExternalIdentity {
   provider: string;
   externalUserId: string;
@@ -139,6 +149,15 @@ export interface PovodRepository {
   revokeSession(id: string): Promise<void>;
   /** Удаляет истёкшие и отозванные сессии; возвращает число удалённых (SEC-007). */
   deleteExpiredSessions(now: string): Promise<number>;
+  /** Отзывает все сессии пользователя; возвращает число отозванных (SEC-008). */
+  revokeUserSessions(userId: string, revokedAt: string): Promise<number>;
+
+  createPasswordResetToken(token: PasswordResetToken): Promise<void>;
+  getPasswordResetToken(tokenHash: string): Promise<PasswordResetToken | undefined>;
+  /** Помечает токен использованным; `false` — им уже воспользовались. */
+  consumePasswordResetToken(id: string, usedAt: string): Promise<boolean>;
+  /** Чистит просроченные и использованные токены; возвращает число удалённых. */
+  deleteExpiredPasswordResetTokens(now: string): Promise<number>;
   getExternalIdentity(
     provider: string,
     externalUserId: string,

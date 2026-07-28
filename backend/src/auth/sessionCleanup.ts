@@ -4,13 +4,25 @@ import { logger } from "../logger.js";
 /** Периодичность очистки истёкших/отозванных сессий по умолчанию — 1 час. */
 export const DEFAULT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
-/** Разовый прогон очистки. Возвращает число удалённых сессий. */
+/**
+ * Разовый прогон очистки. Возвращает число удалённых записей.
+ *
+ * Заодно чистятся использованные и просроченные токены восстановления пароля
+ * (SEC-008): у них та же природа — короткоживущие одноразовые записи, которые
+ * иначе копились бы вечно.
+ */
 export async function cleanupExpiredSessions(): Promise<number> {
-  const removed = await getRepository().deleteExpiredSessions(new Date().toISOString());
-  if (removed > 0) {
-    logger.info(`[sessions] очищено истёкших/отозванных сессий: ${removed}`);
+  const repository = getRepository();
+  const now = new Date().toISOString();
+  const sessions = await repository.deleteExpiredSessions(now);
+  const resetTokens = await repository.deleteExpiredPasswordResetTokens(now);
+  if (sessions > 0) {
+    logger.info(`[sessions] очищено истёкших/отозванных сессий: ${sessions}`);
   }
-  return removed;
+  if (resetTokens > 0) {
+    logger.info(`[sessions] очищено токенов восстановления пароля: ${resetTokens}`);
+  }
+  return sessions + resetTokens;
 }
 
 /**

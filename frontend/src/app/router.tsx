@@ -15,6 +15,7 @@ const MyLoginForm = lazy(() =>
 const SelectInterestPage = lazy(() =>
   import("../pages/SelectInterestPage").then((m) => ({ default: m.SelectInterestPage })),
 );
+const PasswordResetPage = lazy(() => import("../pages/Login/PasswordResetPage"));
 const UserProfile = lazy(() => import("../pages/Profile/ProfilePage"));
 const AuthorProfilePage = lazy(() =>
   import("../pages/Profile/AuthorProfilePage").then((m) => ({ default: m.AuthorProfilePage })),
@@ -38,6 +39,8 @@ export const router = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       { index: true, element: <MyLoginForm /> },
+      // Восстановление пароля доступно без сессии — за ней сюда и приходят (SEC-008).
+      { path: "reset-password", element: <PasswordResetPage /> },
       {
         element: <RequireAuth />,
         children: [

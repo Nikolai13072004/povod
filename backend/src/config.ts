@@ -33,6 +33,19 @@ const environmentSchema = z
     AUTH_COOKIE_SAMESITE: z.enum(["lax", "strict", "none"]).default("lax"),
     AUTH_COOKIE_SECURE: z.enum(["auto", "true", "false"]).default("auto"),
     AUTH_COOKIE_DOMAIN: z.string().trim().default(""),
+    /** Адрес приложения — из него собираются ссылки в письмах (SEC-008). */
+    APP_URL: z
+      .string()
+      .trim()
+      .default("http://localhost:5173")
+      .refine((value) => isHttpOrigin(value), {
+        message: "must be an HTTP(S) origin without a path",
+      }),
+    /**
+     * Транспорт писем. `console` печатает ссылку в лог — годится для разработки,
+     * но в production означает, что письма никому не уходят.
+     */
+    MAIL_TRANSPORT: z.enum(["console", "none"]).default("console"),
     DEMO_AUTH_ENABLED: booleanValue.optional(),
     DEMO_AUTH_PASSWORD: z.string().min(8).default("povod-demo"),
     ENABLE_EXTERNAL_EVENTS: booleanValue.default("true"),
@@ -51,6 +64,17 @@ const environmentSchema = z
       });
     }
     if (environment.NODE_ENV !== "production") return;
+    if (environment.MAIL_TRANSPORT === "console") {
+      // Иначе восстановление пароля «работает»: пользователь видит «письмо
+      // отправлено», а ссылка уходит в лог сервера и никому не приходит.
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["MAIL_TRANSPORT"],
+        message:
+          "must not be 'console' in production — подключите провайдера почты " +
+          "или выставьте 'none', отключив восстановление пароля осознанно",
+      });
+    }
     if (environment.CORS_ORIGIN === "*") {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -111,6 +135,8 @@ export interface AppConfig {
   authCookieSameSite: "lax" | "strict" | "none";
   authCookieSecure: boolean;
   authCookieDomain: string;
+  appUrl: string;
+  mailTransport: "console" | "none";
   demoAuthEnabled: boolean;
   demoAuthPassword: string;
   externalEvents: boolean;
@@ -141,6 +167,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     authCookieSameSite: values.AUTH_COOKIE_SAMESITE,
     authCookieSecure: resolveCookieSecure(values.AUTH_COOKIE_SECURE, values.NODE_ENV),
     authCookieDomain: values.AUTH_COOKIE_DOMAIN,
+    appUrl: values.APP_URL,
+    mailTransport: values.MAIL_TRANSPORT,
     demoAuthEnabled: values.DEMO_AUTH_ENABLED ?? values.NODE_ENV !== "production",
     demoAuthPassword: values.DEMO_AUTH_PASSWORD,
     externalEvents: values.ENABLE_EXTERNAL_EVENTS,

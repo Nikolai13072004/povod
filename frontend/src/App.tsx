@@ -11,6 +11,7 @@ import "@vkontakte/vkui/dist/vkui.css";
 import { ContentWidth } from "./components/Layout/ContentWidth";
 import { ToastProvider } from "./components/Toast/ToastProvider";
 import { ScrollToTop } from "./components/ScrollToTop/ScrollToTop";
+import { AppUpdatePrompt } from "./components/AppUpdate/AppUpdatePrompt";
 import { useTheme } from "./context/ThemeContext";
 
 const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
@@ -108,6 +109,7 @@ const App = observer(() => {
               </MainContent>
               {showAppChrome && <NavMenu />}
             </AppContainer>
+            <AppUpdatePrompt />
           </ToastProvider>
         </AppRoot>
       </AdaptivityProvider>
