@@ -158,5 +158,15 @@ export const errorSchema = z.object({ error: z.string() }).openapi("Error");
 export type User = z.infer<typeof userSchema> & { email: string };
 export type Event = z.infer<typeof eventSchema>;
 export type Comment = Omit<z.infer<typeof commentSchema>, "author"> & { author: User };
+/** Состояние связи после попытки подружиться (SEC-012). */
+export const friendshipStatusSchema = z
+  .object({ status: z.enum(["pending", "accepted"]) })
+  .openapi("FriendshipStatus");
+
+/** Заявки, ждущие ответа: входящие — от других, исходящие — свои. */
+export const friendRequestsSchema = z
+  .object({ incoming: z.array(userSchema), outgoing: z.array(userSchema) })
+  .openapi("FriendRequests");
+
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 export type Notification = z.infer<typeof notificationSchema>;

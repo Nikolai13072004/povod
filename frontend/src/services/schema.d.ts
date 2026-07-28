@@ -1612,7 +1612,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Друзья пользователя */
+        /**
+         * Друзья пользователя
+         * @description Только принятые дружбы: ожидающая заявка друзьями ещё не делает.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -1645,7 +1648,10 @@ export interface paths {
             };
         };
         put?: never;
-        /** Добавить друга */
+        /**
+         * Отправить заявку в друзья
+         * @description Создаёт заявку. Если встречная заявка уже висит, вызов её принимает — тогда ответ 200 со статусом accepted.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -1663,7 +1669,141 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Добавлен */
+                /** @description Заявка принята или уже существовала */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FriendshipStatus"];
+                    };
+                };
+                /** @description Заявка отправлена */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FriendshipStatus"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Недостаточно прав или не пройдена проверка CSRF */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Users/{userId}/friends/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Свои заявки в друзья
+         * @description Входящие и исходящие. Чужие заявки не показываются никому.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Заявки */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FriendRequests"];
+                    };
+                };
+                /** @description Недостаточно прав или не пройдена проверка CSRF */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Users/{userId}/friends/requests/{requesterId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Принять заявку в друзья */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                    requesterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Принята */
                 204: {
                     headers: {
                         [name: string]: unknown;
@@ -1691,6 +1831,64 @@ export interface paths {
             };
         };
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Users/{userId}/friends/{friendId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Убрать связь
+         * @description Расторгает дружбу, отклоняет входящую заявку или отзывает свою.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                    friendId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Убрана */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Недостаточно прав или не пройдена проверка CSRF */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1861,6 +2059,14 @@ export interface components {
         NotificationFeed: {
             items: components["schemas"]["Notification"][];
             unread: number;
+        };
+        FriendshipStatus: {
+            /** @enum {string} */
+            status: "pending" | "accepted";
+        };
+        FriendRequests: {
+            incoming: components["schemas"]["User"][];
+            outgoing: components["schemas"]["User"][];
         };
     };
     responses: never;

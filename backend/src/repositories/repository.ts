@@ -88,6 +88,23 @@ export interface ExternalIdentity {
   profile?: Record<string, unknown>;
 }
 
+/**
+ * Исход попытки подружиться.
+ *
+ * `accepted` возвращается, когда встречная заявка уже висела: тогда «добавить
+ * в друзья» и есть согласие. Разделение нужно вызывающему — ответы клиенту и
+ * тексты в интерфейсе для «отправлено» и «теперь вы друзья» разные.
+ */
+export type FriendshipOutcome =
+  "requested" | "accepted" | "already-friends" | "already-requested" | "not-found" | "self";
+
+export interface FriendRequests {
+  /** Кто позвал меня и ждёт ответа. */
+  incoming: User[];
+  /** Кого позвал я и жду ответа. */
+  outgoing: User[];
+}
+
 export interface PovodRepository {
   init(): Promise<void>;
   /** Проверка готовности хранилища (для readiness-пробы). Бросает/возвращает false, если недоступно. */
@@ -125,8 +142,20 @@ export interface PovodRepository {
   upsertUser(user: User): Promise<User>;
   createPasswordUser(user: User, passwordHash: string): Promise<User>;
   deleteUser(id: string): Promise<boolean>;
+  /** Только принятые дружбы: ожидающая заявка ещё не делает людей друзьями. */
   listFriends(userId: string): Promise<User[] | undefined>;
-  addFriend(userId: string, friendId: string): Promise<User | undefined>;
+  /**
+   * Заявка в друзья (SEC-012).
+   *
+   * Если встречная заявка уже висит, вызов её принимает — тогда «добавить в
+   * друзья» в ответ на чужую заявку работает как согласие, и отдельного шага не
+   * требуется.
+   */
+  requestFriendship(userId: string, friendId: string): Promise<FriendshipOutcome>;
+  /** Заявки, ждущие ответа: входящие — от других, исходящие — свои. */
+  listFriendRequests(userId: string): Promise<FriendRequests | undefined>;
+  acceptFriendRequest(userId: string, requesterId: string): Promise<boolean>;
+  /** Снимает связь в любом состоянии: расторжение дружбы, отклонение и отзыв заявки. */
   removeFriend(userId: string, friendId: string): Promise<boolean | undefined>;
 
   listComments(eventId: string): Promise<Comment[]>;

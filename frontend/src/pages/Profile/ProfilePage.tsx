@@ -22,6 +22,7 @@ import bridge from "@vkontakte/vk-bridge";
 import { getStoredInterests, setStoredInterests } from "../../storage";
 import { useTheme } from "../../context/ThemeContext";
 import { INTERESTS } from "../../data/interests";
+import { FriendRequests } from "./FriendRequests";
 
 const PageRoot = styled.div`
   display: flex;
@@ -224,14 +225,17 @@ const UserProfile = () => {
     if (sessionStore.isVK) {
       loadVkFriends();
     } else {
-      usersAPI.getFriends(sessionStore.user.id).then((res) => {
-        if (res.data) setFriends(res.data);
-      });
+      void loadFriends();
     }
     // Пересинхронизация при смене пользователя: иначе после выхода и входа под
     // другим аккаунтом на экране остались бы чужие интересы и город.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStore.user.id]);
+
+  const loadFriends = async () => {
+    const res = await usersAPI.getFriends(sessionStore.user.id);
+    if (res.data) setFriends(res.data);
+  };
 
   const loadVkFriends = async () => {
     try {
@@ -454,6 +458,9 @@ const UserProfile = () => {
               </div>
             </ModalPage>
           </ModalRoot>
+
+          {/* Заявки идут выше списка: на них надо ответить, а список — справка. */}
+          <FriendRequests userId={sessionStore.user.id} onAccepted={() => void loadFriends()} />
 
           <InterestsHeading>Друзья ({friends.length})</InterestsHeading>
           <ChipsContainer style={{ gap: 16 }}>

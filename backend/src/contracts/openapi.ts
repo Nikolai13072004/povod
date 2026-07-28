@@ -10,6 +10,8 @@ import {
   errorSchema,
   eventPageSchema,
   eventSchema,
+  friendRequestsSchema,
+  friendshipStatusSchema,
   invitationSchema,
   issuedInvitationSchema,
   myEventsSchema,
@@ -482,6 +484,8 @@ registry.registerPath({
   path: "/api/Users/{userId}/friends",
   tags: ["Users"],
   summary: "Друзья пользователя",
+  description: "Только принятые дружбы: ожидающая заявка друзьями ещё не делает.",
+  security,
   request: { params: z.object({ userId: z.string() }) },
   responses: { 200: { description: "Друзья", ...json(z.array(userSchema)) }, 404: errors[404] },
 });
@@ -490,10 +494,54 @@ registry.registerPath({
   method: "post",
   path: "/api/Users/{userId}/friends",
   tags: ["Users"],
-  summary: "Добавить друга",
+  summary: "Отправить заявку в друзья",
+  description:
+    "Создаёт заявку. Если встречная заявка уже висит, вызов её принимает — тогда ответ 200 со статусом accepted.",
   security,
   request: { params: z.object({ userId: z.string() }), body: json(friendAddSchema) },
-  responses: { 204: { description: "Добавлен" }, 403: errors[403], 404: errors[404] },
+  responses: {
+    200: { description: "Заявка принята или уже существовала", ...json(friendshipStatusSchema) },
+    201: { description: "Заявка отправлена", ...json(friendshipStatusSchema) },
+    400: errors[400],
+    403: errors[403],
+    404: errors[404],
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/Users/{userId}/friends/requests",
+  tags: ["Users"],
+  summary: "Свои заявки в друзья",
+  description: "Входящие и исходящие. Чужие заявки не показываются никому.",
+  security,
+  request: { params: z.object({ userId: z.string() }) },
+  responses: {
+    200: { description: "Заявки", ...json(friendRequestsSchema) },
+    403: errors[403],
+    404: errors[404],
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/Users/{userId}/friends/requests/{requesterId}/accept",
+  tags: ["Users"],
+  summary: "Принять заявку в друзья",
+  security,
+  request: { params: z.object({ userId: z.string(), requesterId: z.string() }) },
+  responses: { 204: { description: "Принята" }, 403: errors[403], 404: errors[404] },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/Users/{userId}/friends/{friendId}",
+  tags: ["Users"],
+  summary: "Убрать связь",
+  description: "Расторгает дружбу, отклоняет входящую заявку или отзывает свою.",
+  security,
+  request: { params: z.object({ userId: z.string(), friendId: z.string() }) },
+  responses: { 204: { description: "Убрана" }, 403: errors[403], 404: errors[404] },
 });
 
 // --- служебные ---------------------------------------------------------------

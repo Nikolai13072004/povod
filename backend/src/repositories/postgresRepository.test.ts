@@ -458,13 +458,19 @@ test("removeFriend reports a missing user instead of silently succeeding", { ski
   const repository = await freshRepository();
 
   assert.equal(await repository.removeFriend("u1", "does-not-exist"), undefined);
-  assert.equal(await repository.addFriend("u1", "does-not-exist"), undefined);
+  assert.equal(await repository.requestFriendship("u1", "does-not-exist"), "not-found");
 });
 
 test("friendship is symmetric and removed on both sides", { skip }, async () => {
   const repository = await freshRepository();
 
-  await repository.addFriend("u2", "u3");
+  // Заявка сама по себе друзьями не делает — нужно согласие (SEC-012).
+  assert.equal(await repository.requestFriendship("u2", "u3"), "requested");
+  assert.deepEqual(
+    (await repository.listFriends("u2"))?.map((u) => u.id),
+    ["u1"],
+  );
+  assert.equal(await repository.acceptFriendRequest("u3", "u2"), true);
   assert.deepEqual((await repository.listFriends("u2"))?.map((u) => u.id).sort(), ["u1", "u3"]);
   assert.deepEqual((await repository.listFriends("u3"))?.map((u) => u.id).sort(), ["u1", "u2"]);
 

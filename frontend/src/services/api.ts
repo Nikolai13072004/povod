@@ -253,8 +253,22 @@ export const usersAPI = {
 
   getFriends: (userId: string) => fetchApi<User[]>(`api/Users/${userId}/friends`),
 
+  /** Заявки, ждущие ответа: входящие — от других, исходящие — свои (SEC-012). */
+  getFriendRequests: (userId: string) =>
+    fetchApi<{ incoming: User[]; outgoing: User[] }>(`api/Users/${userId}/friends/requests`),
+
+  acceptFriendRequest: (userId: string, requesterId: string) =>
+    fetchApi<void>(`api/Users/${userId}/friends/requests/${requesterId}/accept`, {
+      method: "POST",
+    }),
+
+  /**
+   * Отправляет заявку в друзья. Ответ говорит, чем всё кончилось: `pending` —
+   * заявка ушла и ждёт ответа, `accepted` — встречная заявка уже висела и этот
+   * вызов её принял.
+   */
   addFriend: (userId: string, friendId: string) =>
-    fetchApi<void>(`api/Users/${userId}/friends`, {
+    fetchApi<{ status: "pending" | "accepted" }>(`api/Users/${userId}/friends`, {
       method: "POST",
       body: JSON.stringify({ friendId }),
     }),
