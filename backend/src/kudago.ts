@@ -6,8 +6,18 @@ import { logger } from "./logger.js";
  * Берём ТОЛЬКО концерты и фестивали (categories=concert,festival).
  * Результат кэшируется в памяти на 30 минут.
  */
+/** Префикс идентификаторов внешнего каталога — по нему они отличаются от наших. */
+export const EXTERNAL_ID_PREFIX = "kudago_";
+
 const CACHE_TTL = 30 * 60 * 1000;
-let cache: { at: number; events: Event[] } | null = null;
+/** Неудача держится минуту: достаточно, чтобы не долбить чужой сервис, и мало, чтобы не отключить каталог. */
+const FAILURE_CACHE_TTL = 60 * 1000;
+/** Внешний сервис, который не ответил за это время, считается недоступным. */
+const REQUEST_TIMEOUT_MS = 3000;
+
+let cache: { at: number; ttl: number; events: Event[] } | null = null;
+/** Запрос «в полёте»: параллельные вызовы ждут его, а не запускают свои. */
+let inFlight: Promise<Event[]> | undefined;
 
 interface KudaGoPlace {
   title?: string;
@@ -42,7 +52,7 @@ function toEvent(k: KudaGoEvent): Event | null {
     : undefined;
 
   return {
-    id: `kudago_${k.id}`,
+    id: `${EXTERNAL_ID_PREFIX}${k.id}`,
     title: title.charAt(0).toUpperCase() + title.slice(1),
     description: (k.description ?? "").replace(/<[^>]+>/g, "").trim(),
     startsAt: d.toISOString(),
@@ -69,15 +79,37 @@ async function fetchCity(location: string): Promise<KudaGoEvent[]> {
     "?lang=ru&fields=id,title,description,dates,place,images,categories" +
     `&expand=place&categories=concert,festival&location=${location}` +
     `&actual_since=${now}&page_size=50&text_format=text&order_by=dates`;
-  const res = await fetch(url);
+  // Без таймаута повисший ответ держит наш HTTP-запрос до таймаута клиента:
+  // у fetch в Node своего таймаута нет.
+  const res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`KudaGo HTTP ${res.status} (${location})`);
   const data = (await res.json()) as { results?: KudaGoEvent[] };
   return data.results ?? [];
 }
 
-/** Концерты и фестивали из KudaGo (Москва + Питер, с кэшем). При ошибке — прошлый кэш или []. */
+/**
+ * Концерты и фестивали из KudaGo (Москва + Питер, с кэшем).
+ *
+ * Три свойства, без которых внешний каталог превращался в способ уронить сервис:
+ *
+ *  1. Запрос ограничен по времени (см. `fetchCity`).
+ *  2. Параллельные вызовы разделяют один запрос. Без этого каждый входящий
+ *     запрос запускал свою пару обращений наружу.
+ *  3. Отказ тоже кэшируется, но на короткий срок. Раньше `cache` выставлялся
+ *     только в успешной ветке, поэтому при недоступном KudaGo каждый вызов
+ *     снова шёл в сеть. А вызывает это в том числе `GET /api/Events/:id` для
+ *     любого неизвестного идентификатора — то есть обычный перебор id
+ *     превращался в усиление трафика наружу.
+ */
 export async function getExternalEvents(): Promise<Event[]> {
-  if (cache && Date.now() - cache.at < CACHE_TTL) return cache.events;
+  if (cache && Date.now() - cache.at < cache.ttl) return cache.events;
+  inFlight ??= loadExternalEvents().finally(() => {
+    inFlight = undefined;
+  });
+  return inFlight;
+}
+
+async function loadExternalEvents(): Promise<Event[]> {
   try {
     const raw = (await Promise.all([fetchCity("msk"), fetchCity("spb")])).flat();
     const seen = new Set<string>();
@@ -90,12 +122,16 @@ export async function getExternalEvents(): Promise<Event[]> {
         seen.add(key);
         return true;
       });
-    cache = { at: Date.now(), events };
+    cache = { at: Date.now(), ttl: CACHE_TTL, events };
     logger.info(`[kudago] загружено событий: ${events.length}`);
     return events;
   } catch (err) {
     logger.warn("[kudago] не удалось получить события:", err);
-    return cache?.events ?? [];
+    // Короткий TTL: держать неудачу так же долго, как удачу, значило бы
+    // отключить каталог на весь срок кэша из-за одной сетевой икоты.
+    const events = cache?.events ?? [];
+    cache = { at: Date.now(), ttl: FAILURE_CACHE_TTL, events };
+    return events;
   }
 }
 

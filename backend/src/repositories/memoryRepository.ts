@@ -369,6 +369,15 @@ export class MemoryRepository implements PovodRepository {
     const user = this.users.find((item) => item.id === userId);
     const friend = this.users.find((item) => item.id === friendId);
     if (!user || !friend) return undefined;
+    /*
+     * Дружба с самим собой — не «разное поведение адаптеров», а порча данных.
+     * В PostgreSQL это отсекает и ранний возврат, и CHECK (user_id < friend_id)
+     * в схеме; здесь защиты не было: `canonicalFriendship` при равных
+     * аргументах возвращает [id, id], дальше leftUser и rightUser — один и тот
+     * же объект, и собственный идентификатор попадал в собственный список
+     * друзей. Снимок на диск это переживало.
+     */
+    if (userId === friendId) return clone(user);
     const [left, right] = canonicalFriendship(userId, friendId);
     const leftUser = this.users.find((item) => item.id === left)!;
     const rightUser = this.users.find((item) => item.id === right)!;

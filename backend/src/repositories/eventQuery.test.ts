@@ -93,6 +93,43 @@ test("the cursor comparison matches the ordering it pages through", async () => 
   assert.match(ranked.queries[0].text, /, e\.created_at, e\.id\) < \(\$\d+, \$\d+, \$\d+\)/);
 });
 
+test("SQL normalises interest labels exactly like the cursor does in JS", async () => {
+  /*
+   * Ранг «совпадает с интересами» считается дважды: здесь — для сортировки,
+   * и в feed.ts — для курсора следующей страницы. Пока SQL нормализовал слабее
+   * (без свёртки ё/е и без обрезки пробелов), значения расходились, и курсор
+   * с rank=1 против строк с rank=0 пропускал условие `<` целиком: вторая
+   * страница начиналась заново с самого свежего события, и лента зацикливалась.
+   */
+  const { repository, queries } = repositoryWithCapture();
+  await repository.listEvents({ preferInterests: ["Кёрлинг"], limit: 5 });
+
+  const [{ text }] = queries;
+  const normalizations = text.match(/translate\(lower\(btrim\([^)]*\)\), 'ё', 'е'\)/g) ?? [];
+  // Обе стороны сравнения: категория, тег и сам список интересов.
+  assert.ok(
+    normalizations.length >= 3,
+    `нормализация должна стоять с обеих сторон сравнения, найдено: ${normalizations.length}`,
+  );
+  // Голого lower() без свёртки ё/е в ранге остаться не должно.
+  assert.ok(
+    !/lower\(coalesce\(e\.category, ''\)\) = ANY/.test(text),
+    "категория сравнивается ненормализованной",
+  );
+
+  // Правила совпадают с JS: обе метки должны сойтись в одно значение.
+  assert.equal(
+    normalizeLabelForTest("  Кёрлинг "),
+    normalizeLabelForTest("керлинг"),
+    "нормализация в feed.ts не сводит ё/е и пробелы",
+  );
+});
+
+/** Повторяет то, что делает SQL-выражение, — чтобы сверить правила. */
+function normalizeLabelForTest(value: string): string {
+  return value.toLocaleLowerCase("ru").replace(/ё/g, "е").trim();
+}
+
 test("search uses full-text matching, not a bare substring (BE-012)", async () => {
   const { repository, queries } = repositoryWithCapture();
   await repository.listEvents({ search: "концерт" });

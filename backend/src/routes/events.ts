@@ -3,7 +3,7 @@ import { getRepository, newId } from "../store.js";
 import { asyncHandler, HttpError } from "../middleware.js";
 import { eventCreateSchema, eventUpdateSchema, invitationCreateSchema } from "../validation.js";
 import { config } from "../config.js";
-import { getExternalEvents, findExternalEvent } from "../kudago.js";
+import { getExternalEvents, findExternalEvent, EXTERNAL_ID_PREFIX } from "../kudago.js";
 import type { Event } from "../types.js";
 import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware.js";
 import { notifyEventCancelled, notifyEventJoined, notifyEventUpdated } from "../notifications.js";
@@ -196,7 +196,9 @@ eventsRouter.get(
   optionalAuth,
   asyncHandler(async (req, res) => {
     let event = await getRepository().getEvent(req.params.id);
-    if (!event && config.externalEvents) {
+    // Только по префиксу внешнего каталога: раньше сюда попадал любой неизвестный
+    // идентификатор, и обычный перебор id превращался в поток запросов наружу.
+    if (!event && config.externalEvents && req.params.id.startsWith(EXTERNAL_ID_PREFIX)) {
       event =
         findExternalEvent(req.params.id) ??
         (await getExternalEvents()).find((item) => item.id === req.params.id);
@@ -314,6 +316,31 @@ eventsRouter.post(
       throw new HttpError(403, "Invitation required");
     }
 
+    const alreadyParticipant = current.participantIds.includes(user.id);
+
+    /*
+     * Приглашение расходуется ДО записи, и его результат решает исход.
+     *
+     * Раньше порядок был обратным: проверка счётчика, запись участника, и лишь
+     * потом расход, чей булев результат отбрасывался. Между чтением и расходом
+     * не было ни блокировки, ни транзакции, поэтому двое по ссылке с maxUses=1
+     * проходили оба: атомарный UPDATE честно возвращал false для второго, но
+     * тот уже был участником навсегда. Отзыв ссылки в этом окне тоже не
+     * отменял совершённую запись.
+     *
+     * Расход перед записью может сгореть впустую, если joinEvent следом
+     * откажет, — но ошибка при этом в безопасную сторону: лишний человек не
+     * пройдёт, а автор всегда может выдать новую ссылку.
+     *
+     * Тем, кто уже записан, приглашение не тратится: перечитывание страницы не
+     * должно исчерпывать ссылку, рассчитанную на пятерых.
+     */
+    if (invitation && !alreadyParticipant) {
+      if (!(await repository.consumeInvitation(invitation.id))) {
+        throw new HttpError(403, "Invitation required");
+      }
+    }
+
     const result = await repository.joinEvent(current.id, user.id);
     switch (result.outcome) {
       case "not-found":
@@ -326,9 +353,6 @@ eventsRouter.post(
         res.json(result.event);
         return;
       case "joined":
-        // Приглашение считается использованным только при записи: перечитывание
-        // страницы не должно исчерпывать ссылку, рассчитанную на пять человек.
-        if (invitation) await repository.consumeInvitation(invitation.id);
         await notifyEventJoined(result.event, user);
         res.json(result.event);
     }

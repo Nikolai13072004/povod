@@ -164,6 +164,22 @@ const USER_SELECT = `
   ) friends ON true
 `;
 
+/**
+ * Приведение метки к сравнимому виду — точная копия `normalizeLabel` из feed.ts
+ * (нижний регистр, ё → е, обрезка пробелов), только на SQL.
+ *
+ * Правила обязаны совпадать: порядок ленты — это тройка (совпадение с
+ * интересами, created_at, id), и первое поле считается ДВАЖДЫ — здесь для
+ * сортировки и в JS для курсора следующей страницы. Пока SQL нормализовал
+ * слабее, значения расходились, и курсор с rank=1 против строк с rank=0
+ * пропускал условие `<` целиком: вторая страница начиналась заново с самого
+ * свежего события, и лента зацикливалась. Достаточно было интереса «Кёрлинг»
+ * при категории «Керлинг».
+ */
+function normalizedLabel(expression: string): string {
+  return `translate(lower(btrim(${expression})), 'ё', 'е')`;
+}
+
 function toIso(value: Date | string): string {
   return (value instanceof Date ? value : new Date(value)).toISOString();
 }
@@ -384,9 +400,9 @@ export class PostgresRepository implements PovodRepository {
     let interestRank: string | undefined;
     if (filters.preferInterests?.length) {
       values.push(filters.preferInterests);
-      const wanted = `SELECT lower(interest) FROM unnest($${values.length}::text[]) AS interest`;
-      interestRank = `(CASE WHEN lower(coalesce(e.category, '')) = ANY(${wanted}) OR EXISTS (
-        SELECT 1 FROM unnest(e.tags) AS tag WHERE lower(tag) = ANY(${wanted})
+      const wanted = `SELECT ${normalizedLabel("interest")} FROM unnest($${values.length}::text[]) AS interest`;
+      interestRank = `(CASE WHEN ${normalizedLabel("coalesce(e.category, '')")} = ANY(${wanted}) OR EXISTS (
+        SELECT 1 FROM unnest(e.tags) AS tag WHERE ${normalizedLabel("tag")} = ANY(${wanted})
       ) THEN 1 ELSE 0 END)`;
     }
 
