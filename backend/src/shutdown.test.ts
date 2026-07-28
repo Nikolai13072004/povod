@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createGracefulShutdown, type ClosableServer } from "./shutdown";
+import { createGracefulShutdown, type ClosableServer } from "./shutdown.js";
 
 /** Заглушка сервера: `immediate` сразу зовёт callback, `never` — никогда. */
 function fakeServer(behavior: "immediate" | "never"): {

@@ -4,5 +4,10 @@ build
 coverage
 **/package-lock.json
 backend/data
+
+# Генерируется из Zod-схем сервера (ARCH-002): форматировать нечего, а расхождение
+# с выводом генератора сломало бы сверку контракта.
+docs/openapi.json
+frontend/src/services/schema.d.ts
 # Общие документы поддерживаются вручную и должны оставаться идентичными в frontend/ и backend/
 **/*.md

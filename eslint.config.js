@@ -11,6 +11,8 @@ export default tseslint.config(
       "**/coverage/**",
       "backend/data/**",
       "scripts/**",
+      // Генерируется из docs/openapi.json — правки бессмысленны (ARCH-002).
+      "frontend/src/services/schema.d.ts",
       "**/*.config.js",
       "**/*.config.ts",
     ],
@@ -29,7 +31,11 @@ export default tseslint.config(
   },
   {
     // Вспомогательные скрипты сборки во frontend исполняются в Node, а не в браузере.
-    files: ["frontend/scripts/**/*.mjs", "frontend/src/**/*.test.{ts,tsx}"],
+    files: [
+      "frontend/scripts/**/*.mjs",
+      "backend/scripts/**/*.mjs",
+      "frontend/src/**/*.test.{ts,tsx}",
+    ],
     languageOptions: { globals: { ...globals.node } },
   },
   {

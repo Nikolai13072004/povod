@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { getRepository } from "./store";
-import type { Event, EventInvitation, User } from "./types";
+import { getRepository } from "./store.js";
+import type { Event, EventInvitation, User } from "./types.js";
 
 /**
  * Приглашения в закрытые события (BE-008).

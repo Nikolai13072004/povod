@@ -6,7 +6,7 @@ import type {
   Notification,
   NotificationType,
   User,
-} from "../types";
+} from "../types.js";
 import type {
   AuthSession,
   CreateCommentInput,
@@ -14,11 +14,11 @@ import type {
   ExternalIdentity,
   JoinEventResult,
   PovodRepository,
-} from "./repository";
-import { eventDateToIso } from "../db/eventDate";
-import { runMigrations } from "../db/migrations";
-import { seedComments, seedEvents, seedUsers } from "../seed";
-import { logger } from "../logger";
+} from "./repository.js";
+import { eventDateToIso } from "../db/eventDate.js";
+import { runMigrations } from "../db/migrations.js";
+import { seedComments, seedEvents, seedUsers } from "../seed.js";
+import { logger } from "../logger.js";
 
 interface EventRow {
   id: string;

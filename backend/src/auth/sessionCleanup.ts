@@ -1,5 +1,5 @@
-import { getRepository } from "../store";
-import { logger } from "../logger";
+import { getRepository } from "../store.js";
+import { logger } from "../logger.js";
 
 /** Периодичность очистки истёкших/отозванных сессий по умолчанию — 1 час. */
 export const DEFAULT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;

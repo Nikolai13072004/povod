@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import { config } from "../config";
-import { getRepository } from "../store";
+import { config } from "../config.js";
+import { getRepository } from "../store.js";
 
 /**
  * Health-эндпоинты:

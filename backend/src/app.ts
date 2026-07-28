@@ -2,16 +2,16 @@ import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
-import { config } from "./config";
-import { loggerStream, redactText } from "./logger";
-import { eventsRouter } from "./routes/events";
-import { usersRouter } from "./routes/users";
-import { commentsRouter } from "./routes/comments";
-import { authRouter } from "./routes/auth";
-import { notificationsRouter } from "./routes/notifications";
-import { health, live, ready, ping, dbTime } from "./routes/health";
-import { csrfProtection } from "./auth/csrf";
-import { notFound, errorHandler } from "./middleware";
+import { config } from "./config.js";
+import { loggerStream, redactText } from "./logger.js";
+import { eventsRouter } from "./routes/events.js";
+import { usersRouter } from "./routes/users.js";
+import { commentsRouter } from "./routes/comments.js";
+import { authRouter } from "./routes/auth.js";
+import { notificationsRouter } from "./routes/notifications.js";
+import { health, live, ready, ping, dbTime } from "./routes/health.js";
+import { csrfProtection } from "./auth/csrf.js";
+import { notFound, errorHandler } from "./middleware.js";
 
 /** Сборка Express-приложения (без listen — удобно для тестов). */
 export function createApp() {

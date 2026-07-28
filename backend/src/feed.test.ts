@@ -10,8 +10,8 @@ import {
   isAfterCursor,
   matchesInterests,
   normalizeFeedLimit,
-} from "./feed";
-import type { Event } from "./types";
+} from "./feed.js";
+import type { Event } from "./types.js";
 
 const event = (overrides: Partial<Event> = {}): Event => ({
   id: "1",

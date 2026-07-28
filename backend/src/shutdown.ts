@@ -1,4 +1,4 @@
-import { logger } from "./logger";
+import { logger } from "./logger.js";
 
 /** Минимальный контракт HTTP-сервера, нужный для остановки (упрощает тесты). */
 export interface ClosableServer {

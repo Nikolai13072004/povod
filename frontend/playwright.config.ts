@@ -50,7 +50,9 @@ export default defineConfig({
 
   webServer: [
     {
-      command: "npm --prefix ../backend start",
+      // start:dev, а не start: E2E не должны требовать предварительной сборки
+      // бэкенда, иначе набор перестанет запускаться «с чистого клона».
+      command: "npm --prefix ../backend run start:dev",
       port: BACKEND_PORT,
       reuseExistingServer: !process.env.CI,
       stdout: "pipe",

@@ -1,4 +1,4 @@
-import type { Comment, User } from "./types";
+import type { Comment, User } from "./types.js";
 
 export function presentPublicUser(user: User) {
   return {

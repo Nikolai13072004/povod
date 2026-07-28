@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getRepository } from "../store";
-import { asyncHandler } from "../middleware";
-import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware";
-import { NOTIFICATION_FEED_LIMIT } from "../notifications";
-import { markNotificationsSchema } from "../validation";
+import { getRepository } from "../store.js";
+import { asyncHandler } from "../middleware.js";
+import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware.js";
+import { NOTIFICATION_FEED_LIMIT } from "../notifications.js";
+import { markNotificationsSchema } from "../validation.js";
 
 export const notificationsRouter = Router();
 

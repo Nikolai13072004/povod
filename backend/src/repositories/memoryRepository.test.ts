@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MemoryRepository } from "./memoryRepository";
+import { MemoryRepository } from "./memoryRepository.js";
 
 test("joining an event is idempotent and participant count is derived", async () => {
   const repository = new MemoryRepository();

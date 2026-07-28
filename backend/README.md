@@ -28,6 +28,25 @@ npm test           # unit- и API-тесты
 
 Переменные окружения (см. [`env.example`](./env.example)) валидируются через Zod **до** запуска; небезопасная production-конфигурация (wildcard CORS, включённый демо-вход, VK-вход без секрета) останавливает старт с понятной ошибкой. Ключевые: `PORT`, `HOST`, `CORS_ORIGIN`, `PERSIST`, `DATABASE_URL`, `DEMO_AUTH_ENABLED`, `VK_APP_SECRET`, а также флаги сессионной куки `AUTH_COOKIE_SAMESITE`/`AUTH_COOKIE_SECURE`/`AUTH_COOKIE_DOMAIN` (см. [решение по SEC-001](../docs/decisions/SEC-001-cookie-sessions.md)).
 
+## Сборка и запуск в production
+
+```bash
+npm run build     # tsc -> dist/, миграции копируются рядом
+npm start         # node dist/index.js
+```
+
+`npm run dev` и `npm run start:dev` работают через `tsx` — он компилирует на лету и нужен только для разработки. В production запускается собранный код: старт быстрее, а компилятора в образе нет вовсе.
+
+## Контракт API
+
+[`docs/openapi.json`](../docs/openapi.json) собирается из тех же Zod-схем, которыми сервер проверяет запросы и описывает ответы, — поэтому спецификация не может разойтись с реализацией (ARCH-002). Из неё же генерируются типы фронтенда.
+
+```bash
+npm run openapi   # пересобрать спецификацию и типы frontend
+```
+
+Тест `src/contracts/openapi.test.ts` сверяет закоммиченный файл с тем, что порождает код, и не даёт ему устареть.
+
 ## API
 
 Базовый префикс — `/api` (пути в PascalCase, роутинг регистронезависим). Полный контракт и правила — в [`ARCHITECTURE.md`](./ARCHITECTURE.md).

@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getRepository } from "../store";
-import { asyncHandler, HttpError } from "../middleware";
-import { friendAddSchema, profileUpdateSchema } from "../validation";
-import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware";
-import { presentPublicUser } from "../presenters";
+import { getRepository } from "../store.js";
+import { asyncHandler, HttpError } from "../middleware.js";
+import { friendAddSchema, profileUpdateSchema } from "../validation.js";
+import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware.js";
+import { presentPublicUser } from "../presenters.js";
 
 export const usersRouter = Router();
 

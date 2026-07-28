@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { validateImageReference } from "./media";
+import { validateImageReference } from "./media.js";
 
 /** Схемы валидации входных данных (Zod). */
 

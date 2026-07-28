@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { getRepository, newId } from "../store";
-import { asyncHandler, HttpError } from "../middleware";
-import { eventCreateSchema, eventUpdateSchema, invitationCreateSchema } from "../validation";
-import { config } from "../config";
-import { getExternalEvents, findExternalEvent } from "../kudago";
-import type { Event } from "../types";
-import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware";
-import { notifyEventCancelled, notifyEventJoined, notifyEventUpdated } from "../notifications";
-import { issueInvitation, presentInvitation, resolveInvitation } from "../invitations";
-import { cursorOf, decodeCursor, encodeCursor, normalizeFeedLimit } from "../feed";
+import { getRepository, newId } from "../store.js";
+import { asyncHandler, HttpError } from "../middleware.js";
+import { eventCreateSchema, eventUpdateSchema, invitationCreateSchema } from "../validation.js";
+import { config } from "../config.js";
+import { getExternalEvents, findExternalEvent } from "../kudago.js";
+import type { Event } from "../types.js";
+import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware.js";
+import { notifyEventCancelled, notifyEventJoined, notifyEventUpdated } from "../notifications.js";
+import { issueInvitation, presentInvitation, resolveInvitation } from "../invitations.js";
+import { cursorOf, decodeCursor, encodeCursor, normalizeFeedLimit } from "../feed.js";
 
 export const eventsRouter = Router();
 
