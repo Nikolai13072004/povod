@@ -5,6 +5,12 @@ coverage
 **/package-lock.json
 backend/data
 
+# Артефакты Playwright: git их игнорирует, а prettier видел и ронял проверку
+# после локального прогона E2E (в CI каталога нет, поэтому там не всплывало).
+test-results
+playwright-report
+blob-report
+
 # Генерируется из Zod-схем сервера (ARCH-002): форматировать нечего, а расхождение
 # с выводом генератора сломало бы сверку контракта.
 docs/openapi.json
