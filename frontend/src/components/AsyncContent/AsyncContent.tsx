@@ -1,6 +1,6 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import styled from "@emotion/styled";
-import { Button, Spinner } from "@vkontakte/vkui";
+import { Button, Spinner, VisuallyHidden } from "@vkontakte/vkui";
 
 const StateContainer = styled.div<{ $compact: boolean }>`
   display: grid;
@@ -25,6 +25,23 @@ const StateDescription = styled.div`
   min-width: 0;
 `;
 
+/** Выход из пустого состояния: что человек может сделать прямо сейчас (UX-010). */
+export interface EmptyAction {
+  label: string;
+  onClick: () => void;
+  /** `primary` — основной путь, `secondary` — запасной. */
+  mode?: "primary" | "secondary";
+}
+
+/** Кнопки в ряд, но с переносом: на узком экране две подписи не помещаются. */
+const EmptyActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 4px;
+`;
+
 interface AsyncContentProps {
   loading: boolean;
   error?: string | null;
@@ -33,10 +50,22 @@ interface AsyncContentProps {
   errorTitle?: string;
   emptyTitle?: string;
   emptyDescription?: string;
+  /**
+   * Действия в пустом состоянии. Пустой экран без выхода — тупик: человек
+   * видит «ничего нет» и сам догадывается, что фильтры можно сбросить, а повод
+   * создать.
+   */
+  emptyActions?: EmptyAction[];
   onRetry?: () => void;
   retryLabel?: string;
   compact?: boolean;
   loadingIndicator?: ReactNode;
+  /**
+   * Скелетон вместо спиннера (FE-015). Занимает всю ширину и повторяет будущую
+   * разметку, поэтому подпись «Загружаем…» рядом не рисуется — она остаётся
+   * только для скринридеров.
+   */
+  skeleton?: ReactNode;
 }
 
 /**
@@ -51,12 +80,23 @@ export function AsyncContent({
   errorTitle = "Не удалось загрузить данные",
   emptyTitle = "Нет данных",
   emptyDescription,
+  emptyActions,
   onRetry,
   retryLabel = "Повторить",
   compact = false,
   loadingIndicator,
+  skeleton,
   children,
 }: PropsWithChildren<AsyncContentProps>) {
+  if (loading && skeleton) {
+    return (
+      <div role="status" aria-live="polite" aria-busy="true">
+        <VisuallyHidden>{loadingTitle}</VisuallyHidden>
+        {skeleton}
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <StateContainer $compact={compact} role="status" aria-live="polite">
@@ -85,6 +125,15 @@ export function AsyncContent({
       <StateContainer $compact={compact} role="status">
         <StateTitle>{emptyTitle}</StateTitle>
         {emptyDescription && <StateDescription>{emptyDescription}</StateDescription>}
+        {emptyActions && emptyActions.length > 0 && (
+          <EmptyActions>
+            {emptyActions.map((action) => (
+              <Button key={action.label} mode={action.mode ?? "secondary"} onClick={action.onClick}>
+                {action.label}
+              </Button>
+            ))}
+          </EmptyActions>
+        )}
       </StateContainer>
     );
   }

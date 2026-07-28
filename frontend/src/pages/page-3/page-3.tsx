@@ -15,6 +15,7 @@ import { filtersStore } from "../../stores/filtersStore";
 import { favoritesStore } from "../../stores/favoritesStore";
 import { EventCover } from "../../components/EventCover/EventCover";
 import { AsyncContent } from "../../components/AsyncContent";
+import { MyEventListSkeleton } from "../../components/Skeleton";
 import {
   eventDateKey,
   eventTimeKey,
@@ -431,7 +432,20 @@ function SignUpEventsPage() {
                 ? "Создайте свой повод — он появится здесь."
                 : "Запишитесь на событие из общей ленты — оно появится здесь."
           }
+          emptyActions={
+            // Фильтры и пустой раздел — разные тупики: в первом случае мешает
+            // поиск, во втором событий нет вовсе.
+            allEvents.length > 0
+              ? [{ label: "Сбросить фильтры", onClick: () => filters.reset(), mode: "primary" }]
+              : tab === "attending"
+                ? [{ label: "Открыть ленту", onClick: () => navigate("/page-1"), mode: "primary" }]
+                : [
+                    { label: "Создать повод", onClick: () => navigate("/add"), mode: "primary" },
+                    { label: "Открыть ленту", onClick: () => navigate("/page-1") },
+                  ]
+          }
           onRetry={() => eventStore.fetchMyEvents(true)}
+          skeleton={<MyEventListSkeleton />}
         >
           <CardGrid>
             {filteredEvents.map((event) => (

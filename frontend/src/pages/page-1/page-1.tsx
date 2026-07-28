@@ -12,6 +12,7 @@ import { OpenFilterIcon } from "../../icons/icons";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { eventStore } from "../../stores/EventStore";
 import { AsyncContent } from "../../components/AsyncContent";
+import { EventListSkeleton } from "../../components/Skeleton";
 import {
   eventDateKey,
   eventTimeKey,
@@ -338,7 +339,13 @@ function FirstPageComponent() {
             ? "Попробуйте изменить параметры поиска или сбросить фильтры."
             : "Новые события появятся здесь после публикации."
         }
+        emptyActions={
+          hasActiveFilters
+            ? [{ label: "Сбросить фильтры", onClick: resetFilters, mode: "primary" }]
+            : [{ label: "Создать повод", onClick: () => navigate("/add"), mode: "primary" }]
+        }
         onRetry={() => eventStore.fetchEvents(true)}
+        skeleton={<EventListSkeleton />}
       >
         <>
           {hasActiveFilters && <ResultCount>Найдено поводов: {filteredEvents.length}</ResultCount>}

@@ -3,6 +3,8 @@ import { config } from "../config.js";
 import { getRepository } from "../store.js";
 import { logger } from "../logger.js";
 import { hashPassword } from "./password.js";
+import { getMailTransport } from "../mail/index.js";
+import { passwordResetMessage } from "../mail/message.js";
 import type { User } from "../types.js";
 
 /**
@@ -23,7 +25,8 @@ import type { User } from "../types.js";
  */
 
 /** Час: достаточно, чтобы дойти до письма, мало, чтобы ссылка «полежала». */
-const TOKEN_LIFETIME_MS = 60 * 60 * 1000;
+const TOKEN_LIFETIME_HOURS = 1;
+const TOKEN_LIFETIME_MS = TOKEN_LIFETIME_HOURS * 60 * 60 * 1000;
 
 export function hashResetToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -38,13 +41,18 @@ export function resetLink(token: string): string {
 /**
  * Отправка письма.
  *
- * Провайдер почты не выбран, и выбирать его за владельца проекта нельзя, — но
- * и молча ронять восстановление тоже. Пока ссылка пишется в лог: в разработке
- * этого достаточно, а в production запуск с таким транспортом останавливается
- * проверкой конфигурации.
+ * Ошибка провайдера гасится намеренно. Если дать ей выйти наружу, запрос по
+ * существующему адресу вернёт 500, а по несуществующему — 204, и форма снова
+ * станет проверялкой «зарегистрирован ли этот человек» — ровно то, от чего
+ * защищает свойство 1. Неудача остаётся в логе, где её видит владелец сервиса,
+ * а не тот, кто перебирает адреса.
  */
 async function deliverResetLink(user: User, link: string): Promise<void> {
-  logger.info(`[auth] ссылка восстановления для ${user.email}: ${link}`);
+  try {
+    await getMailTransport().send(passwordResetMessage(user.email, link, TOKEN_LIFETIME_HOURS));
+  } catch (error) {
+    logger.error("[auth] не удалось отправить письмо восстановления пароля:", error);
+  }
 }
 
 /**

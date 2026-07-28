@@ -153,6 +153,11 @@ export const NotificationsPage = observer(() => {
           errorTitle="Не удалось загрузить уведомления"
           emptyTitle="Пока тихо"
           emptyDescription="Здесь появятся комментарии и новые участники ваших событий, а также изменения в тех, куда вы записаны."
+          emptyActions={[
+            // Уведомления появляются только после участия — из пустого экрана
+            // ведёт ровно один осмысленный путь.
+            { label: "Открыть ленту", onClick: () => navigate("/page-1"), mode: "primary" },
+          ]}
           onRetry={() => void notificationsStore.load()}
         >
           {items.map((notification) => (

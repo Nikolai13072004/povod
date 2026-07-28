@@ -34,6 +34,7 @@ import {
 } from "@vkontakte/icons";
 import { EventMap } from "../../components/EventMap/EventMap";
 import { AsyncContent } from "../../components/AsyncContent";
+import { EventDetailsSkeleton } from "../../components/Skeleton";
 import "@vkontakte/vkui/dist/vkui.css";
 import styled from "@emotion/styled";
 
@@ -110,7 +111,12 @@ function EventPageComponent() {
       <Panel id="loading">
         <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
         <Group>
-          <AsyncContent loading empty={false} loadingTitle="Загружаем событие…" />
+          <AsyncContent
+            loading
+            empty={false}
+            loadingTitle="Загружаем событие…"
+            skeleton={<EventDetailsSkeleton />}
+          />
         </Group>
       </Panel>
     );
@@ -144,6 +150,9 @@ function EventPageComponent() {
             empty
             emptyTitle="Событие не найдено"
             emptyDescription="Возможно, оно было удалено или доступ к нему ограничен."
+            emptyActions={[
+              { label: "Открыть ленту", onClick: () => navigate("/page-1"), mode: "primary" },
+            ]}
           />
         </Group>
       </Panel>

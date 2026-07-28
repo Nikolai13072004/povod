@@ -65,6 +65,49 @@ test("config refuses a mail transport that only writes to the log in production"
   );
 });
 
+test("config refuses the resend transport without a key or sender", () => {
+  // Не отложенная ошибка на первом забытом пароле, а отказ на старте.
+  assert.throws(() => loadConfig({ MAIL_TRANSPORT: "resend" }), /RESEND_API_KEY[\s\S]*MAIL_FROM/);
+  assert.throws(
+    () => loadConfig({ MAIL_TRANSPORT: "resend", MAIL_FROM: "POVOD <no-reply@povod.example>" }),
+    /RESEND_API_KEY/,
+  );
+});
+
+test("config accepts both plain and named sender addresses", () => {
+  const plain = loadConfig({
+    MAIL_TRANSPORT: "resend",
+    RESEND_API_KEY: "re_test",
+    MAIL_FROM: "no-reply@povod.example",
+  });
+  assert.equal(plain.mailFrom, "no-reply@povod.example");
+
+  const named = loadConfig({
+    MAIL_TRANSPORT: "resend",
+    RESEND_API_KEY: "re_test",
+    MAIL_FROM: "POVOD <no-reply@povod.example>",
+  });
+  assert.equal(named.mailTransport, "resend");
+  assert.equal(named.resendApiKey, "re_test");
+
+  assert.throws(() => loadConfig({ MAIL_FROM: "povod.example" }), /MAIL_FROM/);
+  assert.throws(() => loadConfig({ MAIL_FROM: "a@b, c@d" }), /MAIL_FROM/);
+});
+
+test("config allows the resend transport in production", () => {
+  const config = loadConfig({
+    NODE_ENV: "production",
+    CORS_ORIGIN: "https://povod.example",
+    DEMO_AUTH_ENABLED: "false",
+    APP_URL: "https://povod.example",
+    MAIL_TRANSPORT: "resend",
+    RESEND_API_KEY: "re_test",
+    MAIL_FROM: "POVOD <no-reply@povod.example>",
+  });
+
+  assert.equal(config.mailTransport, "resend");
+});
+
 test("config rejects an app URL that is not a bare origin", () => {
   // Из APP_URL собираются ссылки в письмах — путь или query там всё сломают.
   assert.throws(() => loadConfig({ APP_URL: "https://povod.example/app" }), /APP_URL/);
