@@ -11,7 +11,7 @@ const imageSchema = z.string().superRefine((value, ctx) => {
   }
 });
 
-export const eventCreateSchema = z.object({
+const eventFieldsSchema = z.object({
   title: z.string().min(1, "Название обязательно"),
   description: z.string().optional().default(""),
   startsAt: z
@@ -35,9 +35,44 @@ export const eventCreateSchema = z.object({
   tags: z.array(z.string()).optional(),
   coords: z.tuple([z.number(), z.number()]).optional(),
   format: z.enum(["public", "private"]).optional(),
+  /** Окончание события. Не задано — событие «до упора» (BE-006). */
+  endsAt: z
+    .string()
+    .datetime({ offset: true, message: "endsAt должен быть ISO 8601 timestamp" })
+    .optional(),
+  /**
+   * Предел числа участников вместе с автором (BE-007). Минимум 1: автор
+   * становится первым участником, поэтому с нулём событие нельзя было бы
+   * создать даже ему самому. Верхняя граница отсекает опечатки вроде лишних
+   * нулей — событий на миллион человек в приложении для встреч не бывает.
+   */
+  participantLimit: z.number().int().min(1).max(100_000).optional(),
 });
 
-export const eventUpdateSchema = eventCreateSchema.partial();
+/** Событие не может закончиться раньше, чем началось: это опечатка, а не данные. */
+const endsAfterStarts = (value: { startsAt?: string; endsAt?: string }) =>
+  !value.startsAt || !value.endsAt || Date.parse(value.endsAt) > Date.parse(value.startsAt);
+
+export const eventCreateSchema = eventFieldsSchema.refine(endsAfterStarts, {
+  path: ["endsAt"],
+  message: "Окончание должно быть позже начала",
+});
+
+/**
+ * При правке проверка пары применима, только когда переданы оба поля: перенос
+ * одного начала сверяется с сохранённым окончанием уже в маршруте, где виден
+ * текущий вид события.
+ */
+export const eventUpdateSchema = eventFieldsSchema.partial().refine(endsAfterStarts, {
+  path: ["endsAt"],
+  message: "Окончание должно быть позже начала",
+});
+
+/** Параметры выдаваемого приглашения (BE-008); без них — срок по умолчанию. */
+export const invitationCreateSchema = z.object({
+  expiresInDays: z.number().int().min(1).max(365).optional(),
+  maxUses: z.number().int().min(1).max(1000).optional(),
+});
 
 export const commentCreateSchema = z.object({
   text: z.string().min(1, "Текст комментария обязателен"),

@@ -765,6 +765,225 @@ test("notifications require a session", async (context) => {
   assert.equal((await fetch(`${baseUrl}/api/Notifications/read`, { method: "POST" })).status, 401);
 });
 
+/** Создаёт событие от имени владельца токена и возвращает его. */
+async function createEvent(
+  baseUrl: string,
+  token: string,
+  overrides: Record<string, unknown> = {},
+): Promise<{ id: string; participants: number; endsAt?: string; participantLimit?: number }> {
+  const response = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Событие",
+        startsAt: "2026-12-01T12:00:00.000Z",
+        timezone: "Europe/Moscow",
+        location: "Место",
+        ...overrides,
+      }),
+    }),
+  );
+  assert.equal(response.status, 201, await response.clone().text());
+  return (await response.json()) as { id: string; participants: number };
+}
+
+test("participant limit: the last seat goes to exactly one of the simultaneous joiners", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  // Лимит 3, автор уже внутри — свободных мест два.
+  const event = await createEvent(baseUrl, owner, { participantLimit: 3 });
+
+  const guests = await Promise.all([
+    registerUser(baseUrl, { email: "seat1@povod.app" }),
+    registerUser(baseUrl, { email: "seat2@povod.app" }),
+    registerUser(baseUrl, { email: "seat3@povod.app" }),
+  ]);
+
+  const responses = await Promise.all(
+    guests.map((guest) =>
+      fetch(`${baseUrl}/api/Events/${event.id}/join`, authorized(guest.token, { method: "POST" })),
+    ),
+  );
+  const statuses = responses.map((response) => response.status).sort();
+  // Двое записались, третий получил 409 — не 403: дело не в правах, место заняли.
+  assert.deepEqual(statuses, [200, 200, 409]);
+
+  const finalEvent = await fetch(`${baseUrl}/api/Events/${event.id}`, authorized(owner));
+  assert.equal(((await finalEvent.json()) as { participants: number }).participants, 3);
+});
+
+test("participant limit: leaving frees a seat, and the limit cannot drop below the crowd", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const event = await createEvent(baseUrl, owner, { participantLimit: 2 });
+  const guest = await registerUser(baseUrl, { email: "freed@povod.app" });
+  const late = await registerUser(baseUrl, { email: "late@povod.app" });
+
+  assert.equal(
+    (
+      await fetch(
+        `${baseUrl}/api/Events/${event.id}/join`,
+        authorized(guest.token, { method: "POST" }),
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await fetch(
+        `${baseUrl}/api/Events/${event.id}/join`,
+        authorized(late.token, { method: "POST" }),
+      )
+    ).status,
+    409,
+  );
+
+  // Лимит ниже числа записавшихся оставил бы событие в состоянии «мест −1».
+  const shrink = await fetch(
+    `${baseUrl}/api/Events/${event.id}`,
+    authorized(owner, { method: "PUT", body: JSON.stringify({ participantLimit: 1 }) }),
+  );
+  assert.equal(shrink.status, 400);
+
+  await fetch(
+    `${baseUrl}/api/Events/${event.id}/leave`,
+    authorized(guest.token, { method: "POST" }),
+  );
+  assert.equal(
+    (
+      await fetch(
+        `${baseUrl}/api/Events/${event.id}/join`,
+        authorized(late.token, { method: "POST" }),
+      )
+    ).status,
+    200,
+  );
+});
+
+test("event end time is stored and must be after the start", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  const event = await createEvent(baseUrl, token, { endsAt: "2026-12-01T15:00:00.000Z" });
+  assert.equal(event.endsAt, "2026-12-01T15:00:00.000Z");
+
+  const backwards = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Задом наперёд",
+        startsAt: "2026-12-01T12:00:00.000Z",
+        endsAt: "2026-12-01T10:00:00.000Z",
+        timezone: "Europe/Moscow",
+      }),
+    }),
+  );
+  assert.equal(backwards.status, 400);
+
+  // Перенос одного лишь начала за уже сохранённое окончание тоже недопустим:
+  // проверять пару нужно по итоговому виду события, а не по телу запроса.
+  const movedStart = await fetch(
+    `${baseUrl}/api/Events/${event.id}`,
+    authorized(token, {
+      method: "PUT",
+      body: JSON.stringify({ startsAt: "2026-12-01T18:00:00.000Z" }),
+    }),
+  );
+  assert.equal(movedStart.status, 400);
+});
+
+test("invitation opens exactly one private event for its bearer", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const guest = await registerUser(baseUrl, { email: "invited@povod.app" });
+
+  const secret = await createEvent(baseUrl, owner, { title: "Только свои", format: "private" });
+  const another = await createEvent(baseUrl, owner, { title: "Тоже закрытое", format: "private" });
+
+  // Без приглашения закрытое событие даже не подтверждает существование.
+  assert.equal(
+    (await fetch(`${baseUrl}/api/Events/${secret.id}`, authorized(guest.token))).status,
+    404,
+  );
+
+  const created = await fetch(
+    `${baseUrl}/api/Events/${secret.id}/invitations`,
+    authorized(owner, { method: "POST", body: JSON.stringify({ maxUses: 1 }) }),
+  );
+  assert.equal(created.status, 201);
+  const { token: invite } = (await created.json()) as { token: string };
+  assert.ok(invite);
+
+  const opened = await fetch(
+    `${baseUrl}/api/Events/${secret.id}?invite=${invite}`,
+    authorized(guest.token),
+  );
+  assert.equal(opened.status, 200);
+
+  // Приглашение действует ровно для своего события, а не для всех закрытых автора.
+  const wrongEvent = await fetch(
+    `${baseUrl}/api/Events/${another.id}?invite=${invite}`,
+    authorized(guest.token),
+  );
+  assert.equal(wrongEvent.status, 404);
+
+  const joined = await fetch(
+    `${baseUrl}/api/Events/${secret.id}/join?invite=${invite}`,
+    authorized(guest.token, { method: "POST" }),
+  );
+  assert.equal(joined.status, 200);
+
+  // maxUses: 1 — второй по той же ссылке уже не пройдёт.
+  const second = await registerUser(baseUrl, { email: "second@povod.app" });
+  const exhausted = await fetch(
+    `${baseUrl}/api/Events/${secret.id}/join?invite=${invite}`,
+    authorized(second.token, { method: "POST" }),
+  );
+  assert.equal(exhausted.status, 403);
+});
+
+test("invitations are the author's alone and can be revoked", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const guest = await registerUser(baseUrl, { email: "revoked@povod.app" });
+  const event = await createEvent(baseUrl, owner, { title: "Закрытое", format: "private" });
+
+  // Посторонний не может ни выдать приглашение, ни увидеть список.
+  assert.equal(
+    (
+      await fetch(
+        `${baseUrl}/api/Events/${event.id}/invitations`,
+        authorized(guest.token, { method: "POST", body: "{}" }),
+      )
+    ).status,
+    404,
+  );
+
+  const created = await fetch(
+    `${baseUrl}/api/Events/${event.id}/invitations`,
+    authorized(owner, { method: "POST", body: "{}" }),
+  );
+  const invitation = (await created.json()) as { id: string; token: string };
+
+  const listed = await fetch(`${baseUrl}/api/Events/${event.id}/invitations`, authorized(owner));
+  const items = (await listed.json()) as Array<Record<string, unknown>>;
+  assert.equal(items.length, 1);
+  // Секрет наружу больше не отдаётся — в базе только его хэш.
+  assert.equal("token" in items[0], false);
+
+  await fetch(
+    `${baseUrl}/api/Events/${event.id}/invitations/${invitation.id}`,
+    authorized(owner, { method: "DELETE" }),
+  );
+  const afterRevoke = await fetch(
+    `${baseUrl}/api/Events/${event.id}?invite=${invitation.token}`,
+    authorized(guest.token),
+  );
+  assert.equal(afterRevoke.status, 404, "отозванное приглашение больше не открывает событие");
+});
+
 test("event creation validates image type and rejects spoofed MIME (SEC-005)", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const token = await loginDemo(baseUrl);

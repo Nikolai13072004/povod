@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Comment, Event, Notification, User } from "../types";
+import type { Comment, Event, EventInvitation, Notification, User } from "../types";
 import type {
   AuthSession,
   CreateCommentInput,
   EventFilters,
   ExternalIdentity,
+  JoinEventResult,
   PovodRepository,
 } from "./repository";
 import { seedComments, seedEvents, seedUsers } from "../seed";
@@ -23,6 +24,7 @@ interface Snapshot {
   comments: Comment[];
   notifications?: Notification[];
   favorites?: Array<[string, string[]]>;
+  invitations?: EventInvitation[];
   passwordCredentials?: Array<[string, string]>;
   sessions?: AuthSession[];
   externalIdentities?: ExternalIdentity[];
@@ -41,6 +43,7 @@ export class MemoryRepository implements PovodRepository {
   private notifications: Notification[] = [];
   /** Избранное: пользователь → идентификаторы событий (PROD-001). */
   private favorites = new Map<string, Set<string>>();
+  private invitations: EventInvitation[] = [];
   private passwordCredentials = new Map<string, string>();
   private sessions = new Map<string, AuthSession>();
   private externalIdentities = new Map<string, ExternalIdentity>();
@@ -68,6 +71,7 @@ export class MemoryRepository implements PovodRepository {
       this.favorites = new Map(
         (snapshot.favorites ?? []).map(([userId, eventIds]) => [userId, new Set(eventIds)]),
       );
+      this.invitations = clone(snapshot.invitations ?? []);
       this.passwordCredentials = new Map(snapshot.passwordCredentials ?? []);
       this.sessions = new Map(
         (snapshot.sessions ?? []).map((session) => [session.tokenHash, session]),
@@ -170,17 +174,67 @@ export class MemoryRepository implements PovodRepository {
     // А вот отметки «в избранном» уходят вместе с событием — ON DELETE CASCADE
     // (миграция 008): иначе раздел показывал бы ссылки в никуда.
     for (const owned of this.favorites.values()) owned.delete(id);
+    // Приглашения тоже: вести в удалённое событие им уже некуда (миграция 009).
+    this.invitations = this.invitations.filter((item) => item.eventId !== id);
     this.scheduleSave();
     return true;
   }
 
-  async joinEvent(eventId: string, userId: string): Promise<Event | undefined> {
+  async joinEvent(eventId: string, userId: string): Promise<JoinEventResult> {
     const event = this.events.find((item) => item.id === eventId);
-    if (!event) return undefined;
-    if (!event.participantIds.includes(userId)) event.participantIds.push(userId);
+    if (!event) return { outcome: "not-found" };
+    if (event.participantIds.includes(userId)) {
+      return { outcome: "already-joined", event: clone(event) };
+    }
+    // Проверка и запись идут подряд без await между ними: в одном процессе Node
+    // это и есть атомарность. В PostgreSQL то же обеспечивает блокировка строки.
+    if (
+      event.participantLimit !== undefined &&
+      event.participantIds.length >= event.participantLimit
+    ) {
+      return { outcome: "full", event: clone(event) };
+    }
+    event.participantIds.push(userId);
     event.participants = event.participantIds.length;
     this.scheduleSave();
-    return clone(event);
+    return { outcome: "joined", event: clone(event) };
+  }
+
+  async createInvitation(invitation: EventInvitation): Promise<void> {
+    this.invitations.push(clone(invitation));
+    this.scheduleSave();
+  }
+
+  async findInvitationByTokenHash(tokenHash: string): Promise<EventInvitation | undefined> {
+    const invitation = this.invitations.find((item) => item.tokenHash === tokenHash);
+    return invitation ? clone(invitation) : undefined;
+  }
+
+  async consumeInvitation(id: string): Promise<boolean> {
+    const invitation = this.invitations.find((item) => item.id === id);
+    if (!invitation || invitation.revokedAt) return false;
+    if (invitation.maxUses !== undefined && invitation.usedCount >= invitation.maxUses) {
+      return false;
+    }
+    invitation.usedCount += 1;
+    this.scheduleSave();
+    return true;
+  }
+
+  async listInvitations(eventId: string): Promise<EventInvitation[]> {
+    return clone(
+      this.invitations
+        .filter((item) => item.eventId === eventId)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    );
+  }
+
+  async revokeInvitation(id: string, revokedAt: string): Promise<boolean> {
+    const invitation = this.invitations.find((item) => item.id === id);
+    if (!invitation || invitation.revokedAt) return false;
+    invitation.revokedAt = revokedAt;
+    this.scheduleSave();
+    return true;
   }
 
   async leaveEvent(eventId: string, userId: string): Promise<Event | undefined> {
@@ -265,6 +319,7 @@ export class MemoryRepository implements PovodRepository {
       if (notification.actorId === id) notification.actorId = undefined;
     }
     this.favorites.delete(id);
+    this.invitations = this.invitations.filter((item) => item.createdBy !== id);
     this.scheduleSave();
     return true;
   }
@@ -441,6 +496,7 @@ export class MemoryRepository implements PovodRepository {
               comments: this.comments,
               notifications: this.notifications,
               favorites: [...this.favorites.entries()].map(([userId, ids]) => [userId, [...ids]]),
+              invitations: this.invitations,
               passwordCredentials: [...this.passwordCredentials.entries()],
               sessions: [...this.sessions.values()],
               externalIdentities: [...this.externalIdentities.values()],

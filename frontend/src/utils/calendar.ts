@@ -5,7 +5,10 @@
  * Outlook и почти все остальные — поэтому серверная часть не нужна.
  */
 
-/** Длительность события по умолчанию, если время окончания неизвестно (см. BE-006). */
+/**
+ * Длительность, когда автор не указал окончание. Догадка, но нужная: без
+ * `DTEND` календари ставят событие на весь день, и оно занимает верх экрана.
+ */
 export const DEFAULT_DURATION_MINUTES = 120;
 
 export interface CalendarEvent {
@@ -15,6 +18,8 @@ export interface CalendarEvent {
   location?: string;
   /** ISO 8601 момент начала. */
   startsAt: string;
+  /** ISO 8601 момент окончания, если автор его указал (BE-006). */
+  endsAt?: string;
   /** Ссылка на событие в приложении. */
   url?: string;
 }
@@ -56,7 +61,13 @@ function foldLine(line: string): string {
 export function buildEventIcs(event: CalendarEvent, now: Date = new Date()): string {
   const start = new Date(event.startsAt);
   if (Number.isNaN(start.getTime())) throw new Error("Некорректная дата события");
-  const end = new Date(start.getTime() + DEFAULT_DURATION_MINUTES * 60 * 1000);
+
+  // Настоящее окончание, если автор его указал; иначе — предположение.
+  const declaredEnd = event.endsAt ? new Date(event.endsAt) : undefined;
+  const end =
+    declaredEnd && !Number.isNaN(declaredEnd.getTime()) && declaredEnd > start
+      ? declaredEnd
+      : new Date(start.getTime() + DEFAULT_DURATION_MINUTES * 60 * 1000);
 
   const lines = [
     "BEGIN:VCALENDAR",

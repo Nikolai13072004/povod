@@ -1,4 +1,19 @@
-import type { Comment, Event, Notification, User } from "../types";
+import type { Comment, Event, EventInvitation, Notification, User } from "../types";
+
+/**
+ * Исход попытки записаться (BE-007).
+ *
+ * Прежняя сигнатура `Event | undefined` различала только «получилось» и
+ * «события нет». С лимитом появились ещё два случая, и сваливать их в
+ * `undefined` значило бы отвечать «событие не найдено» тому, кто просто не
+ * успел занять последнее место.
+ */
+export type JoinEventResult =
+  | { outcome: "joined"; event: Event }
+  /** Уже был участником: повторное нажатие идемпотентно. */
+  | { outcome: "already-joined"; event: Event }
+  | { outcome: "full"; event: Event }
+  | { outcome: "not-found" };
 
 export interface EventFilters {
   search?: string;
@@ -49,8 +64,18 @@ export interface PovodRepository {
   createEvent(event: Event): Promise<Event>;
   updateEvent(id: string, patch: Partial<Event>): Promise<Event | undefined>;
   deleteEvent(id: string): Promise<boolean>;
-  joinEvent(eventId: string, userId: string): Promise<Event | undefined>;
+  /** Запись на событие. Проверка лимита обязана быть атомарной (BE-007). */
+  joinEvent(eventId: string, userId: string): Promise<JoinEventResult>;
   leaveEvent(eventId: string, userId: string): Promise<Event | undefined>;
+
+  /** Создаёт приглашение в закрытое событие; наружу секрет отдаёт вызывающий (BE-008). */
+  createInvitation(invitation: EventInvitation): Promise<void>;
+  /** Находит действующее приглашение по хэшу секрета. */
+  findInvitationByTokenHash(tokenHash: string): Promise<EventInvitation | undefined>;
+  /** Считает переход по приглашению; `false` — приглашение исчерпано или отозвано. */
+  consumeInvitation(id: string): Promise<boolean>;
+  listInvitations(eventId: string): Promise<EventInvitation[]>;
+  revokeInvitation(id: string, revokedAt: string): Promise<boolean>;
 
   /**
    * Добавляет событие в избранное. Идемпотентно: повторный вызов не ошибка.

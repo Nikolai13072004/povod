@@ -73,12 +73,16 @@ export interface Event {
   title: string;
   description: string;
   startsAt: string;
+  /** Окончание, если автор его указал (BE-006). */
+  endsAt?: string;
   timezone: string;
   location: string;
   category?: string;
   author: string;
   authorId?: string;
   participants: number;
+  /** Предел числа участников вместе с автором; отсутствует — предела нет (BE-007). */
+  participantLimit?: number;
   participantIds?: string[];
   image?: string;
   tags?: string[];
@@ -133,6 +137,16 @@ export interface Notification {
 export interface NotificationFeed {
   items: Notification[];
   unread: number;
+}
+
+/** Приглашение без секрета — таким его отдаёт список для автора (BE-008). */
+export interface Invitation {
+  id: string;
+  createdAt: string;
+  expiresAt?: string;
+  maxUses?: number;
+  usedCount: number;
+  revokedAt?: string;
 }
 
 export type EventWrite = Omit<
@@ -194,7 +208,10 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 export const eventsAPI = {
   getAll: () => fetchApi<Event[]>("api/Events"),
 
-  getById: (id: string) => fetchApi<Event>(`api/Events/${id}`),
+  getById: (id: string, inviteToken?: string) =>
+    fetchApi<Event>(
+      `api/Events/${id}${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ""}`,
+    ),
 
   create: (event: EventWrite) =>
     fetchApi<Event>("api/Events", {
@@ -232,10 +249,23 @@ export const eventsAPI = {
   removeFavorite: (eventId: string) =>
     fetchApi<void>(`api/Events/${eventId}/favorite`, { method: "DELETE" }),
 
-  join: (eventId: string) =>
-    fetchApi<Event>(`api/Events/${eventId}/join`, {
+  /** Приглашения в закрытое событие: доступны только его автору (BE-008). */
+  createInvitation: (eventId: string, options: { maxUses?: number; expiresInDays?: number } = {}) =>
+    fetchApi<Invitation & { token: string }>(`api/Events/${eventId}/invitations`, {
       method: "POST",
+      body: JSON.stringify(options),
     }),
+
+  listInvitations: (eventId: string) => fetchApi<Invitation[]>(`api/Events/${eventId}/invitations`),
+
+  revokeInvitation: (eventId: string, invitationId: string) =>
+    fetchApi<void>(`api/Events/${eventId}/invitations/${invitationId}`, { method: "DELETE" }),
+
+  join: (eventId: string, inviteToken?: string) =>
+    fetchApi<Event>(
+      `api/Events/${eventId}/join${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ""}`,
+      { method: "POST" },
+    ),
 
   leave: (eventId: string) =>
     fetchApi<Event>(`api/Events/${eventId}/leave`, {

@@ -10,6 +10,8 @@ export interface IEvent {
   title: string;
   description?: string;
   startsAt: string;
+  /** Окончание, если автор его указал (BE-006). */
+  endsAt?: string;
   timezone: string;
   place?: string;
   location?: string;
@@ -17,6 +19,8 @@ export interface IEvent {
   image?: string | null;
   coords?: [number, number];
   participants?: number;
+  /** Предел мест вместе с автором; отсутствует — предела нет (BE-007). */
+  participantLimit?: number;
   participantIds?: string[];
   author?: string;
   authorId?: string;
@@ -32,6 +36,7 @@ function normalize(e: ApiEvent): IEvent {
     title: e.title,
     description: e.description,
     startsAt: e.startsAt,
+    endsAt: e.endsAt,
     timezone: e.timezone,
     location: e.location,
     place: e.location ?? (e as { place?: string }).place,
@@ -39,6 +44,7 @@ function normalize(e: ApiEvent): IEvent {
     image: e.image ?? null,
     coords: e.coords,
     participants: e.participants,
+    participantLimit: e.participantLimit,
     participantIds: e.participantIds,
     author: e.author,
     authorId: e.authorId,
@@ -145,7 +151,11 @@ class EventStore {
   }
 
   /** Загружает событие независимо от общей ленты, чтобы прямые ссылки работали надёжно. */
-  fetchEventById = async (id: string, force = false): Promise<void> => {
+  /**
+   * `inviteToken` — секрет из ссылки-приглашения (BE-008). Без него закрытое
+   * чужое событие отвечает 404 и не подтверждает даже своё существование.
+   */
+  fetchEventById = async (id: string, force = false, inviteToken?: string): Promise<void> => {
     if (this.eventDetailLoading.has(id)) return;
     if (this.eventDetailLoaded.has(id) && !force) return;
 
@@ -156,7 +166,7 @@ class EventStore {
     });
 
     try {
-      const response = await eventsAPI.getById(id);
+      const response = await eventsAPI.getById(id, inviteToken);
       if (response.status === 404) {
         runInAction(() => {
           this.eventDetailNotFound.add(id);
@@ -203,6 +213,8 @@ class EventStore {
     title: string;
     description?: string;
     startsAt: string;
+    endsAt?: string;
+    participantLimit?: number;
     timezone: string;
     location?: string;
     category?: string;
@@ -218,6 +230,8 @@ class EventStore {
         title: payload.title,
         description: payload.description ?? "",
         startsAt: payload.startsAt,
+        endsAt: payload.endsAt,
+        participantLimit: payload.participantLimit,
         timezone: payload.timezone,
         location: payload.location ?? "",
         category: payload.category,
@@ -303,12 +317,12 @@ class EventStore {
   };
 
   /** Записаться на событие: оптимистично обновляем UI, затем синхронизируем с API. */
-  join = async (event: IEvent): Promise<boolean> => {
+  join = async (event: IEvent, inviteToken?: string): Promise<boolean> => {
     runInAction(() => {
       this.actionError = null;
     });
     try {
-      const response = await eventsAPI.join(event.id);
+      const response = await eventsAPI.join(event.id, inviteToken);
       if (response.error || !response.data) {
         throw new Error(response.error ?? "Не удалось записаться на событие");
       }

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import { eventStore } from "../../stores/EventStore";
-import { commentsAPI, type Comment as ApiComment } from "../../services/api";
+import { commentsAPI, eventsAPI, type Comment as ApiComment } from "../../services/api";
 import { sessionStore } from "../../stores/sessionStore";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 import { useToast } from "../../components/Toast/ToastProvider";
@@ -64,6 +64,7 @@ function formatCommentDate(iso: string): string {
 
 function EventPageComponent() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const showToast = useToast();
   const [loading, setLoading] = useState(false);
@@ -75,10 +76,13 @@ function EventPageComponent() {
   const [posting, setPosting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
 
+  // Секрет приглашения приезжает в самой ссылке (BE-008).
+  const inviteToken = searchParams.get("invite") ?? undefined;
+
   useEffect(() => {
-    if (id) void eventStore.fetchEventById(id);
+    if (id) void eventStore.fetchEventById(id, false, inviteToken);
     return () => eventStore.clearActionError();
-  }, [id]);
+  }, [id, inviteToken]);
 
   const loadComments = useCallback(async () => {
     if (!id) return;
@@ -159,11 +163,14 @@ function EventPageComponent() {
   if (!eventData) return null;
 
   const participants = eventData.participants ?? 0;
+  const limit = eventData.participantLimit;
+  const seatsLeft = limit === undefined ? Infinity : Math.max(0, limit - participants);
+  const isFull = seatsLeft === 0;
 
   const handleJoin = async () => {
     if (isJoined) return;
     setLoading(true);
-    await eventStore.join(eventData);
+    await eventStore.join(eventData, inviteToken);
     setLoading(false);
   };
 
@@ -178,7 +185,19 @@ function EventPageComponent() {
   // Делимся ссылкой на КОНКРЕТНОЕ событие: раньше уходила захардкоженная ссылка
   // на приложение, и получатель не попадал на нужный повод.
   const handleInvite = async () => {
-    const link = `${window.location.origin}/page-1/${eventData.id}`;
+    let link = `${window.location.origin}/page-1/${eventData.id}`;
+
+    // Для закрытого события обычная ссылка бесполезна: получатель увидит 404.
+    // Автор выдаёт ссылку с приглашением, которая открывает ровно это событие.
+    if (isOwner && eventData.format === "private") {
+      const created = await eventsAPI.createInvitation(eventData.id);
+      if (!created.data) {
+        showToast(created.error ?? "Не удалось создать приглашение", { type: "error" });
+        return;
+      }
+      link = `${link}?invite=${encodeURIComponent(created.data.token)}`;
+    }
+
     try {
       await bridge.send("VKWebAppShare", { link });
     } catch {
@@ -205,6 +224,7 @@ function EventPageComponent() {
       downloadEventIcs({
         id: eventData.id,
         title: eventData.title,
+        endsAt: eventData.endsAt,
         description: eventData.description,
         location: eventData.place ?? eventData.location,
         startsAt: eventData.startsAt,
@@ -261,6 +281,8 @@ function EventPageComponent() {
         <SimpleCell before={<Icon28CalendarOutline />} subtitle="Дата и время">
           {formatEventDate(eventData.startsAt, eventData.timezone)} в{" "}
           {formatEventTime(eventData.startsAt, eventData.timezone)}
+          {/* Окончание показываем, только если автор его указал (BE-006). */}
+          {eventData.endsAt && ` — ${formatEventTime(eventData.endsAt, eventData.timezone)}`}
         </SimpleCell>
 
         <SimpleCell before={<Icon28PlaceOutline />} subtitle="Место проведения">
@@ -268,7 +290,9 @@ function EventPageComponent() {
         </SimpleCell>
 
         <SimpleCell before={<Icon28UsersOutline />} subtitle="Участники">
-          {participants} человек
+          {limit === undefined
+            ? `${participants} человек`
+            : `${participants} из ${limit}${seatsLeft > 0 ? ` — свободно ${seatsLeft}` : " — мест нет"}`}
         </SimpleCell>
 
         {eventData.authorId && (
@@ -301,8 +325,17 @@ function EventPageComponent() {
 
         <div style={{ padding: "12px 16px" }}>
           {!isJoined ? (
-            <Button size="l" stretched loading={loading} onClick={handleJoin} mode="primary">
-              Записаться
+            // Кнопку гасим, но сервер всё равно проверяет лимит сам: между
+            // отрисовкой и нажатием место может занять кто-то другой.
+            <Button
+              size="l"
+              stretched
+              loading={loading}
+              onClick={handleJoin}
+              mode="primary"
+              disabled={isFull}
+            >
+              {isFull ? "Мест не осталось" : "Записаться"}
             </Button>
           ) : (
             <>
