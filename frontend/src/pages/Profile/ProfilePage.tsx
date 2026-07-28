@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Group,
   SimpleCell,
@@ -22,6 +22,12 @@ import bridge from "@vkontakte/vk-bridge";
 import { getStoredInterests, setStoredInterests } from "../../storage";
 import { useTheme } from "../../context/ThemeContext";
 import { INTERESTS } from "../../data/interests";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  AVATAR_RESIZE,
+  describeUnsupportedImage,
+  resizeImageToDataUrl,
+} from "../../utils/imageResize";
 import { FriendRequests } from "./FriendRequests";
 
 const PageRoot = styled.div`
@@ -80,6 +86,58 @@ const ProfileWrapper = styled.div`
   align-items: center;
   padding: 8px 16px 20px;
   background: transparent;
+`;
+
+/** Кнопка смены фото прижата к краю самой аватарки — там её и ищут. */
+const AvatarSlot = styled.div`
+  position: relative;
+  line-height: 0;
+`;
+
+const AvatarButton = styled.button`
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--povod-surface);
+  border-radius: 50%;
+  background: var(--povod-primary);
+  color: var(--povod-on-primary);
+  cursor: pointer;
+  padding: 0;
+
+  svg {
+    fill: currentColor;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--povod-primary);
+    outline-offset: 2px;
+  }
+`;
+
+const AvatarReset = styled.button`
+  margin-top: 8px;
+  border: none;
+  background: none;
+  padding: 4px 8px;
+  color: var(--povod-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--povod-primary);
+    outline-offset: 2px;
+  }
 `;
 
 const UserName = styled.h2`
@@ -205,6 +263,47 @@ const UserProfile = () => {
   const [city, setCity] = useState("");
   const [cityEditing, setCityEditing] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+
+  /**
+   * Смена фото профиля.
+   *
+   * Картинка уменьшается в браузере до 256×256 перед отправкой. Так снимок с
+   * телефона вообще проходит (иначе он не влезал в лимит сервера), и, что
+   * важнее, аватарка едет в каждом ответе, где встречается её владелец — в
+   * списке комментариев, в списке участников. Несжатая она раздувала бы их все.
+   */
+  const saveAvatar = async (avatar: string) => {
+    setAvatarBusy(true);
+    setProfileError(null);
+    const saved = await sessionStore.updateProfile({ avatar });
+    setAvatarBusy(false);
+    if (!saved) setProfileError(sessionStore.error ?? "Не удалось сохранить фото");
+  };
+
+  const handleAvatarPick = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Сбрасываем сразу: иначе повторный выбор того же файла не даст события.
+    event.target.value = "";
+    if (!file) return;
+
+    const unsupported = describeUnsupportedImage(file);
+    if (unsupported) {
+      setProfileError(unsupported);
+      return;
+    }
+
+    setAvatarBusy(true);
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, AVATAR_RESIZE);
+      setAvatarBusy(false);
+      await saveAvatar(dataUrl);
+    } catch (error) {
+      setAvatarBusy(false);
+      setProfileError(error instanceof Error ? error.message : "Не удалось обработать изображение");
+    }
+  };
 
   useEffect(() => {
     /*
@@ -346,7 +445,34 @@ const UserProfile = () => {
 
         <Group mode="plain" padding="s">
           <ProfileWrapper>
-            <Avatar size={96} src={sessionStore.user.avatar} />
+            <AvatarSlot>
+              <Avatar
+                size={96}
+                src={sessionStore.user.avatar}
+                initials={sessionStore.user.name?.[0]}
+              />
+              <AvatarButton
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={avatarBusy}
+                aria-label="Сменить фото профиля"
+                title="Сменить фото профиля"
+              >
+                {avatarBusy ? "…" : <Icon24AddOutline width={18} height={18} />}
+              </AvatarButton>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                hidden
+                onChange={(event) => void handleAvatarPick(event)}
+              />
+            </AvatarSlot>
+            {sessionStore.user.avatar && (
+              <AvatarReset type="button" onClick={() => void saveAvatar("")} disabled={avatarBusy}>
+                Убрать фото
+              </AvatarReset>
+            )}
             <UserName>{sessionStore.user.name}</UserName>
             {cityEditing ? (
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
