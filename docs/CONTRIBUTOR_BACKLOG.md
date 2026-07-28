@@ -97,7 +97,7 @@ git push -u origin feature/FE-001-responsive-layout
 | 2 | PERF-001 — оптимизация тяжёлых изображений | `perf/PERF-001-optimize-images` |
 | 3 | QA-001 — ESLint и Prettier | `chore/QA-001-lint-format` |
 | 4 | QA-003 — frontend unit/component tests | `test/QA-003-frontend-tests` |
-| 5 | QA-005 — Playwright E2E smoke | `test/QA-005-e2e-smoke` |
+| 5 | ~~QA-005 — Playwright E2E smoke~~ (сделано) | `test/QA-005-e2e-smoke` |
 | 6 | OPS-001 — GitHub Actions | `ci/OPS-001-github-actions` |
 | 7 | DOC-001 — очистка legacy README и metadata | `docs/DOC-001-cleanup-readmes` |
 | 8 | ARCH-002 — OpenAPI и генерируемые типы | `feature/ARCH-002-openapi-contract` |
@@ -201,7 +201,7 @@ git push -u origin feature/FE-001-responsive-layout
 | QA-002 | P0 | READY | Включить более строгие TypeScript rules поэтапно: noUncheckedIndexedAccess, exactOptionalPropertyTypes и запрет неявного `any`. |
 | QA-003 | P0 | READY | Добавить Vitest + React Testing Library и тесты AsyncContent, login, event cards, filters и create form. |
 | QA-004 | P0 | READY | Добавить unit-тесты frontend date/time utilities, включая DST, несуществующее локальное время и разные timezone. |
-| QA-005 | P0 | READY | Добавить Playwright E2E: вход, лента, поиск, deep link, «Мои события», создание и отмена участия. |
+| QA-005 | P0 | DONE | Playwright E2E на настоящем стеке: защита маршрутов, вход и ошибка входа, переживание перезагрузки, регистрация и создание события, поиск, избранное, уведомление автора о новом участнике, лимит мест, выход. Отдельная job в CI. |
 | QA-006 | P0 | READY | Сделать изолированную тестовую PostgreSQL БД/контейнер и integration tests всех миграций с нуля. |
 | QA-007 | P1 | READY | Добавить contract tests для ошибок, pagination, permissions и приватных событий. |
 | QA-008 | P1 | READY | Добавить regression test для обычного web-входа без зависания на VK Bridge. |

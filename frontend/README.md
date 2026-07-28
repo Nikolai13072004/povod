@@ -28,6 +28,14 @@ npm run dev                 # http://localhost:5173
 npm run check      # backend typecheck + тесты, затем production-сборка frontend
 ```
 
+E2E-проверки на настоящем стеке (Playwright сам поднимает backend и frontend, база не нужна):
+
+```bash
+npm run test:e2e
+```
+
+Если загрузка браузера закрыта сетью, можно взять уже установленный: `PLAYWRIGHT_CHANNEL=msedge npm run test:e2e`.
+
 Собрать и локально посмотреть production-версию:
 
 ```bash
