@@ -389,6 +389,21 @@ function FirstPageComponent() {
               </EventCard>
             ))}
           </EventsList>
+          {/* Кнопка, а не бесконечная прокрутка: последняя не даёт добраться до
+              низа страницы и ломает возврат назад по истории (BE-003). */}
+          {eventStore.nextCursor && (
+            <div style={{ display: "grid", justifyItems: "center", paddingTop: 4 }}>
+              <Button
+                size="m"
+                mode="secondary"
+                loading={eventStore.isLoadingMore}
+                disabled={eventStore.isLoadingMore}
+                onClick={() => void eventStore.loadMoreEvents()}
+              >
+                Показать ещё
+              </Button>
+            </div>
+          )}
         </>
       </AsyncContent>
 

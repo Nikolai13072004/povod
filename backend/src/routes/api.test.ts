@@ -984,6 +984,96 @@ test("invitations are the author's alone and can be revoked", async (context) =>
   assert.equal(afterRevoke.status, 404, "отозванное приглашение больше не открывает событие");
 });
 
+/** Страница ленты по её конверту. */
+async function feed(
+  baseUrl: string,
+  query = "",
+  token?: string,
+): Promise<{ ids: string[]; nextCursor?: string }> {
+  const response = await fetch(
+    `${baseUrl}/api/Events${query}`,
+    token ? authorized(token) : undefined,
+  );
+  assert.equal(response.status, 200);
+  const page = (await response.json()) as { items: Array<{ id: string }>; nextCursor?: string };
+  return { ids: page.items.map((event) => event.id), nextCursor: page.nextCursor };
+}
+
+test("feed pages do not skip or repeat events (BE-003)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  for (let index = 0; index < 7; index += 1) {
+    await createEvent(baseUrl, token, { title: `Событие ${index}` });
+  }
+
+  const collected: string[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 10; page += 1) {
+    const result = await feed(baseUrl, `?limit=3${cursor ? `&cursor=${cursor}` : ""}`, token);
+    assert.ok(result.ids.length <= 3, "страница не больше запрошенного");
+    collected.push(...result.ids);
+    cursor = result.nextCursor;
+    if (!cursor) break;
+  }
+
+  // Ни одного повтора и ни одной потери: всего 3 сида + 7 созданных.
+  assert.equal(new Set(collected).size, collected.length, "события не должны повторяться");
+  assert.equal(collected.length, 10);
+  assert.equal(cursor, undefined, "в конце курсора быть не должно");
+});
+
+test("feed rejects an oversized limit and survives a broken cursor", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  // Верхняя граница защищает от `?limit=100000`.
+  const huge = await feed(baseUrl, "?limit=100000", token);
+  assert.ok(huge.ids.length <= 50);
+
+  // Курсор приезжает из адресной строки: испорченный не должен ронять ленту.
+  const broken = await feed(baseUrl, "?cursor=%D0%BC%D1%83%D1%81%D0%BE%D1%80", token);
+  assert.ok(broken.ids.length > 0, "битый курсор показывает первую страницу");
+});
+
+test("search finds an event by a different word form (BE-012)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+  await createEvent(baseUrl, token, { title: "Большой концерт", location: "Клуб «Ёлка»" });
+
+  // In-memory адаптер приближает стемминг совпадением по началу слова;
+  // в PostgreSQL то же делает морфология русского языка.
+  const byPrefix = await feed(baseUrl, "?search=концерт", token);
+  assert.ok(byPrefix.ids.length > 0, "«концерт» должен находить «Большой концерт»");
+
+  // Поиск идёт и по месту, а «ё» не должна мешать.
+  const byPlace = await feed(baseUrl, "?search=елка", token);
+  assert.ok(byPlace.ids.length > 0, "«елка» должна находить «Ёлка»");
+
+  const nothing = await feed(baseUrl, "?search=бухгалтерия", token);
+  assert.equal(nothing.ids.length, 0);
+});
+
+test("the feed puts events matching the viewer's interests first", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  // Событие по интересу создаём первым — то есть самым старым из двух.
+  const wanted = await createEvent(baseUrl, token, { title: "По интересу", category: "Кёрлинг" });
+  await createEvent(baseUrl, token, { title: "Свежее, но мимо", category: "Прочее" });
+
+  const before = await feed(baseUrl, "?limit=5", token);
+  assert.notEqual(before.ids[0], wanted.id, "без интересов сверху просто самое свежее");
+
+  await fetch(
+    `${baseUrl}/api/Users/me`,
+    authorized(token, { method: "PUT", body: JSON.stringify({ interests: ["кёрлинг"] }) }),
+  );
+
+  const after = await feed(baseUrl, "?limit=5", token);
+  assert.equal(after.ids[0], wanted.id, "подходящее по интересам поднимается наверх");
+});
+
 test("event creation validates image type and rejects spoofed MIME (SEC-005)", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const token = await loginDemo(baseUrl);

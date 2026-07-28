@@ -8,6 +8,7 @@ import type { Event } from "../types";
 import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware";
 import { notifyEventCancelled, notifyEventJoined, notifyEventUpdated } from "../notifications";
 import { issueInvitation, presentInvitation, resolveInvitation } from "../invitations";
+import { cursorOf, decodeCursor, encodeCursor, normalizeFeedLimit } from "../feed";
 
 export const eventsRouter = Router();
 
@@ -41,18 +42,44 @@ eventsRouter.get(
   "/",
   optionalAuth,
   asyncHandler(async (req, res) => {
-    const { search, category, startsFrom, startsTo, author } = req.query as Record<string, string>;
-    const viewerId = (res.locals as AuthLocals).authUser?.id;
-    const local = await getRepository().listEvents({
+    const { search, category, startsFrom, startsTo, author, limit, cursor } = req.query as Record<
+      string,
+      string
+    >;
+    const viewer = (res.locals as AuthLocals).authUser;
+    const cursorValue = decodeCursor(cursor);
+    // Сортировка по интересам — вместо полноценных рекомендаций: пользователь
+    // уже указал, что ему интересно, и этого достаточно, чтобы поднять нужное
+    // наверх. Гостю сортировать не по чему.
+    const preferInterests = viewer?.interests?.length ? viewer.interests : undefined;
+    const pageSize = normalizeFeedLimit(limit);
+
+    // Берём на одну запись больше запрошенного: наличие «лишней» и есть признак
+    // того, что дальше ещё есть страница, — без отдельного запроса COUNT.
+    const page = await getRepository().listEvents({
       search,
       category,
       startsFrom: queryInstant(startsFrom, "startsFrom"),
       startsTo: queryInstant(startsTo, "startsTo"),
       author,
-      viewerId,
+      viewerId: viewer?.id,
+      preferInterests,
+      cursor: cursorValue,
+      limit: pageSize + 1,
     });
-    const external = config.externalEvents ? await getExternalEvents() : [];
-    res.json([...local, ...external]);
+
+    const items = page.slice(0, pageSize);
+    const nextCursor =
+      page.length > pageSize && items.length > 0
+        ? encodeCursor(cursorOf(items[items.length - 1], preferInterests))
+        : undefined;
+
+    // Внешний каталог не лежит в нашей базе, поэтому в курсор не укладывается.
+    // Подмешиваем его только на первой странице, чтобы события из него не
+    // повторялись на каждой следующей.
+    const external = config.externalEvents && !cursorValue ? await getExternalEvents() : [];
+
+    res.json({ items: [...items, ...external], nextCursor });
   }),
 );
 

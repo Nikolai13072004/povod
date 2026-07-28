@@ -10,6 +10,7 @@ import type {
   PovodRepository,
 } from "./repository";
 import { seedComments, seedEvents, seedUsers } from "../seed";
+import { compareFeed, cursorOf, isAfterCursor } from "../feed";
 import { eventDateToIso } from "../db/eventDate";
 import { logger } from "../logger";
 
@@ -31,6 +32,11 @@ interface Snapshot {
 }
 
 const clone = <T>(value: T): T => structuredClone(value);
+
+/** Регистр и «ё» не должны мешать поиску: «Ёлка» обязана находиться по «елка». */
+function normalizeSearch(value: string): string {
+  return value.toLocaleLowerCase("ru").replace(/ё/g, "е");
+}
 
 function canonicalFriendship(left: string, right: string): [string, string] {
   return left < right ? [left, right] : [right, left];
@@ -92,12 +98,20 @@ export class MemoryRepository implements PovodRepository {
   async listEvents(filters: EventFilters = {}): Promise<Event[]> {
     let items = this.events;
     if (filters.search) {
-      const query = filters.search.toLocaleLowerCase("ru");
-      items = items.filter(
-        (event) =>
-          event.title.toLocaleLowerCase("ru").includes(query) ||
-          event.description.toLocaleLowerCase("ru").includes(query),
-      );
+      // Приближение полнотекстового поиска PostgreSQL (BE-012): там работает
+      // стемминг русского, здесь — совпадение по началу слова. Этого хватает,
+      // чтобы поведение in-memory адаптера не удивляло на тех же данных.
+      const words = normalizeSearch(filters.search).split(/\s+/).filter(Boolean);
+      items = items.filter((event) => {
+        const haystack = normalizeSearch(
+          [event.title, event.location, event.category, event.description, ...(event.tags ?? [])]
+            .filter(Boolean)
+            .join(" "),
+        );
+        return words.every((word) =>
+          haystack.split(/[^\p{L}\p{N}]+/u).some((token) => token.startsWith(word)),
+        );
+      });
     }
     if (filters.category) {
       items = items.filter(
@@ -136,7 +150,25 @@ export class MemoryRepository implements PovodRepository {
       items = [...items].sort(
         (left, right) => direction * (Date.parse(left.startsAt) - Date.parse(right.startsAt)),
       );
+    } else if (filters.preferInterests?.length || filters.limit !== undefined) {
+      // Порядок ленты строгий (интересы → свежесть → id): без этого одна и та
+      // же запись могла бы попасть на две страницы подряд.
+      items = [...items].sort((left, right) =>
+        compareFeed(
+          cursorOf(left, filters.preferInterests),
+          cursorOf(right, filters.preferInterests),
+        ),
+      );
     }
+
+    if (filters.cursor) {
+      const cursor = filters.cursor;
+      items = items.filter((event) =>
+        isAfterCursor(cursorOf(event, filters.preferInterests), cursor),
+      );
+    }
+    if (filters.limit !== undefined) items = items.slice(0, filters.limit);
+
     return clone(items);
   }
 
