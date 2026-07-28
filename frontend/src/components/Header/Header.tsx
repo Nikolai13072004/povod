@@ -101,11 +101,21 @@ export const THeader = observer(function THeader() {
   const location = useLocation();
   const unread = notificationsStore.unread;
 
-  // Счётчик обновляется при переходах: этого достаточно, чтобы значок не отставал,
-  // и не требует ни опроса по таймеру, ни постоянного соединения (PROD-003).
+  // Счётчик обновляется при переходах между экранами...
   useEffect(() => {
     if (sessionStore.authenticated) void notificationsStore.refreshUnread();
   }, [location.pathname, sessionStore.authenticated]);
+
+  /*
+   * ...и раз в минуту, пока вкладка открыта. Одних переходов мало: человек,
+   * сидящий на ленте, о новом уведомлении не узнавал вовсе, пока куда-нибудь
+   * не перейдёт.
+   */
+  useEffect(() => {
+    if (!sessionStore.authenticated) return;
+    notificationsStore.startPolling();
+    return () => notificationsStore.stopPolling();
+  }, [sessionStore.authenticated]);
 
   const handleAvatarClick = () => {
     localStorage.setItem("isAuth", "true");

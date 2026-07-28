@@ -18,6 +18,42 @@ class NotificationsStore {
     makeAutoObservable(this);
   }
 
+  /**
+   * Периодическое обновление счётчика.
+   *
+   * Раньше он обновлялся только при переходе между экранами: человек, сидящий
+   * на ленте, о новом уведомлении не узнавал вовсе, пока куда-нибудь не
+   * перейдёт. Минута — компромисс: значок перестаёт отставать, а нагрузка
+   * остаётся одним крошечным запросом.
+   *
+   * Опрос идёт только при видимой вкладке. Фоновая вкладка всё равно ничего не
+   * показывает, а на бесплатном хостинге каждый лишний запрос будит уснувший
+   * сервис.
+   */
+  private pollTimer?: ReturnType<typeof setInterval>;
+
+  startPolling(intervalMs = 60_000): void {
+    this.stopPolling();
+    const tick = () => {
+      if (document.visibilityState === "visible") void this.refreshUnread();
+    };
+    this.pollTimer = setInterval(tick, intervalMs);
+    // При возврате к вкладке — сразу, не дожидаясь следующего тика.
+    document.addEventListener("visibilitychange", tick);
+    this.visibilityHandler = tick;
+  }
+
+  stopPolling(): void {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.pollTimer = undefined;
+    if (this.visibilityHandler) {
+      document.removeEventListener("visibilitychange", this.visibilityHandler);
+      this.visibilityHandler = undefined;
+    }
+  }
+
+  private visibilityHandler?: () => void;
+
   /** Счётчик для значка. Тихий: ошибку не показываем — значок не стоит паники. */
   refreshUnread = async (): Promise<void> => {
     const response = await notificationsAPI.unreadCount();

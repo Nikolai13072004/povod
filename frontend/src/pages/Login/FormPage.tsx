@@ -190,9 +190,16 @@ export const MyLoginForm = observer(() => {
   const [password, setPassword] = useState(demoAuthEnabled ? "povod-demo" : "");
 
   /** Куда вести после входа: онбординг проходим только один раз. */
+  /*
+   * «Онбординг пройден» определяется по профилю, а не по флагу в localStorage.
+   * Флаг — лишь подсказка: он стирается при выходе и отсутствует на новом
+   * устройстве. Без этого человек с сохранёнными интересами после входа на
+   * миг попадал на экран интересов и только потом редиректился обратно.
+   */
   const routeAfterAuth = (): string =>
     afterAuthRoute(
-      localStorage.getItem("onboarded") === "true",
+      localStorage.getItem("onboarded") === "true" ||
+        (sessionStore.user.interests?.length ?? 0) > 0,
       (location.state as { from?: string } | null)?.from,
     );
 

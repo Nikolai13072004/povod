@@ -89,16 +89,40 @@ const App = observer(() => {
     sessionStore.init();
   }, []);
 
-  const chatSceneTokens = {
+  /*
+   * VKUI рисует свои панели по собственной палитре, а не по нашей. В тёмной
+   * теме это заметно: страница события лежит на VKUI-фоне, а вокруг —
+   * `--povod-bg`, который темнее. Получались чёрные полосы сверху и снизу
+   * содержимого, будто событие «висит» на пустоте.
+   *
+   * Раньше сопоставление делалось только для чата. Теперь оно общее: все
+   * поверхности VKUI берут цвета из наших токенов, и обе темы остаются
+   * согласованными (UX-011).
+   */
+  const vkuiSurfaceTokens = {
+    "--vkui--color_background": "var(--povod-bg)",
     "--vkui--color_background_primary": "var(--povod-surface)",
     "--vkui--color_background_content": "var(--povod-surface)",
+    "--vkui--color_background_secondary": "var(--povod-surface)",
+    "--vkui--color_background_tertiary": "var(--povod-bg)",
+    "--vkui--color_background_canvas": "var(--povod-surface-muted)",
+    "--vkui--color_background_modal": "var(--povod-surface)",
+    "--vkui--color_separator_primary": "var(--povod-border)",
+    "--vkui--color_text_primary": "var(--povod-text)",
+    "--vkui--color_text_secondary": "var(--povod-text-secondary)",
+  } as React.CSSProperties;
+
+  // У чата свой светлый фон сцены, поэтому поверхности там равны surface.
+  const chatSceneTokens = {
+    ...vkuiSurfaceTokens,
+    "--vkui--color_background": "var(--povod-surface)",
     "--vkui--color_background_tertiary": "var(--povod-surface)",
   } as React.CSSProperties;
 
   return (
     <ConfigProvider colorScheme={theme}>
       <AdaptivityProvider>
-        <AppRoot style={isChatPage ? chatSceneTokens : {}}>
+        <AppRoot style={isChatPage ? chatSceneTokens : vkuiSurfaceTokens}>
           <ScrollToTop />
           <ToastProvider>
             <AppContainer

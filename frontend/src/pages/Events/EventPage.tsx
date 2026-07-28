@@ -7,7 +7,7 @@ import { sessionStore } from "../../stores/sessionStore";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 import { useToast } from "../../components/Toast/ToastProvider";
 import { EventOwnerControls } from "./EventOwnerControls";
-import { downloadEventIcs } from "../../utils/calendar";
+import { downloadEventIcs, googleCalendarUrl } from "../../utils/calendar";
 import { EventCover } from "../../components/EventCover/EventCover";
 import { FavoriteButton } from "../../components/Favorite/FavoriteButton";
 import { CommentRow } from "./CommentRow";
@@ -38,6 +38,33 @@ import { EventDetailsSkeleton } from "../../components/Skeleton";
 import "@vkontakte/vkui/dist/vkui.css";
 import styled from "@emotion/styled";
 
+const CalendarFallback = styled.a`
+  display: block;
+  padding: 10px 4px 2px;
+  color: var(--povod-text-secondary);
+  font-size: 13px;
+  text-align: center;
+  text-decoration: underline;
+
+  &:focus-visible {
+    outline: 2px solid var(--povod-primary);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+`;
+
+const InviteLinkField = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--povod-border-strong);
+  border-radius: 10px;
+  background: var(--povod-surface-muted);
+  color: var(--povod-text);
+  font-size: 13px;
+`;
+
 const CommentInput = styled.input`
   flex: 1;
   min-width: 0;
@@ -66,6 +93,8 @@ function EventPageComponent() {
   const [commentText, setCommentText] = useState("");
   const [posting, setPosting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+  /** Ссылка для ручного копирования, когда буфер обмена недоступен. */
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   // Секрет приглашения приезжает в самой ссылке (BE-008).
   const inviteToken = searchParams.get("invite") ?? undefined;
@@ -224,38 +253,60 @@ function EventPageComponent() {
       link = `${link}?invite=${encodeURIComponent(created.data.token)}`;
     }
 
-    try {
-      await bridge.send("VKWebAppShare", { link });
-    } catch {
-      if (navigator.share) {
-        try {
-          await navigator.share({ title: eventData.title, text: eventData.title, url: link });
-          return;
-        } catch {
-          /* пользователь отменил шеринг */
-        }
-      }
+    /*
+     * VK Bridge — только внутри VK. Снаружи вызов не обязательно бросает
+     * исключение: он может тихо разрешиться, и тогда ветка `catch` не
+     * выполняется вовсе. Нажатие выглядело как «кнопка ничего не делает» —
+     * ни окна, ни уведомления, ни ошибки.
+     */
+    if (sessionStore.isVK) {
       try {
-        await navigator.clipboard.writeText(link);
-        showToast("Ссылка на событие скопирована", { type: "success" });
+        await bridge.send("VKWebAppShare", { link });
+        return;
       } catch {
-        /* буфер обмена недоступен */
+        /* внутри VK не сработало — пробуем обычными средствами браузера */
       }
     }
+
+    // Системное «Поделиться» есть на телефонах и в части десктопных браузеров.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: eventData.title, text: eventData.title, url: link });
+        return;
+      } catch (error) {
+        // Закрытое пользователем окно — не ошибка, второй раз лезть незачем.
+        if ((error as Error | undefined)?.name === "AbortError") return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast("Ссылка на событие скопирована", { type: "success" });
+    } catch {
+      /*
+       * Последний рубеж: буфер обмена недоступен (нет HTTPS, запрет в
+       * настройках, старый браузер). Молча выйти нельзя — именно так кнопка и
+       * превращалась в заглушку. Показываем ссылку, чтобы её взяли руками.
+       */
+      setInviteLink(link);
+      showToast("Скопируйте ссылку вручную", { type: "error" });
+    }
+  };
+
+  const calendarEvent = {
+    id: eventData.id,
+    title: eventData.title,
+    endsAt: eventData.endsAt,
+    description: eventData.description,
+    location: eventData.place ?? eventData.location,
+    startsAt: eventData.startsAt,
+    url: `${window.location.origin}/page-1/${eventData.id}`,
   };
 
   /** Экспорт события в календарь через .ics — работает без серверной части (PROD-010). */
   const handleAddToCalendar = () => {
     try {
-      downloadEventIcs({
-        id: eventData.id,
-        title: eventData.title,
-        endsAt: eventData.endsAt,
-        description: eventData.description,
-        location: eventData.place ?? eventData.location,
-        startsAt: eventData.startsAt,
-        url: `${window.location.origin}/page-1/${eventData.id}`,
-      });
+      downloadEventIcs(calendarEvent);
       showToast("Файл календаря скачан", { type: "success" });
     } catch {
       showToast("Не удалось создать файл календаря", { type: "error" });
@@ -412,6 +463,15 @@ function EventPageComponent() {
             Пригласить друзей
           </Button>
 
+          {inviteLink && (
+            <InviteLinkField
+              readOnly
+              value={inviteLink}
+              aria-label="Ссылка на событие"
+              onFocus={(event) => event.target.select()}
+            />
+          )}
+
           <div style={{ height: 8 }} />
           <Button
             size="l"
@@ -422,6 +482,19 @@ function EventPageComponent() {
           >
             Добавить в календарь
           </Button>
+
+          {/*
+            Запасной путь для телефонов: скачивание `.ics` там ведёт себя
+            непредсказуемо — зависит от браузера, настроек и наличия
+            приложения-календаря. Обычная ссылка работает везде одинаково.
+          */}
+          <CalendarFallback
+            href={googleCalendarUrl(calendarEvent)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Не открылось? Добавить в Google Календарь
+          </CalendarFallback>
         </div>
 
         <Separator />

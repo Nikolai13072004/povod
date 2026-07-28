@@ -398,7 +398,12 @@ const UserProfile = () => {
   const handleExit = async () => {
     await sessionStore.logout();
     localStorage.removeItem("isAuth");
-    localStorage.removeItem("onboarded");
+    /*
+     * Флаг `onboarded` намеренно НЕ стираем. Он лишь подсказка для первого
+     * кадра: настоящий признак — интересы в профиле на сервере. Стирание
+     * гнало вошедшего заново на экран интересов, тот открывался пустым, и
+     * «Продолжить» затирал сохранённый выбор.
+     */
     navigate("/", { replace: true });
   };
 
