@@ -35,6 +35,7 @@ beforeEach(() => {
   mockSession.error = null;
   mockSession.isLoading = false;
   mockSession.isVK = false;
+  localStorage.clear();
   mockSession.login.mockResolvedValue(true);
   mockSession.register.mockResolvedValue(true);
 });

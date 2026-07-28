@@ -44,16 +44,29 @@ function csrfToken(): string {
   const fromCookie = readCookie(CSRF_COOKIE);
   if (fromCookie) return fromCookie;
   try {
-    return sessionStorage.getItem(CSRF_TOKEN_KEY) ?? "";
+    return localStorage.getItem(CSRF_TOKEN_KEY) ?? "";
   } catch {
     return "";
   }
 }
 
+/**
+ * Хранится в `localStorage`, а не в `sessionStorage`.
+ *
+ * `sessionStorage` живёт в пределах одной вкладки. Кука, которую он заменяет,
+ * общая для всех вкладок, — и разница вылезла сразу: переход по присланной
+ * ссылке открывает НОВУЮ вкладку, там токена нет, приложение решает, что входа
+ * не было, и показывает экран входа. Сессия на сервере при этом жива, и даже
+ * после «входа» запись упиралась бы в 403, потому что заголовок брать неоткуда.
+ *
+ * Хранить его так не опаснее куки: сам по себе он ничего не открывает — нужен
+ * ещё `HttpOnly`-токен сессии, до которого скрипты не дотягиваются. Сессионный
+ * токен остаётся в `sessionStorage`: вот он как раз учётные данные.
+ */
 export function setCsrfToken(token?: string): void {
   try {
-    if (token) sessionStorage.setItem(CSRF_TOKEN_KEY, token);
-    else sessionStorage.removeItem(CSRF_TOKEN_KEY);
+    if (token) localStorage.setItem(CSRF_TOKEN_KEY, token);
+    else localStorage.removeItem(CSRF_TOKEN_KEY);
   } catch {
     /* хранилище недоступно (приватный режим) — остаётся путь через куку */
   }

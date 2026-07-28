@@ -3,9 +3,10 @@ import { Button } from "@vkontakte/vkui";
 import "@vkontakte/vkui/dist/vkui.css";
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { sessionStore } from "../../stores/sessionStore";
 import { appConfig } from "../../config";
+import { afterAuthRoute } from "../../app/afterAuthRoute";
 
 import photoTop from "../../assets/images/2.webp";
 import photoBottom from "../../assets/images/1.webp";
@@ -181,6 +182,7 @@ const TopIcon = styled.img`
 
 export const MyLoginForm = observer(() => {
   const navigate = useNavigate();
+  const location = useLocation();
   const demoAuthEnabled = appConfig.demoAuthEnabled;
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
@@ -188,12 +190,15 @@ export const MyLoginForm = observer(() => {
   const [password, setPassword] = useState(demoAuthEnabled ? "povod-demo" : "");
 
   /** Куда вести после входа: онбординг проходим только один раз. */
-  const afterAuthRoute = (): string =>
-    localStorage.getItem("onboarded") === "true" ? "/page-1" : "/SelectInterestPage";
+  const routeAfterAuth = (): string =>
+    afterAuthRoute(
+      localStorage.getItem("onboarded") === "true",
+      (location.state as { from?: string } | null)?.from,
+    );
 
   useEffect(() => {
     if (!sessionStore.initialized || !sessionStore.authenticated) return;
-    navigate(afterAuthRoute(), { replace: true });
+    navigate(routeAfterAuth(), { replace: true });
   }, [navigate, sessionStore.initialized, sessionStore.authenticated]);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -206,7 +211,7 @@ export const MyLoginForm = observer(() => {
     localStorage.setItem("isAuth", "true");
     // Прошедшего онбординг пользователя ведём сразу в ленту, иначе он на миг
     // попадал на «Выбор интересов» и только оттуда редиректился обратно.
-    navigate(afterAuthRoute(), { replace: true });
+    navigate(routeAfterAuth(), { replace: true });
   };
 
   // Внутри ВК показываем реального пользователя и приветственную кнопку

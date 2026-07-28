@@ -106,10 +106,24 @@ const FilterWrapper = styled.button<{ $active?: boolean }>`
   }
 `;
 
+/**
+ * Сброс фильтров — красный: это отмена сделанного выбора.
+ */
 const ResetChip = styled(FilterWrapper)`
   background: var(--povod-surface);
   border-color: var(--povod-danger);
   color: var(--povod-danger);
+`;
+
+/**
+ * Поделиться подборкой — обычное действие, а не отмена, поэтому не красный.
+ * Раньше оба чипа выглядели одинаково тревожно, хотя один создаёт ссылку, а
+ * второй стирает выбор.
+ */
+const ShareChip = styled(FilterWrapper)`
+  background: var(--povod-surface);
+  border-color: var(--povod-primary);
+  color: var(--povod-primary);
 `;
 
 const FilterButton = styled.span`
@@ -317,9 +331,9 @@ function FirstPageComponent() {
 
         {hasActiveFilters && (
           <>
-            <ResetChip type="button" onClick={handleShare}>
+            <ShareChip type="button" onClick={handleShare}>
               <FilterButton>Поделиться подборкой</FilterButton>
-            </ResetChip>
+            </ShareChip>
             <ResetChip type="button" onClick={resetFilters}>
               <FilterButton>Сбросить ✕</FilterButton>
             </ResetChip>

@@ -133,7 +133,9 @@ export function AuthorProfilePage() {
 
   return (
     <Panel id="author-profile">
-      <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Профиль</PanelHeader>
+      <PanelHeader fixed={false} before={<PanelHeaderBack onClick={() => navigate(-1)} />}>
+        Профиль
+      </PanelHeader>
 
       <Group>
         <AsyncContent
