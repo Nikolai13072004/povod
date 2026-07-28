@@ -28,6 +28,17 @@ export function createApp() {
   app.use(
     cors({ origin: config.corsOrigin === "*" ? true : config.corsOrigin, credentials: true }),
   );
+  /**
+   * За прокси (Render, Cloudflare, nginx) `req.ip` без этой настройки — адрес
+   * прокси, а не клиента. Rate limit ключуется именно по `req.ip`, поэтому все
+   * посетители попадали в одно ведро: десяти неверных паролей одного человека
+   * хватало, чтобы вход перестал работать у всех.
+   *
+   * Число хопов, а не `true`: при `true` Express верит всей цепочке
+   * X-Forwarded-For, и клиент сам себе назначает любой адрес — лимит снова
+   * обходится, только теперь бесшумно.
+   */
+  app.set("trust proxy", 1);
   // limit 10mb — фронт может слать фото как base64 data URL (до 5MB)
   app.use(express.json({ limit: "10mb" }));
   // Куку браузер прикладывает к запросу сам, в том числе с чужого сайта, — поэтому

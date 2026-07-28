@@ -21,13 +21,25 @@ test("redactText hides credentials inside connection URLs", () => {
   );
 });
 
-test("redactText hides sensitive query and key=value pairs", () => {
-  assert.equal(
-    redactText("/api/Auth/vk?sign=deadBEEF&vk_user_id=42"),
-    `/api/Auth/vk?sign=${REDACTED}&vk_user_id=42`,
-  );
+test("redactText hides sensitive key=value pairs in free text", () => {
   assert.equal(redactText("password=supersecret"), `password=${REDACTED}`);
   assert.equal(redactText("token: abc.def.ghi"), `token: ${REDACTED}`);
+});
+
+test("redactText hides every query value outside the safe list", () => {
+  // Правило перевёрнуто: раньше скрывались значения по списку запрещённых имён,
+  // и секрет приглашения (`?invite=`) в этот список не входил — он оседал в
+  // логах открытым текстом, хотя в базе от него хранится только SHA-256.
+  assert.equal(
+    redactText("/api/Events/ev1?invite=Xk3W9secret"),
+    `/api/Events/ev1?invite=${REDACTED}`,
+  );
+  assert.equal(
+    redactText("/api/Auth/vk?sign=deadBEEF&vk_user_id=42"),
+    `/api/Auth/vk?sign=${REDACTED}&vk_user_id=${REDACTED}`,
+  );
+  // Разрешённые параметры остаются читаемыми — иначе лог перестаёт быть полезным.
+  assert.equal(redactText("/api/Events?limit=20&cursor=abc"), "/api/Events?limit=20&cursor=abc");
   assert.equal(redactText("access_token=zzz&page=2"), `access_token=${REDACTED}&page=2`);
 });
 

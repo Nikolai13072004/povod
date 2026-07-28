@@ -23,6 +23,10 @@ export const MAX_IMAGE_URL_LENGTH = 2048;
 
 export type ImageValidation = { ok: true } | { ok: false; reason: string };
 
+function isAllowedImageMime(value: string): value is AllowedImageMime {
+  return (ALLOWED_IMAGE_MIMES as readonly string[]).includes(value);
+}
+
 /** Определяет фактический тип изображения по сигнатуре первых байтов. */
 export function detectImageMime(bytes: Uint8Array): AllowedImageMime | null {
   // PNG: 89 50 4E 47 0D 0A 1A 0A
@@ -77,9 +81,25 @@ const DATA_URL_RE = /^data:([a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+)?(;base64)?,(
 function validateDataUrl(value: string): ImageValidation {
   const match = DATA_URL_RE.exec(value);
   if (!match) return { ok: false, reason: "Некорректный data URL изображения" };
-  const [, , base64Marker, payload] = match;
+  const [, declaredMime, base64Marker, payload] = match;
   if (!base64Marker) {
     return { ok: false, reason: "Изображение должно быть закодировано в base64" };
+  }
+  /*
+   * Заявленный тип раньше просто отбрасывался: проверялись только сигнатуры, а
+   * строка сохранялась как есть — вместе с заявленным типом. Браузер при
+   * отрисовке data URL верит именно заявленному, поэтому `data:text/html;base64,`
+   * с валидной сигнатурой GIF внутри проходил проверку и оседал в базе.
+   *
+   * Сигнатуру это не заменяет: ниже тип определяется по байтам, и оба должны
+   * совпасть. Заявить `image/png`, положив внутрь JPEG, тоже нельзя.
+   */
+  const normalizedMime = declaredMime?.toLowerCase();
+  if (!normalizedMime || !isAllowedImageMime(normalizedMime)) {
+    return {
+      ok: false,
+      reason: `Неподдерживаемый тип изображения. Разрешены: ${ALLOWED_IMAGE_MIMES.join(", ")}`,
+    };
   }
 
   let bytes: Buffer;
@@ -100,6 +120,9 @@ function validateDataUrl(value: string): ImageValidation {
       ok: false,
       reason: `Неподдерживаемый тип изображения. Разрешены: ${ALLOWED_IMAGE_MIMES.join(", ")}`,
     };
+  }
+  if (detected !== normalizedMime) {
+    return { ok: false, reason: "Заявленный тип изображения не совпадает с содержимым" };
   }
   return { ok: true };
 }
