@@ -11,9 +11,25 @@ const imageSchema = z.string().superRefine((value, ctx) => {
   }
 });
 
+/*
+ * Верхние границы текстовых полей.
+ *
+ * Их не было вовсе: единственным барьером служил `express.json({ limit: "10mb" })`,
+ * выбранный под фото, а не под текст. Комментарий на 9 МБ создавался и потом
+ * отдавался всем посетителям события; заголовок на 9 МБ заставлял PostgreSQL
+ * пересчитывать по нему поисковый вектор.
+ */
+const MAX_TITLE = 200;
+const MAX_DESCRIPTION = 5000;
+const MAX_LOCATION = 300;
+const MAX_CATEGORY = 50;
+const MAX_TAG = 50;
+const MAX_TAGS = 20;
+export const MAX_COMMENT_TEXT = 2000;
+
 const eventFieldsSchema = z.object({
-  title: z.string().min(1, "Название обязательно"),
-  description: z.string().optional().default(""),
+  title: z.string().trim().min(1, "Название обязательно").max(MAX_TITLE),
+  description: z.string().max(MAX_DESCRIPTION).optional().default(""),
   startsAt: z
     .string()
     .datetime({ offset: true, message: "startsAt должен быть ISO 8601 timestamp" }),
@@ -29,11 +45,16 @@ const eventFieldsSchema = z.object({
         return false;
       }
     }, "Некорректная IANA timezone"),
-  location: z.string().optional().default(""),
-  category: z.string().optional(),
+  location: z.string().max(MAX_LOCATION).optional().default(""),
+  // trim здесь не косметика: категория участвует в сортировке ленты по интересам,
+  // и «Музыка » с хвостовым пробелом не совпадала с интересом «Музыка».
+  category: z.string().trim().max(MAX_CATEGORY).optional(),
   image: imageSchema.optional(),
-  tags: z.array(z.string()).optional(),
-  coords: z.tuple([z.number(), z.number()]).optional(),
+  tags: z.array(z.string().trim().min(1).max(MAX_TAG)).max(MAX_TAGS).optional(),
+  // Диапазон повторяет CHECK в схеме базы. Без него PostgreSQL отвечал 500 с
+  // именем ограничения, а in-memory адаптер молча принимал невозможную точку —
+  // два адаптера расходились на одном и том же запросе.
+  coords: z.tuple([z.number().min(-90).max(90), z.number().min(-180).max(180)]).optional(),
   format: z.enum(["public", "private"]).optional(),
   /** Окончание события. Не задано — событие «до упора» (BE-006). */
   endsAt: z
@@ -84,14 +105,40 @@ export const passwordResetConfirmSchema = z.object({
   password: z.string().min(8, "Пароль должен быть не короче 8 символов").max(200),
 });
 
+/*
+ * Создание и правка комментария живут по одним правилам.
+ *
+ * Раньше расходились: правка требовала `.trim()` и максимум 2000, создание — нет.
+ * Комментарий из одних пробелов проходил валидацию, in-memory адаптер отдавал
+ * 201 и показывал пустую реплику, а PostgreSQL отвергал вставку по CHECK — 500
+ * вместо 400 на одном и том же запросе.
+ */
 export const commentCreateSchema = z.object({
-  text: z.string().min(1, "Текст комментария обязателен"),
+  text: z.string().trim().min(1, "Текст комментария обязателен").max(MAX_COMMENT_TEXT),
   eventId: z.string().min(1, "eventId обязателен"),
+});
+
+/**
+ * Тело VK-входа.
+ *
+ * Раньше оно читалось напрямую из `req.body` без схемы, и `profile.avatar`
+ * попадал в базу в обход `imageSchema`: заявленные в SEC-005 гарантии (SVG
+ * отклоняется, размер не больше 5 МБ) в этом маршруте не действовали, а имя не
+ * имело ограничения длины, хотя во всех остальных маршрутах оно есть.
+ */
+export const vkLoginSchema = z.object({
+  launchParams: z.string().default(""),
+  profile: z
+    .object({
+      name: z.string().trim().min(1).max(100).optional(),
+      avatar: imageSchema.optional(),
+    })
+    .optional(),
 });
 
 /** Правка комментария: меняется только текст (BE-009). */
 export const commentUpdateSchema = z.object({
-  text: z.string().trim().min(1, "Текст комментария обязателен").max(2000),
+  text: z.string().trim().min(1, "Текст комментария обязателен").max(MAX_COMMENT_TEXT),
 });
 
 /** Обновление собственного профиля: все поля необязательны (BE-010). */

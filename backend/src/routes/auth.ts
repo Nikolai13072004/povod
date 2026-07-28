@@ -9,6 +9,7 @@ import {
   passwordResetConfirmSchema,
   passwordResetRequestSchema,
   registerSchema,
+  vkLoginSchema,
 } from "../validation.js";
 import { confirmPasswordReset, requestPasswordReset } from "../auth/passwordReset.js";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "../auth/password.js";
@@ -138,8 +139,7 @@ authRouter.post(
   "/vk",
   vkRateLimit,
   asyncHandler(async (req, res) => {
-    const launchParams = String(req.body?.launchParams ?? "");
-    const profile = (req.body?.profile ?? {}) as { name?: string; avatar?: string };
+    const { launchParams, profile = {} } = vkLoginSchema.parse(req.body ?? {});
 
     if (!config.vkAppSecret) {
       if (config.nodeEnv === "production") {

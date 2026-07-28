@@ -59,9 +59,60 @@ const SENSITIVE_PAIR_RE =
 /** Email-адрес в любом месте строки (PII). */
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
+/**
+ * Query-параметры, значение которых безопасно видеть в логах.
+ *
+ * Список разрешённых, а не запрещённых: секрет приглашения ездит в параметре
+ * `invite`, и список запрещённых его не содержал — токен оседал в логах
+ * открытым текстом, хотя в базе от него хранится только SHA-256. Токен
+ * восстановления пароля уцелел лишь потому, что параметр удачно назвали
+ * `token`. Любой следующий секрет с новым именем повторил бы историю, поэтому
+ * правило перевёрнуто: неизвестный параметр считается секретом.
+ */
+const SAFE_QUERY_KEYS = new Set([
+  "limit",
+  "cursor",
+  "page",
+  "search",
+  "q",
+  "category",
+  "sort",
+  "order",
+  "from",
+  "to",
+  "city",
+  "format",
+  "status",
+  "type",
+]);
+
+/** Скрывает значения всех query-параметров вне {@link SAFE_QUERY_KEYS}. */
+function redactQueryString(input: string): string {
+  const start = input.indexOf("?");
+  if (start === -1) return input;
+
+  const path = input.slice(0, start);
+  const query = input.slice(start + 1);
+  // Фрагмент до сервера не доходит, но в свободном тексте (стек, сообщение) — может.
+  const hashAt = query.indexOf("#");
+  const tail = hashAt === -1 ? "" : query.slice(hashAt);
+  const pairs = (hashAt === -1 ? query : query.slice(0, hashAt))
+    .split("&")
+    .map((pair) => {
+      const eq = pair.indexOf("=");
+      if (eq === -1) return pair;
+      const key = pair.slice(0, eq);
+      if (SAFE_QUERY_KEYS.has(key.toLowerCase())) return pair;
+      return `${key}=${REDACTED}`;
+    })
+    .join("&");
+
+  return `${path}?${pairs}${tail}`;
+}
+
 /** Редакция секретов и PII в произвольной строке. */
 export function redactText(input: string): string {
-  return input
+  return redactQueryString(input)
     .replace(URL_CREDENTIALS_RE, `$1:${REDACTED}@`)
     .replace(BEARER_RE, `Bearer ${REDACTED}`)
     .replace(SENSITIVE_PAIR_RE, `$1$2${REDACTED}`)

@@ -13,6 +13,22 @@ import { cursorOf, decodeCursor, encodeCursor, normalizeFeedLimit } from "../fee
 export const eventsRouter = Router();
 
 /**
+ * Потолок для списочных ответов без курсора.
+ *
+ * Его не было вовсе: `/active`, `/upcoming`, `/mine`, `/favorites`,
+ * `/author/:id` и `/participant/:id` читали таблицу событий целиком. Защита
+ * `MAX_FEED_LIMIT` стояла только на курсорной ленте. При этом обложка хранится
+ * в строке события data URL'ом до 5 МБ, а ответ целиком собирается в памяти
+ * процесса, — то есть пара сотен событий с фото превращали анонимный
+ * `GET /api/Events/active` в способ уронить сервер.
+ *
+ * 200 — заведомо больше, чем показывают эти экраны, и заведомо меньше, чем
+ * нужно для отказа. Постраничность здесь появится вместе с MEDIA-001, когда
+ * картинки уедут из строк.
+ */
+const MAX_LIST_SIZE = 200;
+
+/**
  * Секрет приглашения приходит query-параметром `invite`: так его несёт обычная
  * ссылка, которую можно переслать в мессенджере.
  */
@@ -91,6 +107,7 @@ eventsRouter.get(
     res.json(
       await getRepository().listEvents({
         activeAfter,
+        limit: MAX_LIST_SIZE,
         viewerId: (res.locals as AuthLocals).authUser?.id,
       }),
     );
@@ -105,6 +122,7 @@ eventsRouter.get(
       await getRepository().listEvents({
         activeAfter: new Date(),
         sort: "asc",
+        limit: MAX_LIST_SIZE,
         viewerId: (res.locals as AuthLocals).authUser?.id,
       }),
     );
@@ -118,8 +136,8 @@ eventsRouter.get(
     const user = getAuthUser(res.locals as AuthLocals);
     const repository = getRepository();
     const [created, attending] = await Promise.all([
-      repository.listEvents({ author: user.id, viewerId: user.id }),
-      repository.listEvents({ participant: user.id, viewerId: user.id }),
+      repository.listEvents({ author: user.id, limit: MAX_LIST_SIZE, viewerId: user.id }),
+      repository.listEvents({ participant: user.id, limit: MAX_LIST_SIZE, viewerId: user.id }),
     ]);
     res.json({ created, attending });
   }),
@@ -133,7 +151,13 @@ eventsRouter.get(
     const user = getAuthUser(res.locals as AuthLocals);
     // viewerId тот же: если открытое событие позже стало приватным, оно уйдёт
     // из избранного само, без отдельной чистки.
-    res.json(await getRepository().listEvents({ favoritedBy: user.id, viewerId: user.id }));
+    res.json(
+      await getRepository().listEvents({
+        favoritedBy: user.id,
+        limit: MAX_LIST_SIZE,
+        viewerId: user.id,
+      }),
+    );
   }),
 );
 
@@ -144,6 +168,7 @@ eventsRouter.get(
     res.json(
       await getRepository().listEvents({
         author: req.params.authorId,
+        limit: MAX_LIST_SIZE,
         viewerId: (res.locals as AuthLocals).authUser?.id,
       }),
     );
@@ -159,6 +184,7 @@ eventsRouter.get(
     res.json(
       await getRepository().listEvents({
         participant: user.id,
+        limit: MAX_LIST_SIZE,
         viewerId: user.id,
       }),
     );
@@ -382,9 +408,12 @@ eventsRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     const user = getAuthUser(res.locals as AuthLocals);
-    if (!(await getRepository().removeFavorite(user.id, req.params.id))) {
-      throw new HttpError(404, "Event not found");
-    }
+    const event = await getRepository().getEvent(req.params.id);
+    // Та же проверка, что и при добавлении. Без неё ответы различали «события
+    // нет» (404) и «событие есть, но чужое приватное» (204) — то самое
+    // подтверждение существования, которое парный POST закрывает намеренно.
+    if (!event || !canViewEvent(event, user.id)) throw new HttpError(404, "Event not found");
+    await getRepository().removeFavorite(user.id, event.id);
     res.status(204).send();
   }),
 );
@@ -394,6 +423,12 @@ eventsRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const user = getAuthUser(res.locals as AuthLocals);
+    // Отписка — единственный изменяющий маршрут события, где проверки видимости
+    // не было: `leaveEvent` в обоих адаптерах возвращает событие по факту его
+    // существования, не спрашивая, был ли вызывающий участником. Посторонний
+    // получал 200 и полное тело чужого приватного события.
+    const existing = await getRepository().getEvent(req.params.id);
+    if (!existing || !canViewEvent(existing, user.id)) throw new HttpError(404, "Event not found");
     const event = await getRepository().leaveEvent(req.params.id, user.id);
     if (!event) throw new HttpError(404, "Event not found");
     res.json(event);

@@ -594,6 +594,81 @@ test("escalation: private events stay inaccessible to uninvited users", async (c
     authorized(attacker.token),
   );
   assert.equal(comments.status, 404);
+
+  // Отписка от события, в котором не состоишь, возвращала 200 и ПОЛНОЕ тело
+  // чужого приватного события: описание, адрес, список участников. Это был
+  // единственный изменяющий маршрут без проверки видимости.
+  const leave = await fetch(
+    `${baseUrl}/api/Events/${privateEvent.id}/leave`,
+    authorized(attacker.token, { method: "POST" }),
+  );
+  assert.equal(leave.status, 404, "отписка не должна отдавать чужое приватное событие");
+
+  // Снятие отметки «избранное» различало «события нет» (404) и «событие есть,
+  // но чужое» (204) — оракул существования, который парный POST закрывает.
+  const unfavorite = await fetch(
+    `${baseUrl}/api/Events/${privateEvent.id}/favorite`,
+    authorized(attacker.token, { method: "DELETE" }),
+  );
+  assert.equal(unfavorite.status, 404, "снятие отметки не должно подтверждать существование");
+});
+
+test("validation: input that the database would reject is refused with 400, not 500", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  // Комментарий из одних пробелов: раньше проходил валидацию, in-memory отдавал
+  // 201 и показывал пустую реплику, PostgreSQL отвергал вставку по CHECK — 500.
+  const blankComment = await fetch(
+    `${baseUrl}/api/Comments`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({ eventId: "1", text: "   " }),
+    }),
+  );
+  assert.equal(blankComment.status, 400);
+
+  const base = {
+    startsAt: "2026-08-01T12:00:00.000Z",
+    timezone: "Europe/Moscow",
+  };
+
+  // Координаты вне диапазона: тот же CHECK в схеме базы, тот же разъезд адаптеров.
+  const badCoords = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({ ...base, title: "Точка нигде", coords: [999, 999] }),
+    }),
+  );
+  assert.equal(badCoords.status, 400);
+
+  // Текстовые поля не имели верхней границы вовсе: комментарий и заголовок на
+  // мегабайты ограничивал только лимит тела запроса, выбранный под фото.
+  const hugeTitle = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({ ...base, title: "я".repeat(5000) }),
+    }),
+  );
+  assert.equal(hugeTitle.status, 400);
+
+  // Заявленный MIME в data URL раньше отбрасывался: проверялись только сигнатуры,
+  // а в базу уходила исходная строка вместе с заявленным типом.
+  const gifBytes = Buffer.from("GIF89a").toString("base64");
+  const lyingMime = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(token, {
+      method: "POST",
+      body: JSON.stringify({
+        ...base,
+        title: "Обложка-подделка",
+        image: `data:text/html;base64,${gifBytes}`,
+      }),
+    }),
+  );
+  assert.equal(lyingMime.status, 400, "тип из data URL должен проверяться, а не отбрасываться");
 });
 
 /** Лента уведомлений пользователя по токену. */

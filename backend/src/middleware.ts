@@ -41,8 +41,22 @@ export function errorHandler(
     res.status(409).json({ error: "Resource is still in use", status: 409 });
     return;
   }
+  // 23514 — нарушение CHECK, 22001 — строка длиннее колонки, 22003 — число вне
+  // диапазона. Всё это неверный ввод, дошедший до базы мимо схемы: отвечать на
+  // него 500 неправильно вдвойне — клиент видит «сбой сервера» вместо «поправьте
+  // поле», а в error-лог сыплются мнимые аварии.
+  if (databaseError.code === "23514" || databaseError.code === "22001") {
+    res.status(400).json({ error: "Validation failed", status: 400 });
+    return;
+  }
   const status = e.status ?? e.statusCode ?? 500;
-  const message = e.message ?? "Internal Server Error";
-  if (status >= 500) logger.error("[error]", err);
-  res.status(status).json({ error: message, status });
+  if (status >= 500) {
+    logger.error("[error]", err);
+    // Наружу — ничего своего. Текст необработанной ошибки выдаёт имя пользователя
+    // базы, внутренний хост, имена таблиц и ограничений; редакция применялась
+    // только к логу, а в ответ уходил оригинал.
+    res.status(status).json({ error: "Internal Server Error", status });
+    return;
+  }
+  res.status(status).json({ error: e.message ?? "Request failed", status });
 }

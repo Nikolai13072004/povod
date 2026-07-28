@@ -815,10 +815,12 @@
                 "properties": {
                   "title": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 200
                   },
                   "description": {
                     "type": "string",
+                    "maxLength": 5000,
                     "default": ""
                   },
                   "startsAt": {
@@ -832,10 +834,12 @@
                   },
                   "location": {
                     "type": "string",
+                    "maxLength": 300,
                     "default": ""
                   },
                   "category": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 50
                   },
                   "image": {
                     "type": "string"
@@ -843,17 +847,24 @@
                   "tags": {
                     "type": "array",
                     "items": {
-                      "type": "string"
-                    }
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 50
+                    },
+                    "maxItems": 20
                   },
                   "coords": {
                     "type": "array",
                     "prefixItems": [
                       {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
                       },
                       {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
                       }
                     ]
                   },
@@ -1074,10 +1085,12 @@
                 "properties": {
                   "title": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 200
                   },
                   "description": {
                     "type": "string",
+                    "maxLength": 5000,
                     "default": ""
                   },
                   "startsAt": {
@@ -1091,10 +1104,12 @@
                   },
                   "location": {
                     "type": "string",
+                    "maxLength": 300,
                     "default": ""
                   },
                   "category": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 50
                   },
                   "image": {
                     "type": "string"
@@ -1102,17 +1117,24 @@
                   "tags": {
                     "type": "array",
                     "items": {
-                      "type": "string"
-                    }
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 50
+                    },
+                    "maxItems": 20
                   },
                   "coords": {
                     "type": "array",
                     "prefixItems": [
                       {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
                       },
                       {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
                       }
                     ]
                   },
@@ -1720,7 +1742,8 @@
                 "properties": {
                   "text": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2000
                   },
                   "eventId": {
                     "type": "string",
