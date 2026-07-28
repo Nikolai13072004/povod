@@ -108,6 +108,31 @@ test("config allows the resend transport in production", () => {
   assert.equal(config.mailTransport, "resend");
 });
 
+test("config refuses an incomplete smtp setup", () => {
+  assert.throws(
+    () => loadConfig({ MAIL_TRANSPORT: "smtp" }),
+    /SMTP_HOST[\s\S]*SMTP_USER[\s\S]*SMTP_PASSWORD[\s\S]*MAIL_FROM/,
+  );
+});
+
+test("config requires the smtp sender to match the authenticated mailbox", () => {
+  // Яндекс и Gmail отклоняют чужого отправителя либо молча подменяют адрес —
+  // и то и другое обнаруживается уже на живых письмах.
+  const base = {
+    MAIL_TRANSPORT: "smtp",
+    SMTP_HOST: "smtp.yandex.ru",
+    SMTP_USER: "me@yandex.ru",
+    SMTP_PASSWORD: "app-password",
+  };
+  assert.throws(() => loadConfig({ ...base, MAIL_FROM: "someone@else.ru" }), /MAIL_FROM/);
+
+  const config = loadConfig({ ...base, MAIL_FROM: "POVOD <me@yandex.ru>" });
+  assert.equal(config.mailTransport, "smtp");
+  assert.equal(config.smtpHost, "smtp.yandex.ru");
+  assert.equal(config.smtpPort, 465, "по умолчанию порт TLS");
+  assert.equal(config.smtpSecure, true);
+});
+
 test("config rejects an app URL that is not a bare origin", () => {
   // Из APP_URL собираются ссылки в письмах — путь или query там всё сломают.
   assert.throws(() => loadConfig({ APP_URL: "https://povod.example/app" }), /APP_URL/);

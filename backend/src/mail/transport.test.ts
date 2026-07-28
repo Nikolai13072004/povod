@@ -1,9 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createMailTransport, createResendTransport } from "./transport.js";
+import { createSmtpTransport } from "./smtp.js";
 import { passwordResetMessage } from "./message.js";
 
 const message = passwordResetMessage("user@example.com", "https://povod.example/reset?token=t", 1);
+
+/** Ненужные для конкретной проверки поля конфигурации. */
+const emptyMailConfig = {
+  resendApiKey: "",
+  mailFrom: "",
+  smtpHost: "",
+  smtpPort: 465,
+  smtpSecure: true,
+  smtpUser: "",
+  smtpPassword: "",
+};
 
 function stubFetch(response: Response, calls: Array<[string, RequestInit]>): typeof fetch {
   return (async (url: string, init: RequestInit) => {
@@ -60,19 +72,51 @@ test("resend transport reports why the provider refused", async () => {
 });
 
 test("console transport does not reach the network", async () => {
-  const transport = createMailTransport({
-    mailTransport: "console",
-    resendApiKey: "",
-    mailFrom: "",
-  });
+  const transport = createMailTransport({ ...emptyMailConfig, mailTransport: "console" });
   assert.equal(transport.name, "console");
   await transport.send(message);
 });
 
 test("none transport silently drops the message", async () => {
-  const transport = createMailTransport({ mailTransport: "none", resendApiKey: "", mailFrom: "" });
+  const transport = createMailTransport({ ...emptyMailConfig, mailTransport: "none" });
   assert.equal(transport.name, "none");
   await transport.send(message);
+});
+
+test("smtp transport sends through one reused connection", async () => {
+  // Рукопожатие TLS с аутентификацией стоит сотни миллисекунд, а восстановление
+  // пароля его дожидается — открывать соединение на каждое письмо расточительно.
+  const sent: Record<string, unknown>[] = [];
+  let created = 0;
+  const transport = createSmtpTransport({
+    host: "smtp.yandex.ru",
+    port: 465,
+    secure: true,
+    user: "me@yandex.ru",
+    password: "app-password",
+    from: "POVOD <me@yandex.ru>",
+    createTransport: ((options: Record<string, unknown>) => {
+      created += 1;
+      // Без явных таймаутов повисший сервер держал бы наш ответ минутами.
+      assert.equal(options.connectionTimeout, 10_000);
+      assert.equal(options.socketTimeout, 10_000);
+      return {
+        sendMail: async (mail: Record<string, unknown>) => {
+          sent.push(mail);
+          return {};
+        },
+      };
+    }) as never,
+  });
+
+  await transport.send(message);
+  await transport.send(message);
+
+  assert.equal(created, 1, "соединение создаётся один раз");
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0]!.from, "POVOD <me@yandex.ru>");
+  assert.equal(sent[0]!.to, "user@example.com");
+  assert.equal(sent[0]!.subject, message.subject);
 });
 
 test("password reset message names the lifetime and the way out", async () => {

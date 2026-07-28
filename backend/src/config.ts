@@ -45,8 +45,19 @@ const environmentSchema = z
      * Транспорт писем. `console` печатает ссылку в лог — годится для разработки,
      * но в production означает, что письма никому не уходят.
      */
-    MAIL_TRANSPORT: z.enum(["console", "none", "resend"]).default("console"),
+    MAIL_TRANSPORT: z.enum(["console", "none", "resend", "smtp"]).default("console"),
     RESEND_API_KEY: z.string().trim().default(""),
+    /*
+     * SMTP личного ящика — путь для проекта без своего домена. Провайдеры вроде
+     * Resend доставляют на произвольные адреса только после подтверждения
+     * домена; SMTP такого ограничения не имеет.
+     */
+    SMTP_HOST: z.string().trim().default(""),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(465),
+    /** `true` — TLS с первого байта (порт 465); `false` — STARTTLS (587). */
+    SMTP_SECURE: booleanValue.default("true"),
+    SMTP_USER: z.string().trim().default(""),
+    SMTP_PASSWORD: z.string().default(""),
     /** Отправитель: `user@example.com` либо `Имя <user@example.com>`. */
     MAIL_FROM: z
       .string()
@@ -88,6 +99,33 @@ const environmentSchema = z
           code: z.ZodIssueCode.custom,
           path: ["MAIL_FROM"],
           message: "must be set when MAIL_TRANSPORT is 'resend'",
+        });
+      }
+    }
+    if (environment.MAIL_TRANSPORT === "smtp") {
+      for (const key of ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM"] as const) {
+        if (!environment[key]) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: "must be set when MAIL_TRANSPORT is 'smtp'",
+          });
+        }
+      }
+      /*
+       * Яндекс и Gmail требуют, чтобы отправитель совпадал с ящиком, под
+       * которым выполнен вход. Несовпадение они либо отклоняют, либо молча
+       * подменяют адрес — и то и другое обнаруживается уже на живых письмах.
+       */
+      if (
+        environment.SMTP_USER &&
+        environment.MAIL_FROM &&
+        !environment.MAIL_FROM.toLowerCase().includes(environment.SMTP_USER.toLowerCase())
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["MAIL_FROM"],
+          message: `must contain the SMTP_USER address (${environment.SMTP_USER}) — почтовые провайдеры отклоняют чужого отправителя`,
         });
       }
     }
@@ -171,9 +209,14 @@ export interface AppConfig {
   authCookieSecure: boolean;
   authCookieDomain: string;
   appUrl: string;
-  mailTransport: "console" | "none" | "resend";
+  mailTransport: "console" | "none" | "resend" | "smtp";
   resendApiKey: string;
   mailFrom: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPassword: string;
   demoAuthEnabled: boolean;
   demoAuthPassword: string;
   externalEvents: boolean;
@@ -208,6 +251,11 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     mailTransport: values.MAIL_TRANSPORT,
     resendApiKey: values.RESEND_API_KEY,
     mailFrom: values.MAIL_FROM,
+    smtpHost: values.SMTP_HOST,
+    smtpPort: values.SMTP_PORT,
+    smtpSecure: values.SMTP_SECURE,
+    smtpUser: values.SMTP_USER,
+    smtpPassword: values.SMTP_PASSWORD,
     demoAuthEnabled: values.DEMO_AUTH_ENABLED ?? values.NODE_ENV !== "production",
     demoAuthPassword: values.DEMO_AUTH_PASSWORD,
     externalEvents: values.ENABLE_EXTERNAL_EVENTS,
