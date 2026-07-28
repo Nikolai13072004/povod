@@ -15,11 +15,13 @@
   /**
    * Бренд. За основу взят самый частый прежний оттенок #2d81e0, но затемнён:
    * белый текст на нём давал контраст 3.94:1 и не проходил WCAG AA (нужно 4.5:1).
-   * Текущий даёт 5:1 при том же тоне.
+   *
+   * Затемнён ещё раз по отзыву с живого теста — кнопки выглядели блёкло.
+   * Контраст с белым текстом при этом только вырос: 5:1 → 6.9:1.
    */
-  --povod-primary: #2170c6;
-  --povod-primary-hover: #1b68bd;
-  --povod-primary-active: #155ca8;
+  --povod-primary: #1a5ba3;
+  --povod-primary-hover: #16549a;
+  --povod-primary-active: #114a87;
   --povod-on-primary: #ffffff;
 
   /* Поверхности */
@@ -53,10 +55,15 @@
 
 /* Тёмная тема: явный выбор пользователя. */
 [data-theme="dark"] {
-  /* На тёмном фоне исходный синий слишком тёмный — берём светлее той же гаммы. */
-  --povod-primary: #4f9bef;
-  --povod-primary-hover: #6cb0f5;
-  --povod-primary-active: #3d87d6;
+  /*
+   * На тёмном фоне исходный синий слишком тёмный — берём светлее той же гаммы.
+   * Здесь текст на кнопке ТЁМНЫЙ (`--povod-on-primary`), поэтому затемнение
+   * уменьшает контраст, а не увеличивает. Проверено: 6.5:1 → 5:1, всё ещё выше
+   * порога WCAG AA в 4.5:1.
+   */
+  --povod-primary: #3d86d8;
+  --povod-primary-hover: #559ce8;
+  --povod-primary-active: #2f74bd;
   --povod-on-primary: #0b1219;
 
   --povod-bg: #0f151d;
@@ -80,9 +87,9 @@
 /* Системная тёмная тема — пока пользователь не выбрал явно. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --povod-primary: #4f9bef;
-    --povod-primary-hover: #6cb0f5;
-    --povod-primary-active: #3d87d6;
+    --povod-primary: #3d86d8;
+    --povod-primary-hover: #559ce8;
+    --povod-primary-active: #2f74bd;
     --povod-on-primary: #0b1219;
 
     --povod-bg: #0f151d;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import { Button, Title, Text, Input } from "@vkontakte/vkui";
 import { Icon16Place } from "@vkontakte/icons";
+import { observer } from "mobx-react-lite";
 import { useNavigate } from "react-router-dom";
 import { sessionStore } from "../stores/sessionStore";
 import { setStoredInterests } from "../storage";
@@ -90,7 +91,13 @@ const Footer = styled.div`
 
 const categories = INTERESTS.map((label) => ({ id: label, label }));
 
-export function SelectInterestPage() {
+/*
+ * observer обязателен: эффект ниже зависит от `sessionStore.initialized`, а без
+ * подписки на стор компонент не перерисуется, когда сессия подтвердится, — и
+ * решение «пропускать онбординг или нет» так и останется принятым по пустому
+ * профилю первого кадра.
+ */
+export const SelectInterestPage = observer(function SelectInterestPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
@@ -110,12 +117,36 @@ export function SelectInterestPage() {
 
   const navigate = useNavigate();
 
-  // Онбординг показываем один раз — если уже пройден, сразу в ленту
+  /*
+   * Онбординг показывается один раз.
+   *
+   * Источник правды — профиль на сервере, а не флаг в localStorage. Выход из
+   * аккаунта этот флаг стирал, и при следующем входе экран открывался ПУСТЫМ;
+   * «Продолжить» отправлял выбранное, а сервер заменяет массив интересов
+   * целиком — прежние стирались. То есть каждый повторный вход обнулял выбор.
+   *
+   * Если интересы уже есть, шаг пропускается. Если человек всё же сюда попал
+   * (например, по прямой ссылке), поля заполняются текущими значениями, чтобы
+   * «Продолжить» ничего не потеряло.
+   */
   useEffect(() => {
+    if (!sessionStore.initialized) return;
+
+    const saved = sessionStore.user.interests ?? [];
+    if (saved.length > 0) {
+      localStorage.setItem("onboarded", "true");
+      navigate("/page-1", { replace: true });
+      return;
+    }
+
     if (localStorage.getItem("onboarded") === "true") {
       navigate("/page-1", { replace: true });
+      return;
     }
-  }, [navigate]);
+
+    setSelected(saved);
+    setLocation(sessionStore.user.city ?? "");
+  }, [navigate, sessionStore.initialized, sessionStore.user.id]);
 
   const toggleCategory = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
@@ -246,4 +277,4 @@ export function SelectInterestPage() {
       </Footer>
     </PageContainer>
   );
-}
+});

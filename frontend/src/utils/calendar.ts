@@ -115,8 +115,50 @@ export function downloadEventIcs(event: CalendarEvent): void {
   const link = document.createElement("a");
   link.href = url;
   link.download = icsFileName(event.title);
+  /*
+   * `target="_blank"` ради iOS: Safari там игнорирует атрибут `download`, и без
+   * новой вкладки нажатие не давало вообще ничего — ни файла, ни ошибки. С ней
+   * система показывает файл и предлагает добавить его в Календарь.
+   */
+  link.target = "_blank";
+  link.rel = "noopener";
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  /*
+   * Ссылку освобождаем с задержкой. Немедленный `revokeObjectURL` успевал
+   * сработать раньше, чем браузер начинал скачивание, — на медленных машинах
+   * файл получался пустым или не появлялся вовсе.
+   */
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/**
+ * Ссылка «добавить в Google Календарь».
+ *
+ * Запасной путь для телефонов: файл `.ics` там скачивается непредсказуемо —
+ * зависит от браузера, настроек и наличия приложения-календаря. Обычная ссылка
+ * работает везде одинаково, а у большинства людей календарь как раз гугловый.
+ *
+ * Время передаётся в UTC — так формат не зависит от часового пояса устройства,
+ * а Google сам покажет событие в местном времени зрителя.
+ */
+export function googleCalendarUrl(event: CalendarEvent): string {
+  const start = new Date(event.startsAt);
+  const end = event.endsAt
+    ? new Date(event.endsAt)
+    : new Date(start.getTime() + DEFAULT_DURATION_MINUTES * 60 * 1000);
+
+  const compact = (date: Date) => date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const details = [event.description, event.url].filter(Boolean).join("\n\n");
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.title,
+    dates: `${compact(start)}/${compact(end)}`,
+  });
+  if (details) params.set("details", details);
+  if (event.location) params.set("location", event.location);
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }

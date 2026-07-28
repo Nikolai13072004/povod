@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_DURATION_MINUTES, buildEventIcs, escapeIcsText, icsFileName } from "./calendar";
+import {
+  DEFAULT_DURATION_MINUTES,
+  buildEventIcs,
+  escapeIcsText,
+  icsFileName,
+  googleCalendarUrl,
+} from "./calendar";
 
 const event = {
   id: "1",
@@ -103,5 +109,37 @@ describe("icsFileName", () => {
 
   it("falls back when the title has nothing usable", () => {
     expect(icsFileName("   ")).toBe("povod-event.ics");
+  });
+});
+
+describe("ссылка в Google Календарь", () => {
+  it("несёт название, время в UTC и место", () => {
+    // Запасной путь для телефонов: скачивание .ics там зависит от браузера,
+    // настроек и наличия приложения-календаря, а обычная ссылка работает везде.
+    const url = new URL(
+      googleCalendarUrl({
+        id: "1",
+        title: "Пикник",
+        startsAt: "2026-08-01T12:00:00.000Z",
+        endsAt: "2026-08-01T15:00:00.000Z",
+        location: "Парк",
+        description: "Берём пледы",
+        url: "https://povod.example/page-1/1",
+      }),
+    );
+
+    expect(url.origin + url.pathname).toBe("https://calendar.google.com/calendar/render");
+    expect(url.searchParams.get("text")).toBe("Пикник");
+    // UTC, чтобы формат не зависел от часового пояса устройства.
+    expect(url.searchParams.get("dates")).toBe("20260801T120000Z/20260801T150000Z");
+    expect(url.searchParams.get("location")).toBe("Парк");
+    expect(url.searchParams.get("details")).toContain("https://povod.example/page-1/1");
+  });
+
+  it("без окончания берёт длительность по умолчанию", () => {
+    const url = new URL(
+      googleCalendarUrl({ id: "1", title: "Встреча", startsAt: "2026-08-01T12:00:00.000Z" }),
+    );
+    expect(url.searchParams.get("dates")).toBe("20260801T120000Z/20260801T140000Z");
   });
 });

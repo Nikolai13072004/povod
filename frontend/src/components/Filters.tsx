@@ -379,7 +379,13 @@ const ChipContainer = styled.div`
 const Chip = styled.button<{ $selected: boolean }>`
   padding: 10px 16px;
   border-radius: 14px;
-  border: none;
+  /*
+   * Обводка обязательна: без неё невыбранный чип и фон модалки в тёмной теме
+   * почти совпадают, и понять, где кончается кнопка, невозможно. У выбранного
+   * рамка совпадает с заливкой — форма читается по цвету.
+   */
+  border: 1px solid
+    ${(props) => (props.$selected ? "var(--povod-primary)" : "var(--povod-border-strong)")};
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
