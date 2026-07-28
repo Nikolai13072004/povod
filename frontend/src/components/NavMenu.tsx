@@ -55,8 +55,11 @@ const Nav = styled("nav", { shouldForwardProp })`
     background: transparent;
     box-shadow: none;
     border-top: none;
-    /* Отделяет навигацию от контента снизу, а не от края экрана сверху. */
-    border-bottom: 1px solid var(--povod-border);
+    /*
+     * Разделителя нет: на широком экране ряд навигации и так отделён отступом,
+     * а линия под ним читалась как обрубок таблицы. Активный раздел различим
+     * по цвету и подчёркиванию самой ссылки.
+     */
     justify-content: flex-start;
   }
 `;

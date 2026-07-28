@@ -274,13 +274,10 @@ function SignUpEventsPage() {
   const searchQuery = filters.search;
   const selectedInterests = filters.selectedInterests;
 
-  // Вкладки «Все / Созданные / Посещаю» (FE-008): раздел раньше показывал
-  // созданные и посещаемые события одной кучей, без счётчиков.
+  // Вкладки «Посещаю / Созданные / Избранное» (FE-008): раздел раньше показывал
+  // всё одной кучей, без счётчиков.
   const createdEvents: EventItem[] = eventStore.createdEvents;
   const attendingEvents: EventItem[] = eventStore.acceptedEvents;
-  const combinedEvents: EventItem[] = Array.from(
-    new Map([...attendingEvents, ...createdEvents].map((event) => [event.id, event])).values(),
-  );
 
   // Избранное живёт в своём сторе: событие можно отметить, не записываясь на него,
   // поэтому в созданные и посещаемые оно не попадает (PROD-001).
@@ -288,13 +285,7 @@ function SignUpEventsPage() {
 
   const tab = filtersStore.myEventsTab;
   const allEvents: EventItem[] =
-    tab === "created"
-      ? createdEvents
-      : tab === "attending"
-        ? attendingEvents
-        : tab === "favorites"
-          ? favoriteEvents
-          : combinedEvents;
+    tab === "created" ? createdEvents : tab === "favorites" ? favoriteEvents : attendingEvents;
 
   const filteredEvents = allEvents.filter((event) => {
     // Регистр здесь вообще не приводился, и теги не учитывались — в «Моих
@@ -348,9 +339,8 @@ function SignUpEventsPage() {
         <TabsRow role="tablist" aria-label="Мои события">
           {(
             [
-              { id: "all", label: "Все", count: combinedEvents.length },
-              { id: "created", label: "Созданные", count: createdEvents.length },
               { id: "attending", label: "Посещаю", count: attendingEvents.length },
+              { id: "created", label: "Созданные", count: createdEvents.length },
               { id: "favorites", label: "Избранное", count: favoriteEvents.length },
             ] as const
           ).map((item) => (

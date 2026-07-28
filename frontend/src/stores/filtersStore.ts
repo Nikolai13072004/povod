@@ -109,8 +109,14 @@ export class FilterState {
   }
 }
 
-/** Вкладки раздела «Мои события» (FE-008, избранное — PROD-001). */
-export type MyEventsTab = "all" | "created" | "attending" | "favorites";
+/**
+ * Вкладки раздела «Мои события» (FE-008, избранное — PROD-001).
+ *
+ * Вкладки «Все» не стало: она показывала объединение созданных и посещаемых, а
+ * автор события автоматически становится его участником — то есть «Все» почти
+ * всегда совпадали с «Посещаю» и место занимали зря.
+ */
+export type MyEventsTab = "attending" | "created" | "favorites";
 
 class FiltersStore {
   /** Фильтры ленты (`/page-1`). */
@@ -118,7 +124,7 @@ class FiltersStore {
   /** Фильтры раздела «Мои события» (`/events`). */
   readonly myEvents = new FilterState();
   /** Выбранная вкладка «Моих событий» — тоже переживает переходы между страницами. */
-  myEventsTab: MyEventsTab = "all";
+  myEventsTab: MyEventsTab = "attending";
 
   constructor() {
     makeAutoObservable(this);
@@ -132,7 +138,7 @@ class FiltersStore {
   resetAll(): void {
     this.feed.reset();
     this.myEvents.reset();
-    this.myEventsTab = "all";
+    this.myEventsTab = "attending";
   }
 }
 
