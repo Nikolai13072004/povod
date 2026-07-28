@@ -6,7 +6,7 @@
   "description": "POVOD full-stack monorepo",
   "scripts": {
     "check": "npm run format:check && npm run lint && npm run check:backend && npm run check:frontend",
-    "check:backend": "npm --prefix backend run typecheck && npm --prefix backend test",
+    "check:backend": "npm --prefix backend run typecheck && npm --prefix backend test && npm --prefix backend run build",
     "check:frontend": "npm --prefix frontend run test && npm --prefix frontend run build",
     "check:api": "node scripts/check-api-contract.mjs",
     "lint": "eslint .",

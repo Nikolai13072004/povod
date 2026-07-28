@@ -1,0 +1,17 @@
+{
+  // Сборка production-версии: тот же строгий набор правил, но с выводом в dist.
+  // Тесты в сборку не входят — в образе им делать нечего.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "sourceMap": true,
+    // Node запускает результат напрямую, без сборщика: нужны настоящие
+    // относительные пути с расширениями, а не разрешение «как у бандлера».
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

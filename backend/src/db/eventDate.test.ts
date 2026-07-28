@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { eventDateToIso } from "./eventDate";
+import { eventDateToIso } from "./eventDate.js";
 
 test("legacy Moscow date converts to timestamptz for snapshot import", () => {
   const iso = eventDateToIso("27/06/26", "18:30");

@@ -1,8 +1,8 @@
 import type { Request, RequestHandler } from "express";
-import { asyncHandler, HttpError } from "../middleware";
-import { resolveSession } from "./session";
-import { SESSION_COOKIE, readCookie } from "./cookies";
-import type { User } from "../types";
+import { asyncHandler, HttpError } from "../middleware.js";
+import { resolveSession } from "./session.js";
+import { SESSION_COOKIE, readCookie } from "./cookies.js";
+import type { User } from "../types.js";
 
 export interface AuthLocals {
   authUser?: User;

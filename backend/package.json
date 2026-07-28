@@ -6,8 +6,11 @@
   "description": "POVOD backend API (Express + TypeScript + PostgreSQL)",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "test": "tsx --test src/config.test.ts src/logger.test.ts src/media.test.ts src/shutdown.test.ts src/feed.test.ts src/auth/cookies.test.ts src/db/eventDate.test.ts src/repositories/memoryRepository.test.ts src/repositories/eventQuery.test.ts src/routes/api.test.ts",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "openapi": "tsx scripts/generate-openapi.mjs",
+    "start": "node dist/index.js",
+    "start:dev": "tsx src/index.ts",
+    "test": "tsx --test src/contracts/openapi.test.ts src/config.test.ts src/logger.test.ts src/media.test.ts src/shutdown.test.ts src/feed.test.ts src/auth/cookies.test.ts src/db/eventDate.test.ts src/repositories/memoryRepository.test.ts src/repositories/eventQuery.test.ts src/routes/api.test.ts",
     "test:pg": "tsx --test src/repositories/postgresRepository.test.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -18,15 +21,17 @@
     "helmet": "^8.3.0",
     "morgan": "^1.10.0",
     "pg": "^8.22.0",
-    "tsx": "^4.16.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@asteasolutions/zod-to-openapi": "^7.3.4",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.20.0",
+    "openapi-typescript": "^7.13.0",
+    "tsx": "^4.16.0",
     "typescript": "^5.5.0"
   }
 }

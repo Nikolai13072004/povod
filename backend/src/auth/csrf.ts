@@ -1,6 +1,12 @@
 import type { RequestHandler } from "express";
-import { HttpError } from "../middleware";
-import { CSRF_HEADER, SESSION_COOKIE, csrfTokenFor, csrfTokenMatches, readCookie } from "./cookies";
+import { HttpError } from "../middleware.js";
+import {
+  CSRF_HEADER,
+  SESSION_COOKIE,
+  csrfTokenFor,
+  csrfTokenMatches,
+  readCookie,
+} from "./cookies.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 

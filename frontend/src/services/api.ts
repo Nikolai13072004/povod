@@ -1,4 +1,5 @@
 import { appConfig } from "../config";
+import type { components, paths } from "./schema";
 
 interface ApiResponse<T> {
   data?: T;
@@ -68,93 +69,35 @@ export function clearLocalSession(): void {
   document.cookie = `${CSRF_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
-export interface Event {
-  id: string;
-  title: string;
-  description: string;
-  startsAt: string;
-  /** Окончание, если автор его указал (BE-006). */
-  endsAt?: string;
-  timezone: string;
-  location: string;
-  category?: string;
-  author: string;
-  authorId?: string;
-  participants: number;
-  /** Предел числа участников вместе с автором; отсутствует — предела нет (BE-007). */
-  participantLimit?: number;
-  participantIds?: string[];
-  image?: string;
-  tags?: string[];
-  coords?: [number, number];
-  format?: "public" | "private";
-  createdAt?: string;
-}
+/**
+ * Формы данных больше не описываются здесь (ARCH-002).
+ *
+ * Раньше те же поля были объявлены и тут, и в `backend/src/types.ts`, и
+ * совпадали только потому, что за этим следили руками: сервер мог переименовать
+ * поле, фронт бы собрался, а ошибку увидел бы пользователь.
+ *
+ * Теперь типы приходят из `schema.d.ts`, сгенерированного из `docs/openapi.json`,
+ * который, в свою очередь, собирается из Zod-схем сервера. Пересобрать всю
+ * цепочку: `npm --prefix backend run openapi`.
+ */
+type Schemas = components["schemas"];
 
-export interface User {
-  id: string;
-  name: string;
-  email?: string;
-  avatar?: string;
-  city?: string;
-  interests?: string[];
-}
+export type Event = Schemas["Event"];
+export type User = Schemas["User"];
+export type Comment = Schemas["Comment"];
+export type NotificationType = Schemas["NotificationType"];
+export type Notification = Schemas["Notification"];
+export type NotificationFeed = Schemas["NotificationFeed"];
+/** Страница ленты: `nextCursor` отсутствует — дальше ничего нет (BE-003). */
+export type EventPage = Schemas["EventPage"];
+/** Приглашение без секрета — таким его видит автор события (BE-008). */
+export type Invitation = Schemas["Invitation"];
+export type IssuedInvitation = Schemas["IssuedInvitation"];
 
 /** Поля профиля, доступные владельцу для изменения (BE-010). */
-export interface ProfileUpdate {
-  name?: string;
-  city?: string;
-  avatar?: string;
-  interests?: string[];
-}
-
-export interface Comment {
-  id: string;
-  text: string;
-  author: User;
-  createdAt: string;
-  eventId: string;
-}
-
-/** Что произошло. Набор совпадает с серверным (`backend/src/types.ts`). */
-export type NotificationType =
-  "event_updated" | "event_cancelled" | "event_comment" | "event_joined";
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  /** Может отсутствовать: уведомление об отмене переживает само событие. */
-  eventId?: string;
-  eventTitle: string;
-  actorId?: string;
-  actorName?: string;
-  /** Для `event_updated`: «время», «место», «название». */
-  changes?: string[];
-  createdAt: string;
-  readAt?: string;
-}
-
-export interface NotificationFeed {
-  items: Notification[];
-  unread: number;
-}
-
-/** Страница ленты (BE-003). */
-export interface EventPage {
-  items: Event[];
-  /** Отсутствует — дальше ничего нет. */
-  nextCursor?: string;
-}
-
-/** Приглашение без секрета — таким его отдаёт список для автора (BE-008). */
-export interface Invitation {
-  id: string;
-  createdAt: string;
-  expiresAt?: string;
-  maxUses?: number;
-  usedCount: number;
-  revokedAt?: string;
-}
+export type ProfileUpdate = NonNullable<
+  paths["/api/Users/me"]["put"]["requestBody"]
+>["content"]["application/json"];
 
 export type EventWrite = Omit<
   Event,

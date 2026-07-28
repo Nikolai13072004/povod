@@ -4,6 +4,7 @@ import type { Notification } from "../../services/api";
 
 const base: Notification = {
   id: "n1",
+  userId: "u1",
   type: "event_joined",
   eventId: "1",
   eventTitle: "Пляжный волейбол",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { REDACTED, redactText, redactValue } from "./logger";
+import { REDACTED, redactText, redactValue } from "./logger.js";
 
 test("redactText hides bearer tokens", () => {
   assert.equal(

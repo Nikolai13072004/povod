@@ -1,4 +1,4 @@
-import type { User, Event, Comment } from "./types";
+import type { User, Event, Comment } from "./types.js";
 
 /**
  * Сид-данные. Повторяют макетные события фронтенда

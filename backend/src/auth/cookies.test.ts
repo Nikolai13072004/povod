@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { csrfTokenFor, csrfTokenMatches, parseCookies } from "./cookies";
+import { csrfTokenFor, csrfTokenMatches, parseCookies } from "./cookies.js";
 
 test("parseCookies reads a browser Cookie header", () => {
   const cookies = parseCookies("povod_session=abc; povod_csrf=def; other=1");

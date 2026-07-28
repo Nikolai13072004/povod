@@ -1,7 +1,7 @@
-import { config } from "../config";
-import { getRepository } from "../store";
-import { hashPassword } from "./password";
-import { logger } from "../logger";
+import { config } from "../config.js";
+import { getRepository } from "../store.js";
+import { hashPassword } from "./password.js";
+import { logger } from "../logger.js";
 
 export async function initAuth(): Promise<void> {
   if (!config.demoAuthEnabled) return;

@@ -1,11 +1,11 @@
 import "dotenv/config"; // должен идти первым: загружает .env в process.env до чтения конфига
-import { createApp } from "./app";
-import { config } from "./config";
-import { initStore } from "./store";
-import { logger } from "./logger";
-import { startSessionCleanup } from "./auth/sessionCleanup";
-import { closePool } from "./db/pg";
-import { createGracefulShutdown } from "./shutdown";
+import { createApp } from "./app.js";
+import { config } from "./config.js";
+import { initStore } from "./store.js";
+import { logger } from "./logger.js";
+import { startSessionCleanup } from "./auth/sessionCleanup.js";
+import { closePool } from "./db/pg.js";
+import { createGracefulShutdown } from "./shutdown.js";
 
 const app = createApp();
 
@@ -37,7 +37,7 @@ async function main() {
 
   // Прогрев кэша внешних событий (не блокирует старт)
   if (config.externalEvents) {
-    const { getExternalEvents } = await import("./kudago");
+    const { getExternalEvents } = await import("./kudago.js");
     getExternalEvents().catch(() => {});
   }
 }

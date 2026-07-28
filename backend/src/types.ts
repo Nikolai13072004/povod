@@ -1,65 +1,23 @@
 /**
- * Доменные модели POVOD: Event, User, Comment.
- * Совместимы с типами фронтенда (`frontend/src/services/api.ts`).
- * Поля сверх контракта (authorId, participantIds, category, format...) —
- * безопасное расширение: фронт их просто игнорирует.
+ * Доменные модели POVOD.
+ *
+ * Описаний больше нет — типы выводятся из схем контракта (ARCH-002). Раньше та
+ * же форма была записана здесь и ещё раз в `frontend/src/services/api.ts`, и
+ * совпадали они только потому, что за этим следили руками.
+ *
+ * Единственное отличие внутренней модели от внешней: у пользователя внутри
+ * `email` обязателен — по нему идёт вход, — а наружу он уходит только владельцу
+ * профиля и потому объявлен необязательным.
  */
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  /** Город пользователя (BE-010). */
-  city?: string;
-  interests?: string[];
-  /** id-шники друзей */
-  friends?: string[];
-  createdAt: string;
-}
-
-export interface Event {
-  id: string;
-  title: string;
-  description: string;
-  /** ISO 8601 instant, e.g. "2026-06-27T15:00:00.000Z". */
-  startsAt: string;
-  /** Окончание события. Отсутствует — автор его не указал (BE-006). */
-  endsAt?: string;
-  /** IANA timezone used for local presentation, e.g. "Europe/Moscow". */
-  timezone: string;
-  location: string;
-  category?: string;
-  /** Отображаемое имя автора (контракт фронта: author: string) */
-  author: string;
-  authorId: string;
-  /** Кол-во участников */
-  participants: number;
-  /** Предел числа участников вместе с автором. Отсутствует — предела нет (BE-007). */
-  participantLimit?: number;
-  /** id-шники участников */
-  participantIds: string[];
-  image?: string;
-  tags?: string[];
-  /** Координаты места [lat, lng] — для карты на детальной странице */
-  coords?: [number, number];
-  format?: "public" | "private";
-  createdAt: string;
-}
-
-export interface Comment {
-  id: string;
-  text: string;
-  author: User;
-  createdAt: string;
-  eventId: string;
-}
+export type { Comment, Event, Notification, NotificationType, User } from "./contracts/schemas.js";
 
 /**
  * Приглашение в закрытое событие (BE-008).
  *
- * Сам секрет наружу отдаётся один раз — при создании; в хранилище лежит только
- * его SHA-256, как у сессий.
+ * Наружу отдаётся урезанная версия без `tokenHash` (`invitationSchema` в
+ * контракте): в хранилище лежит только SHA-256 секрета, а сам секрет виден один
+ * раз — в ответе на создание.
  */
 export interface EventInvitation {
   id: string;
@@ -73,38 +31,4 @@ export interface EventInvitation {
   maxUses?: number;
   usedCount: number;
   revokedAt?: string;
-}
-
-/**
- * Что произошло. Набор намеренно узкий: только события, которые приложение
- * действительно умеет порождать сегодня.
- */
-export type NotificationType =
-  /** Организатор изменил время или место события, на которое вы записаны. */
-  | "event_updated"
-  /** Событие, на которое вы записаны, отменено. */
-  | "event_cancelled"
-  /** Новый комментарий к вашему событию. */
-  | "event_comment"
-  /** Кто-то записался на ваше событие. */
-  | "event_joined";
-
-export interface Notification {
-  id: string;
-  /** Получатель. */
-  userId: string;
-  type: NotificationType;
-  /**
-   * Событие. Может отсутствовать: уведомление об отмене обязано пережить
-   * само событие, иначе оно исчезнет ровно тогда, когда нужнее всего.
-   */
-  eventId?: string;
-  /** Название сохраняется рядом по той же причине — прочитать его будет уже негде. */
-  eventTitle: string;
-  actorId?: string;
-  actorName?: string;
-  /** Человекочитаемый список изменений — для `event_updated` («время», «место»). */
-  changes?: string[];
-  createdAt: string;
-  readAt?: string;
 }

@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { CookieOptions, Request, Response } from "express";
-import { config } from "../config";
+import { config } from "../config.js";
 
 /**
  * Куки браузерной сессии (SEC-001).

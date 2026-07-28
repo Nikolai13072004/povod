@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { getRepository, newId } from "../store";
-import { asyncHandler, HttpError } from "../middleware";
-import { commentCreateSchema } from "../validation";
-import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware";
-import { presentComment } from "../presenters";
-import { notifyEventComment } from "../notifications";
+import { getRepository, newId } from "../store.js";
+import { asyncHandler, HttpError } from "../middleware.js";
+import { commentCreateSchema } from "../validation.js";
+import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware.js";
+import { presentComment } from "../presenters.js";
+import { notifyEventComment } from "../notifications.js";
 
 export const commentsRouter = Router();
 

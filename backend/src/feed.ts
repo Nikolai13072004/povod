@@ -1,5 +1,5 @@
-import type { Event } from "./types";
-import type { FeedCursor } from "./repositories/repository";
+import type { Event } from "./types.js";
+import type { FeedCursor } from "./repositories/repository.js";
 
 /**
  * Лента: курсор и совпадение с интересами (BE-003, сортировка по интересам).

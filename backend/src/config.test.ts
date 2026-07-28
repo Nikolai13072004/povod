@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { loadConfig } from "./config";
+import { loadConfig } from "./config.js";
 
 test("config applies safe development defaults", () => {
   const config = loadConfig({});

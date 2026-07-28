@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { getRepository } from "./store";
-import { logger } from "./logger";
-import type { Event, Notification, NotificationType, User } from "./types";
+import { getRepository } from "./store.js";
+import { logger } from "./logger.js";
+import type { Event, Notification, NotificationType, User } from "./types.js";
 
 /**
  * Порождение уведомлений (PROD-003).

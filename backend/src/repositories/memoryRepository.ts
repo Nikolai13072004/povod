@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Comment, Event, EventInvitation, Notification, User } from "../types";
+import type { Comment, Event, EventInvitation, Notification, User } from "../types.js";
 import type {
   AuthSession,
   CreateCommentInput,
@@ -8,11 +8,11 @@ import type {
   ExternalIdentity,
   JoinEventResult,
   PovodRepository,
-} from "./repository";
-import { seedComments, seedEvents, seedUsers } from "../seed";
-import { compareFeed, cursorOf, isAfterCursor } from "../feed";
-import { eventDateToIso } from "../db/eventDate";
-import { logger } from "../logger";
+} from "./repository.js";
+import { seedComments, seedEvents, seedUsers } from "../seed.js";
+import { compareFeed, cursorOf, isAfterCursor } from "../feed.js";
+import { eventDateToIso } from "../db/eventDate.js";
+import { logger } from "../logger.js";
 
 type LegacyEvent = Omit<Event, "startsAt" | "timezone"> & {
   date: string;

@@ -1,15 +1,15 @@
 import path from "node:path";
-import { config } from "./config";
-import type { PovodRepository } from "./repositories/repository";
-import { MemoryRepository } from "./repositories/memoryRepository";
+import { config } from "./config.js";
+import type { PovodRepository } from "./repositories/repository.js";
+import { MemoryRepository } from "./repositories/memoryRepository.js";
 
 let repository: PovodRepository | undefined;
 
 export async function initStore(): Promise<void> {
   if (config.databaseUrl) {
     const [{ getPool }, { PostgresRepository }] = await Promise.all([
-      import("./db/pg"),
-      import("./repositories/postgresRepository"),
+      import("./db/pg.js"),
+      import("./repositories/postgresRepository.js"),
     ]);
     repository = new PostgresRepository(getPool());
   } else {
@@ -17,7 +17,7 @@ export async function initStore(): Promise<void> {
     repository = new MemoryRepository(persistFile);
   }
   await repository.init();
-  const { initAuth } = await import("./auth/bootstrap");
+  const { initAuth } = await import("./auth/bootstrap.js");
   await initAuth();
 }
 

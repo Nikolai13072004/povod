@@ -38,7 +38,7 @@ const TABLES = [
   "users",
 ];
 
-type Repo = import("./repository").PovodRepository;
+type Repo = import("./repository.js").PovodRepository;
 
 /**
  * Возвращает репозиторий с чистой, заново засеянной базой: чистим таблицы
@@ -46,8 +46,8 @@ type Repo = import("./repository").PovodRepository;
  */
 async function freshRepository(): Promise<Repo> {
   const [{ getPool }, { PostgresRepository }] = await Promise.all([
-    import("../db/pg"),
-    import("./postgresRepository"),
+    import("../db/pg.js"),
+    import("./postgresRepository.js"),
   ]);
   const pool = getPool();
   const repository = new PostgresRepository(pool);
@@ -60,7 +60,7 @@ async function freshRepository(): Promise<Repo> {
 }
 
 test("migrations create the full schema and are recorded", { skip }, async () => {
-  const [{ getPool }] = await Promise.all([import("../db/pg")]);
+  const [{ getPool }] = await Promise.all([import("../db/pg.js")]);
   await freshRepository();
   const pool = getPool();
 
@@ -193,7 +193,7 @@ test(
   { skip },
   async () => {
     const repository = await freshRepository();
-    const [{ getPool }] = await Promise.all([import("../db/pg")]);
+    const [{ getPool }] = await Promise.all([import("../db/pg.js")]);
 
     // Десять одновременных нажатий: первичный ключ по паре плюс ON CONFLICT
     // DO NOTHING не дают появиться дублю даже при гонке.
@@ -255,7 +255,7 @@ test("full-text search matches a different word form (BE-012)", { skip }, async 
 
 test("keyset pagination walks the whole feed exactly once (BE-003)", { skip }, async () => {
   const repository = await freshRepository();
-  const [{ cursorOf }] = await Promise.all([import("../feed")]);
+  const [{ cursorOf }] = await Promise.all([import("../feed.js")]);
 
   // Одинаковая дата создания у нескольких событий — обычное дело при импорте.
   // Без сравнения по id страницы теряли бы или дублировали такие записи.
@@ -349,7 +349,7 @@ test("joining an event is idempotent and the count is derived", { skip }, async 
 
 test("joining a missing event is reported as such and inserts nothing", { skip }, async () => {
   const repository = await freshRepository();
-  const [{ getPool }] = await Promise.all([import("../db/pg")]);
+  const [{ getPool }] = await Promise.all([import("../db/pg.js")]);
 
   assert.equal((await repository.joinEvent("does-not-exist", "u1")).outcome, "not-found");
 
@@ -380,7 +380,7 @@ test("concurrent joins stay consistent and do not double-count (BE-004)", { skip
 
 test("the participant limit holds under concurrent joins (BE-007)", { skip }, async () => {
   const repository = await freshRepository();
-  const [{ getPool }] = await Promise.all([import("../db/pg")]);
+  const [{ getPool }] = await Promise.all([import("../db/pg.js")]);
 
   // У события 2 уже есть автор, лимит 3 оставляет ровно два свободных места.
   await repository.updateEvent("2", { participantLimit: 3 });
@@ -424,7 +424,7 @@ test(
 
 test("the database itself rejects an event that ends before it starts", { skip }, async () => {
   await freshRepository();
-  const [{ getPool }] = await Promise.all([import("../db/pg")]);
+  const [{ getPool }] = await Promise.all([import("../db/pg.js")]);
 
   // Ограничение стоит в схеме, а не только в валидации запроса: в таблицу
   // пишет не один лишь HTTP-слой.

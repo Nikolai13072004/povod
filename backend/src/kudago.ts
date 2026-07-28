@@ -1,5 +1,5 @@
-import type { Event } from "./types";
-import { logger } from "./logger";
+import type { Event } from "./types.js";
+import { logger } from "./logger.js";
 
 /**
  * Источник реальных событий — KudaGo (бесплатный публичный API, без ключа).

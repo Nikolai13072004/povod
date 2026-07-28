@@ -16,9 +16,9 @@ async function startTestApp(context: TestContext): Promise<TestApp> {
   process.env.DEMO_AUTH_PASSWORD = "povod-demo";
 
   const [{ initStore }, { createApp }, { resetRateLimits }] = await Promise.all([
-    import("../store"),
-    import("../app"),
-    import("../auth/rateLimit"),
+    import("../store.js"),
+    import("../app.js"),
+    import("../auth/rateLimit.js"),
   ]);
   await initStore();
   resetRateLimits(); // изоляция: limiter'ы — синглтоны, чистим счётчики между тестами

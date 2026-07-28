@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { config } from "../config";
-import { getRepository } from "../store";
-import type { User } from "../types";
+import { config } from "../config.js";
+import { getRepository } from "../store.js";
+import type { User } from "../types.js";
 
 export interface IssuedSession {
   token: string;

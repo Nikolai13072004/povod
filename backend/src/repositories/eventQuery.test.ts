@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Pool } from "pg";
-import { PostgresRepository } from "./postgresRepository";
+import { PostgresRepository } from "./postgresRepository.js";
 
 /**
  * Проверки самого SQL ленты — без базы (BE-003).

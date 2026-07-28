@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import { ZodError } from "zod";
-import { logger } from "./logger";
+import { logger } from "./logger.js";
 
 /** Обёртка для async-роутов: пробрасывает ошибки в errorHandler. */
 export const asyncHandler =

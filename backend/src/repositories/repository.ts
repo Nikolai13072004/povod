@@ -1,4 +1,4 @@
-import type { Comment, Event, EventInvitation, Notification, User } from "../types";
+import type { Comment, Event, EventInvitation, Notification, User } from "../types.js";
 
 /**
  * Исход попытки записаться (BE-007).
