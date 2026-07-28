@@ -299,6 +299,11 @@
             "type": "string",
             "format": "date-time"
           },
+          "editedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Отметка о правке; отсутствует — текст не менялся"
+          },
           "eventId": {
             "type": "string"
           }
@@ -1765,6 +1770,92 @@
       }
     },
     "/api/Comments/{id}": {
+      "put": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Изменить свой комментарий",
+        "description": "Только автор комментария: автор события может его удалить, но не переписать — подменять чужие слова, оставляя чужое имя, нельзя (BE-009).",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Комментарий изменён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав или не пройдена проверка CSRF",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Comments"

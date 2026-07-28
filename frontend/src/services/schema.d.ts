@@ -1198,7 +1198,65 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Изменить свой комментарий
+         * @description Только автор комментария: автор события может его удалить, но не переписать — подменять чужие слова, оставляя чужое имя, нельзя (BE-009).
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        text: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Комментарий изменён */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Comment"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Недостаточно прав или не пройдена проверка CSRF */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         post?: never;
         /**
          * Удалить комментарий
@@ -1776,6 +1834,11 @@ export interface components {
             author: components["schemas"]["User"];
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: date-time
+             * @description Отметка о правке; отсутствует — текст не менялся
+             */
+            editedAt?: string;
             eventId: string;
         };
         /** @enum {string} */

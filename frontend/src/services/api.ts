@@ -274,6 +274,13 @@ export const commentsAPI = {
       body: JSON.stringify(comment),
     }),
 
+  /** Правка своего комментария (BE-009). */
+  update: (id: string, text: string) =>
+    fetchApi<Comment>(`api/Comments/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ text }),
+    }),
+
   delete: (id: string) =>
     fetchApi<void>(`api/Comments/${id}`, {
       method: "DELETE",

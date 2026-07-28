@@ -85,6 +85,9 @@ export const commentSchema = z
     text: z.string(),
     author: userSchema,
     createdAt: isoDateTime(),
+    editedAt: isoDateTime()
+      .optional()
+      .openapi({ description: "Отметка о правке; отсутствует — текст не менялся" }),
     eventId: z.string(),
   })
   .openapi("Comment");

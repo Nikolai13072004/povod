@@ -18,6 +18,7 @@ import {
 } from "./schemas.js";
 import {
   commentCreateSchema,
+  commentUpdateSchema,
   eventCreateSchema,
   eventUpdateSchema,
   friendAddSchema,
@@ -364,6 +365,24 @@ registry.registerPath({
   request: { body: json(commentCreateSchema) },
   responses: {
     201: { description: "Комментарий создан", ...json(commentSchema) },
+    403: errors[403],
+    404: errors[404],
+  },
+});
+
+registry.registerPath({
+  method: "put",
+  path: "/api/Comments/{id}",
+  tags: ["Comments"],
+  summary: "Изменить свой комментарий",
+  description:
+    "Только автор комментария: автор события может его удалить, но не переписать — " +
+    "подменять чужие слова, оставляя чужое имя, нельзя (BE-009).",
+  security,
+  request: { params: z.object({ id: z.string() }), body: json(commentUpdateSchema) },
+  responses: {
+    200: { description: "Комментарий изменён", ...json(commentSchema) },
+    400: errors[400],
     403: errors[403],
     404: errors[404],
   },

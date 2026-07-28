@@ -58,6 +58,7 @@ interface CommentRow {
   text: string;
   event_id: string;
   created_at: Date | string;
+  edited_at: Date | string | null;
   author_id: string;
   author_name: string;
   author_email: string;
@@ -211,6 +212,7 @@ function mapComment(row: CommentRow): Comment {
     text: row.text,
     eventId: row.event_id,
     createdAt: toIso(row.created_at),
+    editedAt: row.edited_at ? toIso(row.edited_at) : undefined,
     author: {
       id: row.author_id,
       name: row.author_name,
@@ -814,7 +816,7 @@ export class PostgresRepository implements PovodRepository {
   async listComments(eventId: string): Promise<Comment[]> {
     const result = await this.pool.query<CommentRow>(
       `SELECT
-         c.id, c.text, c.event_id, c.created_at,
+         c.id, c.text, c.event_id, c.created_at, c.edited_at,
          u.id AS author_id, u.name AS author_name, u.email AS author_email,
          u.avatar_url AS author_avatar_url, u.interests AS author_interests,
          u.created_at AS author_created_at
@@ -830,7 +832,7 @@ export class PostgresRepository implements PovodRepository {
   async getComment(id: string): Promise<Comment | undefined> {
     const result = await this.pool.query<CommentRow>(
       `SELECT
-         c.id, c.text, c.event_id, c.created_at,
+         c.id, c.text, c.event_id, c.created_at, c.edited_at,
          u.id AS author_id, u.name AS author_name, u.email AS author_email,
          u.avatar_url AS author_avatar_url, u.interests AS author_interests,
          u.created_at AS author_created_at
@@ -850,6 +852,15 @@ export class PostgresRepository implements PovodRepository {
     );
     const comments = await this.listComments(input.eventId);
     return comments.find((comment) => comment.id === input.id)!;
+  }
+
+  async updateComment(id: string, text: string, editedAt: string): Promise<Comment | undefined> {
+    const updated = await this.pool.query(
+      "UPDATE comments SET text = $2, edited_at = $3 WHERE id = $1",
+      [id, text, editedAt],
+    );
+    if ((updated.rowCount ?? 0) === 0) return undefined;
+    return this.getComment(id);
   }
 
   async deleteComment(id: string): Promise<boolean> {

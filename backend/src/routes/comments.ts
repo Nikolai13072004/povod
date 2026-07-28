@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getRepository, newId } from "../store.js";
 import { asyncHandler, HttpError } from "../middleware.js";
-import { commentCreateSchema } from "../validation.js";
+import { commentCreateSchema, commentUpdateSchema } from "../validation.js";
 import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware.js";
 import { presentComment } from "../presenters.js";
 import { notifyEventComment } from "../notifications.js";
@@ -51,6 +51,30 @@ commentsRouter.post(
     });
     await notifyEventComment(event, author);
     res.status(201).json(presentComment(comment));
+  }),
+);
+
+/**
+ * Правка своего комментария (BE-009).
+ *
+ * Автор события может комментарий удалить — это модерация, — но не переписать:
+ * подменять чужие слова, оставляя чужое имя, нельзя. Поэтому здесь проверка
+ * строже, чем при удалении.
+ */
+commentsRouter.put(
+  "/:id",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const repository = getRepository();
+    const comment = await repository.getComment(req.params.id);
+    if (!comment) throw new HttpError(404, "Comment not found");
+    if (comment.author.id !== getAuthUser(res.locals as AuthLocals).id) {
+      throw new HttpError(403, "Only the comment author can edit it");
+    }
+    const { text } = commentUpdateSchema.parse(req.body);
+    const updated = await repository.updateComment(comment.id, text, new Date().toISOString());
+    if (!updated) throw new HttpError(404, "Comment not found");
+    res.json(presentComment(updated));
   }),
 );
 
