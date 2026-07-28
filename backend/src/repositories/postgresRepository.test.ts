@@ -250,21 +250,21 @@ test("joining an event is idempotent and the count is derived", { skip }, async 
   const first = await repository.joinEvent("2", "u1");
   const second = await repository.joinEvent("2", "u1");
 
-  assert.ok(first);
-  assert.ok(second);
-  assert.deepEqual(second.participantIds.sort(), ["u1", "u2"]);
-  assert.equal(second.participants, 2, "счётчик выводится из связей участия");
+  assert.equal(first.outcome, "joined");
+  assert.equal(second.outcome, "already-joined");
+  assert.deepEqual(second.event.participantIds.sort(), ["u1", "u2"]);
+  assert.equal(second.event.participants, 2, "счётчик выводится из связей участия");
 
   const afterLeave = await repository.leaveEvent("2", "u1");
   assert.deepEqual(afterLeave?.participantIds, ["u2"]);
   assert.equal(afterLeave?.participants, 1);
 });
 
-test("joining a missing event returns undefined and inserts nothing", { skip }, async () => {
+test("joining a missing event is reported as such and inserts nothing", { skip }, async () => {
   const repository = await freshRepository();
   const [{ getPool }] = await Promise.all([import("../db/pg")]);
 
-  assert.equal(await repository.joinEvent("does-not-exist", "u1"), undefined);
+  assert.equal((await repository.joinEvent("does-not-exist", "u1")).outcome, "not-found");
 
   const rows = await getPool().query<{ count: string }>(
     "SELECT count(*)::text AS count FROM event_participants WHERE event_id = $1",
@@ -281,11 +281,75 @@ test("concurrent joins stay consistent and do not double-count (BE-004)", { skip
   const results = await Promise.all(
     Array.from({ length: 10 }, () => repository.joinEvent("2", "u3")),
   );
-  assert.ok(results.every(Boolean), "все вызовы должны вернуть событие");
+  assert.ok(
+    results.every((result) => result.outcome !== "not-found"),
+    "все вызовы должны вернуть событие",
+  );
 
   const event = await repository.getEvent("2");
   assert.deepEqual(event?.participantIds.sort(), ["u2", "u3"]);
   assert.equal(event?.participants, 2);
+});
+
+test("the participant limit holds under concurrent joins (BE-007)", { skip }, async () => {
+  const repository = await freshRepository();
+  const [{ getPool }] = await Promise.all([import("../db/pg")]);
+
+  // У события 2 уже есть автор, лимит 3 оставляет ровно два свободных места.
+  await repository.updateEvent("2", { participantLimit: 3 });
+  await getPool().query(
+    `INSERT INTO users (id, name, email) VALUES
+       ('c1', 'Первый', 'c1@povod.app'), ('c2', 'Второй', 'c2@povod.app'),
+       ('c3', 'Третий', 'c3@povod.app'), ('c4', 'Четвёртый', 'c4@povod.app')`,
+  );
+
+  // Четверо жмут «Присоединиться» одновременно. Без блокировки строки на запись
+  // все четверо прочитали бы «занято 1 из 3» и записались бы все.
+  const results = await Promise.all(
+    ["c1", "c2", "c3", "c4"].map((userId) => repository.joinEvent("2", userId)),
+  );
+
+  assert.equal(results.filter((result) => result.outcome === "joined").length, 2);
+  assert.equal(results.filter((result) => result.outcome === "full").length, 2);
+
+  const event = await repository.getEvent("2");
+  assert.equal(event?.participants, 3, "лимит не должен быть превышен");
+});
+
+test(
+  "event rules are stored: ends_at and participant_limit survive a round trip",
+  { skip },
+  async () => {
+    const repository = await freshRepository();
+
+    const updated = await repository.updateEvent("1", {
+      endsAt: "2026-06-27T21:00:00.000Z",
+      participantLimit: 12,
+    });
+    assert.equal(updated?.endsAt, "2026-06-27T21:00:00.000Z");
+    assert.equal(updated?.participantLimit, 12);
+
+    const reloaded = await repository.getEvent("1");
+    assert.equal(reloaded?.endsAt, "2026-06-27T21:00:00.000Z");
+    assert.equal(reloaded?.participantLimit, 12);
+  },
+);
+
+test("the database itself rejects an event that ends before it starts", { skip }, async () => {
+  await freshRepository();
+  const [{ getPool }] = await Promise.all([import("../db/pg")]);
+
+  // Ограничение стоит в схеме, а не только в валидации запроса: в таблицу
+  // пишет не один лишь HTTP-слой.
+  await assert.rejects(
+    () =>
+      getPool().query(`UPDATE events SET ends_at = starts_at - interval '1 hour' WHERE id = '1'`),
+    /events_ends_after_starts/,
+  );
+  await assert.rejects(
+    () => getPool().query("UPDATE events SET participant_limit = 0 WHERE id = '1'"),
+    /events_participant_limit_positive/,
+  );
 });
 
 test("concurrent updates do not lose each other's fields (BE-004)", { skip }, async () => {

@@ -112,6 +112,18 @@ const TimeRow = styled.div`
   grid-template-columns: 1fr;
   gap: 12px;
   margin-top: 8px;
+
+  /* На узком экране поля идут столбиком, дальше — в строку. */
+  @media (min-width: 480px) {
+    grid-template-columns: 1.4fr 1fr 1fr;
+  }
+`;
+
+const FieldHint = styled.p`
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--povod-text-secondary);
 `;
 
 // const FormContainer = styled.div`
@@ -304,6 +316,10 @@ interface FormData {
   photoSource: "gallery" | "camera" | null;
   date: string;
   timeFrom: string;
+  /** Время окончания. Пустое — автор его не указывает (BE-006). */
+  timeTo: string;
+  /** Ограничение мест строкой: поле может быть пустым, а `number` пустым не бывает. */
+  participantLimit: string;
   photoData: string | null;
   location: string;
   format: "public" | "private";
@@ -324,6 +340,8 @@ export default function CreateEventForm() {
     photoData: null,
     date: "",
     timeFrom: "",
+    timeTo: "",
+    participantLimit: "",
     location: "",
     format: "public",
   });
@@ -387,10 +405,33 @@ export default function CreateEventForm() {
 
     const timezone = browserTimezone();
     let startsAt: string;
+    let endsAt: string | undefined;
     try {
       startsAt = localDateTimeToIso(formData.date, formData.timeFrom, timezone);
+      // Окончание — та же дата: событие, переходящее за полночь, задаётся
+      // редактированием после создания, чтобы не усложнять форму на входе.
+      endsAt = formData.timeTo
+        ? localDateTimeToIso(formData.date, formData.timeTo, timezone)
+        : undefined;
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Некорректные дата и время");
+      setSubmitting(false);
+      return;
+    }
+
+    if (endsAt && Date.parse(endsAt) <= Date.parse(startsAt)) {
+      setSubmitError("Событие не может закончиться раньше, чем началось.");
+      setSubmitting(false);
+      return;
+    }
+
+    const limit = formData.participantLimit.trim();
+    const participantLimit = limit ? Number(limit) : undefined;
+    if (
+      participantLimit !== undefined &&
+      (!Number.isInteger(participantLimit) || participantLimit < 1)
+    ) {
+      setSubmitError("Ограничение мест — целое число от 1.");
       setSubmitting(false);
       return;
     }
@@ -399,6 +440,8 @@ export default function CreateEventForm() {
       title: formData.title,
       description: formData.description,
       startsAt,
+      endsAt,
+      participantLimit,
       timezone,
       location: formData.location,
       category: formData.categories[0] || "Общее",
@@ -517,9 +560,7 @@ export default function CreateEventForm() {
       </Section>
 
       <Section>
-        <Label>Дата и время начала *</Label>
-        {/* Время окончания пока не поддерживается API (см. BE-006): раньше поле
-            собиралось в форме, но молча терялось при отправке. */}
+        <Label>Дата и время *</Label>
         <TimeRow>
           <Input
             type="date"
@@ -533,7 +574,31 @@ export default function CreateEventForm() {
             value={formData.timeFrom}
             onChange={(e) => setFormData({ ...formData, timeFrom: e.target.value })}
           />
+          <Input
+            type="time"
+            aria-label="Время окончания"
+            value={formData.timeTo}
+            onChange={(e) => setFormData({ ...formData, timeTo: e.target.value })}
+          />
         </TimeRow>
+        <FieldHint>Окончание можно не указывать — тогда время конца не показывается.</FieldHint>
+      </Section>
+
+      <Section>
+        <Label>Сколько человек можно записать</Label>
+        <Input
+          type="number"
+          min={1}
+          inputMode="numeric"
+          placeholder="Без ограничения"
+          aria-label="Ограничение числа участников"
+          value={formData.participantLimit}
+          onChange={(e) => setFormData({ ...formData, participantLimit: e.target.value })}
+        />
+        <FieldHint>
+          Считая вас: с ограничением 5 к вам смогут присоединиться ещё четверо. Оставьте пустым,
+          если предела нет.
+        </FieldHint>
       </Section>
 
       <Section>

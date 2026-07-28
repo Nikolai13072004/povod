@@ -28,10 +28,25 @@ describe("buildEventIcs", () => {
   it("writes start and end as UTC timestamps", () => {
     const ics = buildEventIcs(event, NOW);
     expect(ics).toContain("DTSTART:20260627T150000Z");
-    // Конец = начало + длительность по умолчанию (API пока не отдаёт endsAt, см. BE-006).
+    // Автор не указал окончание — берём длительность по умолчанию. Без DTEND
+    // календари растянули бы событие на весь день.
     expect(ics).toContain("DTEND:20260627T170000Z");
     expect(DEFAULT_DURATION_MINUTES).toBe(120);
     expect(ics).toContain("DTSTAMP:20260601T100000Z");
+  });
+
+  it("prefers the real end time over the default guess (BE-006)", () => {
+    const ics = buildEventIcs({ ...event, endsAt: "2026-06-27T19:30:00.000Z" }, NOW);
+    expect(ics).toContain("DTEND:20260627T193000Z");
+  });
+
+  it("falls back to the default when the end time is broken or before the start", () => {
+    // Данные могли прийти из старой записи или чужого импорта — календарь с
+    // отрицательной длительностью открывать нечем.
+    expect(buildEventIcs({ ...event, endsAt: "не дата" }, NOW)).toContain("DTEND:20260627T170000Z");
+    expect(buildEventIcs({ ...event, endsAt: "2026-06-27T10:00:00.000Z" }, NOW)).toContain(
+      "DTEND:20260627T170000Z",
+    );
   });
 
   it("carries the event details", () => {

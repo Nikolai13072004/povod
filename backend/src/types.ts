@@ -24,6 +24,8 @@ export interface Event {
   description: string;
   /** ISO 8601 instant, e.g. "2026-06-27T15:00:00.000Z". */
   startsAt: string;
+  /** Окончание события. Отсутствует — автор его не указал (BE-006). */
+  endsAt?: string;
   /** IANA timezone used for local presentation, e.g. "Europe/Moscow". */
   timezone: string;
   location: string;
@@ -33,6 +35,8 @@ export interface Event {
   authorId: string;
   /** Кол-во участников */
   participants: number;
+  /** Предел числа участников вместе с автором. Отсутствует — предела нет (BE-007). */
+  participantLimit?: number;
   /** id-шники участников */
   participantIds: string[];
   image?: string;
@@ -49,6 +53,26 @@ export interface Comment {
   author: User;
   createdAt: string;
   eventId: string;
+}
+
+/**
+ * Приглашение в закрытое событие (BE-008).
+ *
+ * Сам секрет наружу отдаётся один раз — при создании; в хранилище лежит только
+ * его SHA-256, как у сессий.
+ */
+export interface EventInvitation {
+  id: string;
+  eventId: string;
+  tokenHash: string;
+  createdBy: string;
+  createdAt: string;
+  /** Отсутствует — приглашение бессрочное. */
+  expiresAt?: string;
+  /** Отсутствует — число переходов не ограничено. */
+  maxUses?: number;
+  usedCount: number;
+  revokedAt?: string;
 }
 
 /**

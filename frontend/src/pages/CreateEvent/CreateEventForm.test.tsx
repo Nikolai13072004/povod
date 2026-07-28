@@ -12,7 +12,10 @@ const mockEventStore = vi.hoisted(() => ({
 vi.mock("../../stores/EventStore", () => ({ eventStore: mockEventStore }));
 vi.mock("../../utils/eventDate", () => ({
   browserTimezone: () => "Europe/Moscow",
-  localDateTimeToIso: () => "2026-08-01T12:00:00.000Z",
+  // Учитываем переданное время: иначе начало и окончание были бы одним моментом,
+  // и проверка их порядка ничего бы не проверяла.
+  localDateTimeToIso: (date: string, time?: string) =>
+    new Date(`${date}T${time || "12:00"}:00+03:00`).toISOString(),
 }));
 
 import CreateEventForm from "./CreateEventForm";
@@ -53,6 +56,43 @@ describe("CreateEventForm", () => {
     expect(screen.queryByText("Точный повод")).toBeNull();
   });
 
+  it("sends the end time and the seat limit when they are filled in", async () => {
+    const { container } = renderForm();
+
+    await userEvent.type(screen.getByPlaceholderText("Поход в кино"), "Настолки");
+    await userEvent.type(screen.getByPlaceholderText("Полный адрес или ссылка"), "Кафе");
+    fireEvent.change(container.querySelector('input[type="date"]')!, {
+      target: { value: "2026-08-01" },
+    });
+    fireEvent.change(screen.getByLabelText("Время окончания"), { target: { value: "22:00" } });
+    await userEvent.type(screen.getByLabelText("Ограничение числа участников"), "5");
+
+    await userEvent.click(screen.getByText("Отправить повод"));
+
+    expect(mockEventStore.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ endsAt: "2026-08-01T19:00:00.000Z", participantLimit: 5 }),
+    );
+  });
+
+  it("refuses an end time that precedes the start", async () => {
+    const { container } = renderForm();
+
+    await userEvent.type(screen.getByPlaceholderText("Поход в кино"), "Настолки");
+    await userEvent.type(screen.getByPlaceholderText("Полный адрес или ссылка"), "Кафе");
+    fireEvent.change(container.querySelector('input[type="date"]')!, {
+      target: { value: "2026-08-01" },
+    });
+    // Мок дат отдаёт одинаковый момент для обоих полей — окончание не позже начала.
+    fireEvent.change(screen.getByLabelText("Время окончания"), { target: { value: "10:00" } });
+
+    await userEvent.click(screen.getByText("Отправить повод"));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Событие не может закончиться раньше, чем началось.",
+    );
+    expect(mockEventStore.createEvent).not.toHaveBeenCalled();
+  });
+
   it("submits a normalized payload when required fields are filled", async () => {
     const { container } = renderForm();
 
@@ -69,7 +109,8 @@ describe("CreateEventForm", () => {
       expect.objectContaining({
         title: "Настолки",
         location: "Кафе в центре",
-        startsAt: "2026-08-01T12:00:00.000Z",
+        // 12:00 по Москве — время по умолчанию, когда поле не заполнено.
+        startsAt: "2026-08-01T09:00:00.000Z",
         timezone: "Europe/Moscow",
         format: "public",
       }),

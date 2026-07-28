@@ -1,10 +1,18 @@
 import type { Pool, PoolClient } from "pg";
-import type { Comment, Event, Notification, NotificationType, User } from "../types";
+import type {
+  Comment,
+  Event,
+  EventInvitation,
+  Notification,
+  NotificationType,
+  User,
+} from "../types";
 import type {
   AuthSession,
   CreateCommentInput,
   EventFilters,
   ExternalIdentity,
+  JoinEventResult,
   PovodRepository,
 } from "./repository";
 import { eventDateToIso } from "../db/eventDate";
@@ -17,11 +25,13 @@ interface EventRow {
   title: string;
   description: string;
   starts_at: Date | string;
+  ends_at: Date | string | null;
   timezone: string;
   location: string;
   category: string | null;
   author_id: string;
   author_name: string;
+  participant_limit: number | null;
   participant_ids: string[];
   image_url: string | null;
   tags: string[];
@@ -53,6 +63,18 @@ interface CommentRow {
   author_avatar_url: string | null;
   author_interests: string[];
   author_created_at: Date | string;
+}
+
+interface InvitationRow {
+  id: string;
+  event_id: string;
+  token_hash: string;
+  created_by: string;
+  created_at: Date | string;
+  expires_at: Date | string | null;
+  max_uses: number | null;
+  used_count: number;
+  revoked_at: Date | string | null;
 }
 
 interface NotificationRow {
@@ -103,9 +125,9 @@ function importedEventTime(event: Event | LegacyEvent): {
 
 const EVENT_SELECT = `
   SELECT
-    e.id, e.title, e.description, e.starts_at, e.timezone, e.location, e.category,
+    e.id, e.title, e.description, e.starts_at, e.ends_at, e.timezone, e.location, e.category,
     e.author_id, author.name AS author_name, e.image_url, e.tags,
-    e.latitude, e.longitude, e.visibility, e.created_at,
+    e.latitude, e.longitude, e.visibility, e.participant_limit, e.created_at,
     COALESCE(participants.ids, '{}') AS participant_ids
   FROM events e
   JOIN users author ON author.id = e.author_id
@@ -142,12 +164,14 @@ function mapEvent(row: EventRow): Event {
     title: row.title,
     description: row.description,
     startsAt: toIso(row.starts_at),
+    endsAt: row.ends_at ? toIso(row.ends_at) : undefined,
     timezone: row.timezone,
     location: row.location,
     category: row.category ?? undefined,
     author: row.author_name,
     authorId: row.author_id,
     participants: participantIds.length,
+    participantLimit: row.participant_limit ?? undefined,
     participantIds,
     image: row.image_url ?? undefined,
     tags: row.tags?.length ? row.tags : undefined,
@@ -185,6 +209,26 @@ function mapComment(row: CommentRow): Comment {
       interests: row.author_interests ?? [],
       createdAt: toIso(row.author_created_at),
     },
+  };
+}
+
+const INVITATION_SELECT = `
+  SELECT id, event_id, token_hash, created_by, created_at, expires_at,
+         max_uses, used_count, revoked_at
+  FROM event_invitations
+`;
+
+function mapInvitation(row: InvitationRow): EventInvitation {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    tokenHash: row.token_hash,
+    createdBy: row.created_by,
+    createdAt: toIso(row.created_at),
+    expiresAt: row.expires_at ? toIso(row.expires_at) : undefined,
+    maxUses: row.max_uses ?? undefined,
+    usedCount: row.used_count,
+    revokedAt: row.revoked_at ? toIso(row.revoked_at) : undefined,
   };
 }
 
@@ -316,8 +360,9 @@ export class PostgresRepository implements PovodRepository {
       await client.query(
         `INSERT INTO events (
           id, title, description, starts_at, timezone, location, category, author_id,
-          image_url, tags, latitude, longitude, visibility, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          image_url, tags, latitude, longitude, visibility, created_at,
+          ends_at, participant_limit
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
           event.id,
           event.title,
@@ -333,6 +378,8 @@ export class PostgresRepository implements PovodRepository {
           event.coords?.[1] ?? null,
           event.format ?? "public",
           event.createdAt,
+          event.endsAt ?? null,
+          event.participantLimit ?? null,
         ],
       );
       for (const userId of new Set(event.participantIds)) {
@@ -368,7 +415,8 @@ export class PostgresRepository implements PovodRepository {
         `UPDATE events SET
         title = $2, description = $3, starts_at = $4, timezone = $5, location = $6,
         category = $7, author_id = $8, image_url = $9, tags = $10,
-        latitude = $11, longitude = $12, visibility = $13
+        latitude = $11, longitude = $12, visibility = $13,
+        ends_at = $14, participant_limit = $15
        WHERE id = $1`,
         [
           id,
@@ -384,6 +432,8 @@ export class PostgresRepository implements PovodRepository {
           next.coords?.[0] ?? null,
           next.coords?.[1] ?? null,
           next.format ?? "public",
+          next.endsAt ?? null,
+          next.participantLimit ?? null,
         ],
       );
 
@@ -397,20 +447,108 @@ export class PostgresRepository implements PovodRepository {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async joinEvent(eventId: string, userId: string): Promise<Event | undefined> {
-    // Блокируем строку события на время вставки: конкурентное удаление подождёт,
-    // поэтому участник не может быть записан на уже исчезнувшее событие.
-    const joined = await this.withTransaction(async (client) => {
-      const exists = await client.query("SELECT 1 FROM events WHERE id = $1 FOR SHARE", [eventId]);
-      if ((exists.rowCount ?? 0) === 0) return false;
+  async joinEvent(eventId: string, userId: string): Promise<JoinEventResult> {
+    /**
+     * Блокировка строки события — `FOR UPDATE`, а не `FOR SHARE` (BE-007).
+     *
+     * `FOR SHARE` пускает читателей одновременно: двое, нажавших «Присоединиться»
+     * на последнее место, оба увидели бы «занято 4 из 5» и оба записались бы.
+     * `FOR UPDATE` выстраивает их в очередь, поэтому второй считает уже 5 и
+     * получит отказ. Конкурентное удаление события тоже подождёт, как и раньше.
+     *
+     * Ждать приходится только тем, кто записывается на одно и то же событие.
+     */
+    const outcome = await this.withTransaction(async (client) => {
+      const locked = await client.query<{ participant_limit: number | null }>(
+        "SELECT participant_limit FROM events WHERE id = $1 FOR UPDATE",
+        [eventId],
+      );
+      if ((locked.rowCount ?? 0) === 0) return "not-found" as const;
+
+      const already = await client.query(
+        "SELECT 1 FROM event_participants WHERE event_id = $1 AND user_id = $2",
+        [eventId, userId],
+      );
+      if ((already.rowCount ?? 0) > 0) return "already-joined" as const;
+
+      const limit = locked.rows[0]?.participant_limit;
+      if (limit !== null && limit !== undefined) {
+        const taken = await client.query<{ count: string }>(
+          "SELECT count(*)::text AS count FROM event_participants WHERE event_id = $1",
+          [eventId],
+        );
+        if (Number(taken.rows[0]?.count ?? 0) >= limit) return "full" as const;
+      }
+
       await client.query(
         `INSERT INTO event_participants (event_id, user_id)
          VALUES ($1, $2) ON CONFLICT DO NOTHING`,
         [eventId, userId],
       );
-      return true;
+      return "joined" as const;
     });
-    return joined ? this.getEvent(eventId) : undefined;
+
+    if (outcome === "not-found") return { outcome };
+    const event = await this.getEvent(eventId);
+    // Событие могли удалить между транзакцией и чтением — тогда ответ честнее
+    // свести к «не найдено», чем возвращать участие в исчезнувшем событии.
+    return event ? { outcome, event } : { outcome: "not-found" };
+  }
+
+  async createInvitation(invitation: EventInvitation): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO event_invitations
+         (id, event_id, token_hash, created_by, created_at, expires_at, max_uses, used_count)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        invitation.id,
+        invitation.eventId,
+        invitation.tokenHash,
+        invitation.createdBy,
+        invitation.createdAt,
+        invitation.expiresAt ?? null,
+        invitation.maxUses ?? null,
+        invitation.usedCount,
+      ],
+    );
+  }
+
+  async findInvitationByTokenHash(tokenHash: string): Promise<EventInvitation | undefined> {
+    const result = await this.pool.query<InvitationRow>(
+      `${INVITATION_SELECT} WHERE token_hash = $1`,
+      [tokenHash],
+    );
+    return result.rows[0] ? mapInvitation(result.rows[0]) : undefined;
+  }
+
+  async consumeInvitation(id: string): Promise<boolean> {
+    // Условие в самом UPDATE, а не проверкой перед ним: иначе два одновременных
+    // перехода по приглашению с `max_uses = 1` оба увидели бы «ещё не исчерпано».
+    const result = await this.pool.query(
+      `UPDATE event_invitations
+          SET used_count = used_count + 1
+        WHERE id = $1
+          AND revoked_at IS NULL
+          AND (max_uses IS NULL OR used_count < max_uses)`,
+      [id],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async listInvitations(eventId: string): Promise<EventInvitation[]> {
+    const result = await this.pool.query<InvitationRow>(
+      `${INVITATION_SELECT} WHERE event_id = $1 ORDER BY created_at DESC`,
+      [eventId],
+    );
+    return result.rows.map(mapInvitation);
+  }
+
+  async revokeInvitation(id: string, revokedAt: string): Promise<boolean> {
+    const result = await this.pool.query(
+      "UPDATE event_invitations SET revoked_at = $2 WHERE id = $1 AND revoked_at IS NULL",
+      [id, revokedAt],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async leaveEvent(eventId: string, userId: string): Promise<Event | undefined> {

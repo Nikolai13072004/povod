@@ -9,10 +9,41 @@ test("joining an event is idempotent and participant count is derived", async ()
   const first = await repository.joinEvent("2", "u1");
   const second = await repository.joinEvent("2", "u1");
 
-  assert.ok(first);
-  assert.ok(second);
-  assert.deepEqual(second.participantIds.sort(), ["u1", "u2"]);
-  assert.equal(second.participants, 2);
+  assert.equal(first.outcome, "joined");
+  // Повтор отличается от первой записи по исходу, но не по результату.
+  assert.equal(second.outcome, "already-joined");
+  assert.deepEqual(second.event.participantIds.sort(), ["u1", "u2"]);
+  assert.equal(second.event.participants, 2);
+});
+
+test("joining respects the participant limit (BE-007)", async () => {
+  const repository = new MemoryRepository();
+  await repository.init();
+
+  // У события 2 уже есть один участник — автор.
+  await repository.updateEvent("2", { participantLimit: 2 });
+
+  assert.equal((await repository.joinEvent("2", "u1")).outcome, "joined");
+  const overflow = await repository.joinEvent("2", "u3");
+  assert.equal(overflow.outcome, "full");
+
+  // Отказ не меняет состав: третий не записан.
+  const event = await repository.getEvent("2");
+  assert.deepEqual(event?.participantIds.sort(), ["u1", "u2"]);
+
+  // Место освободилось — запись снова возможна.
+  await repository.leaveEvent("2", "u1");
+  assert.equal((await repository.joinEvent("2", "u3")).outcome, "joined");
+});
+
+test("without a limit joining is unbounded, and a missing event is reported as such", async () => {
+  const repository = new MemoryRepository();
+  await repository.init();
+
+  for (const userId of ["u1", "u3"]) {
+    assert.equal((await repository.joinEvent("2", userId)).outcome, "joined");
+  }
+  assert.equal((await repository.joinEvent("does-not-exist", "u1")).outcome, "not-found");
 });
 
 test("friendship is visible to both users and removed symmetrically", async () => {
