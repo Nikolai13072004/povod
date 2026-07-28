@@ -100,6 +100,47 @@ describe("транспорт API и признаки сессии", () => {
     window.removeEventListener("povod:unauthorized", onUnauthorized);
   });
 
+  it("показывает, какое поле не прошло проверку, а не «Validation failed»", async () => {
+    // Сервер отвечает подробно, а раньше бралось только общее `error`: на
+    // настоящей регистрации он написал «Некорректный email», а на экране
+    // появилось «Validation failed» — фраза, из которой непонятно, что чинить.
+    mockFetch(
+      jsonResponse(400, {
+        error: "Validation failed",
+        status: 400,
+        issues: [{ path: ["email"], message: "Некорректный email" }],
+      }),
+    );
+
+    const response = await authAPI.register("123", "4131@com", "123456789");
+    expect(response.error).toBe("Некорректный email");
+  });
+
+  it("склеивает несколько ошибок и подписывает поле, когда это добавляет смысл", async () => {
+    mockFetch(
+      jsonResponse(400, {
+        error: "Validation failed",
+        issues: [
+          { path: ["name"], message: "Имя слишком короткое" },
+          { path: ["password"], message: "Строка должна содержать минимум 8 символов" },
+        ],
+      }),
+    );
+
+    const response = await authAPI.register("я", "a@b.ru", "123");
+    // «Имя слишком короткое» уже называет поле — подпись не дублируется.
+    expect(response.error).toBe(
+      "Имя слишком короткое. Пароль: Строка должна содержать минимум 8 символов",
+    );
+  });
+
+  it("оставляет общее сообщение, когда подробностей нет", async () => {
+    mockFetch(jsonResponse(409, { error: "Пользователь с таким email уже существует" }));
+
+    const response = await authAPI.register("Илья", "a@b.ru", "12345678");
+    expect(response.error).toBe("Пользователь с таким email уже существует");
+  });
+
   it("не считает неудачный вход истёкшей сессией", async () => {
     mockFetch(jsonResponse(401, { error: "Invalid email or password" }));
     const onUnauthorized = vi.fn();

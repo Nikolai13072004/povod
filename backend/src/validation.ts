@@ -28,8 +28,16 @@ const MAX_TAGS = 20;
 export const MAX_COMMENT_TEXT = 2000;
 
 const eventFieldsSchema = z.object({
-  title: z.string().trim().min(1, "Название обязательно").max(MAX_TITLE),
-  description: z.string().max(MAX_DESCRIPTION).optional().default(""),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Название обязательно")
+    .max(MAX_TITLE, `Название длиннее ${MAX_TITLE} символов`),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION, `Описание длиннее ${MAX_DESCRIPTION} символов`)
+    .optional()
+    .default(""),
   startsAt: z
     .string()
     .datetime({ offset: true, message: "startsAt должен быть ISO 8601 timestamp" }),
@@ -45,16 +53,32 @@ const eventFieldsSchema = z.object({
         return false;
       }
     }, "Некорректная IANA timezone"),
-  location: z.string().max(MAX_LOCATION).optional().default(""),
+  location: z
+    .string()
+    .max(MAX_LOCATION, `Место длиннее ${MAX_LOCATION} символов`)
+    .optional()
+    .default(""),
   // trim здесь не косметика: категория участвует в сортировке ленты по интересам,
   // и «Музыка » с хвостовым пробелом не совпадала с интересом «Музыка».
-  category: z.string().trim().max(MAX_CATEGORY).optional(),
+  category: z
+    .string()
+    .trim()
+    .max(MAX_CATEGORY, `Категория длиннее ${MAX_CATEGORY} символов`)
+    .optional(),
   image: imageSchema.optional(),
-  tags: z.array(z.string().trim().min(1).max(MAX_TAG)).max(MAX_TAGS).optional(),
+  tags: z
+    .array(z.string().trim().min(1, "Пустой тег").max(MAX_TAG, `Тег длиннее ${MAX_TAG} символов`))
+    .max(MAX_TAGS, `Не больше ${MAX_TAGS} тегов`)
+    .optional(),
   // Диапазон повторяет CHECK в схеме базы. Без него PostgreSQL отвечал 500 с
   // именем ограничения, а in-memory адаптер молча принимал невозможную точку —
   // два адаптера расходились на одном и том же запросе.
-  coords: z.tuple([z.number().min(-90).max(90), z.number().min(-180).max(180)]).optional(),
+  coords: z
+    .tuple([
+      z.number().min(-90, "Широта вне диапазона").max(90, "Широта вне диапазона"),
+      z.number().min(-180, "Долгота вне диапазона").max(180, "Долгота вне диапазона"),
+    ])
+    .optional(),
   format: z.enum(["public", "private"]).optional(),
   /** Окончание события. Не задано — событие «до упора» (BE-006). */
   endsAt: z
@@ -114,7 +138,11 @@ export const passwordResetConfirmSchema = z.object({
  * вместо 400 на одном и том же запросе.
  */
 export const commentCreateSchema = z.object({
-  text: z.string().trim().min(1, "Текст комментария обязателен").max(MAX_COMMENT_TEXT),
+  text: z
+    .string()
+    .trim()
+    .min(1, "Текст комментария обязателен")
+    .max(MAX_COMMENT_TEXT, `Комментарий длиннее ${MAX_COMMENT_TEXT} символов`),
   eventId: z.string().min(1, "eventId обязателен"),
 });
 
@@ -138,7 +166,11 @@ export const vkLoginSchema = z.object({
 
 /** Правка комментария: меняется только текст (BE-009). */
 export const commentUpdateSchema = z.object({
-  text: z.string().trim().min(1, "Текст комментария обязателен").max(MAX_COMMENT_TEXT),
+  text: z
+    .string()
+    .trim()
+    .min(1, "Текст комментария обязателен")
+    .max(MAX_COMMENT_TEXT, `Комментарий длиннее ${MAX_COMMENT_TEXT} символов`),
 });
 
 /** Обновление собственного профиля: все поля необязательны (BE-010). */
