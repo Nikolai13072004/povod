@@ -414,6 +414,15 @@ export class MemoryRepository implements PovodRepository {
     return clone(comment);
   }
 
+  async updateComment(id: string, text: string, editedAt: string): Promise<Comment | undefined> {
+    const comment = this.comments.find((item) => item.id === id);
+    if (!comment) return undefined;
+    comment.text = text;
+    comment.editedAt = editedAt;
+    this.scheduleSave();
+    return clone(comment);
+  }
+
   async deleteComment(id: string): Promise<boolean> {
     const before = this.comments.length;
     this.comments = this.comments.filter((comment) => comment.id !== id);

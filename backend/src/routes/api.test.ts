@@ -1168,6 +1168,85 @@ test("password reset rejects an invented token and a weak password", async (cont
   assert.equal(weak.status, 400, "пароль короче восьми символов принимать нельзя");
 });
 
+test("comment editing belongs to its author alone (BE-009)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl); // автор события 1
+  const guest = await registerUser(baseUrl, { email: "commenter@povod.app" });
+
+  const created = await fetch(
+    `${baseUrl}/api/Comments`,
+    authorized(guest.token, {
+      method: "POST",
+      body: JSON.stringify({ eventId: "1", text: "Придём вдвоём" }),
+    }),
+  );
+  assert.equal(created.status, 201);
+  const comment = (await created.json()) as { id: string; editedAt?: string };
+  assert.equal(comment.editedAt, undefined, "новый комментарий не помечен как изменённый");
+
+  const edited = await fetch(
+    `${baseUrl}/api/Comments/${comment.id}`,
+    authorized(guest.token, { method: "PUT", body: JSON.stringify({ text: "Придём втроём" }) }),
+  );
+  assert.equal(edited.status, 200);
+  const updated = (await edited.json()) as { text: string; editedAt?: string };
+  assert.equal(updated.text, "Придём втроём");
+  // Отметка о правке, а не молчаливая подмена: собеседники должны видеть,
+  // что реплика изменилась после публикации.
+  assert.ok(updated.editedAt, "правка должна оставлять отметку");
+
+  // Автор события может комментарий удалить — это модерация, — но не переписать.
+  const byEventOwner = await fetch(
+    `${baseUrl}/api/Comments/${comment.id}`,
+    authorized(owner, { method: "PUT", body: JSON.stringify({ text: "Подменённый текст" }) }),
+  );
+  assert.equal(byEventOwner.status, 403);
+
+  const stranger = await registerUser(baseUrl, { email: "stranger@povod.app" });
+  const byStranger = await fetch(
+    `${baseUrl}/api/Comments/${comment.id}`,
+    authorized(stranger.token, { method: "PUT", body: JSON.stringify({ text: "Чужой текст" }) }),
+  );
+  assert.equal(byStranger.status, 403);
+
+  // Удалить автор события всё-таки может.
+  const removed = await fetch(
+    `${baseUrl}/api/Comments/${comment.id}`,
+    authorized(owner, { method: "DELETE" }),
+  );
+  assert.equal(removed.status, 204);
+});
+
+test("comment editing validates the text and the target", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const token = await loginDemo(baseUrl);
+
+  const created = await fetch(
+    `${baseUrl}/api/Comments`,
+    authorized(token, { method: "POST", body: JSON.stringify({ eventId: "1", text: "Текст" }) }),
+  );
+  const comment = (await created.json()) as { id: string };
+
+  for (const body of [{ text: "" }, { text: "   " }, {}]) {
+    const response = await fetch(
+      `${baseUrl}/api/Comments/${comment.id}`,
+      authorized(token, { method: "PUT", body: JSON.stringify(body) }),
+    );
+    assert.equal(response.status, 400, `пустой текст принимать нельзя: ${JSON.stringify(body)}`);
+  }
+
+  const missing = await fetch(
+    `${baseUrl}/api/Comments/does-not-exist`,
+    authorized(token, { method: "PUT", body: JSON.stringify({ text: "Куда-то" }) }),
+  );
+  assert.equal(missing.status, 404);
+
+  assert.equal(
+    (await fetch(`${baseUrl}/api/Comments/${comment.id}`, { method: "PUT" })).status,
+    401,
+  );
+});
+
 test("event creation validates image type and rejects spoofed MIME (SEC-005)", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const token = await loginDemo(baseUrl);

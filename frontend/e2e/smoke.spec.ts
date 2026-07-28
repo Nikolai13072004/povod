@@ -137,6 +137,45 @@ test("лимит мест закрывает запись, когда свобо
   await guestPage.close();
 });
 
+test("свой комментарий можно изменить, и правка видна", async ({ page }) => {
+  await login(page, "elmira@povod.app", "povod-demo");
+  await reachFeed(page);
+
+  await page.getByText("Пляжный волейбол").first().click();
+  await page.getByPlaceholder("Написать комментарий…").fill("Первый вариант");
+  await page.getByRole("button", { name: "Отправить" }).click();
+  await expect(page.getByText("Первый вариант")).toBeVisible();
+
+  await page.getByRole("button", { name: "Изменить" }).last().click();
+  await page.getByLabel("Текст комментария").fill("Исправленный вариант");
+  await page.getByRole("button", { name: "Сохранить" }).click();
+
+  await expect(page.getByText("Исправленный вариант")).toBeVisible();
+  // Отметка о правке обязана быть видна собеседникам.
+  await expect(page.getByText("изменён").last()).toBeVisible();
+});
+
+test("на широком экране навигация уходит из нижней панели наверх", async ({ page }) => {
+  await login(page, "elmira@povod.app", "povod-demo");
+  await reachFeed(page);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const home = page.getByRole("link", { name: "Главная" });
+  await expect(home).toBeVisible();
+  // Подписи появляются только на широком экране: внизу для них нет места.
+  await expect(page.getByRole("link", { name: "Мои события" })).toBeVisible();
+
+  const navBox = await home.boundingBox();
+  const feedBox = await page.getByPlaceholder("Поиск...").boundingBox();
+  expect(navBox!.y).toBeLessThan(feedBox!.y);
+
+  // На телефоне она возвращается вниз, к большому пальцу.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileNav = await page.getByRole("link", { name: "Главная" }).boundingBox();
+  const mobileFeed = await page.getByPlaceholder("Поиск...").boundingBox();
+  expect(mobileNav!.y).toBeGreaterThan(mobileFeed!.y);
+});
+
 test("выход из аккаунта закрывает доступ к ленте", async ({ page }) => {
   await login(page, "elmira@povod.app", "povod-demo");
   await reachFeed(page);

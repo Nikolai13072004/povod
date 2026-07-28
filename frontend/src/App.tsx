@@ -28,6 +28,12 @@ const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
     props.$hasNav ? "calc(88px + env(safe-area-inset-bottom, 0px))" : "20px"};
   /* Без transition на background/color: он анимировался при КАЖДОЙ смене маршрута
      (у страниц разный фон), из-за чего фон заметно «мигал» при переходе. */
+
+  /* На широком экране навигация не висит снизу (UX-007) — резервировать место
+     под неё незачем. */
+  @media (min-width: 900px) {
+    padding-bottom: 20px;
+  }
 `;
 
 const MainContent = styled.div`
@@ -38,6 +44,16 @@ const MainContent = styled.div`
 
   @media (max-width: 768px) {
     padding: 18px 0 20px;
+  }
+
+  /**
+   * Навигация лежит в разметке после контента — так она оказывается внизу на
+   * телефоне. На широком экране контент сдвигается ниже порядком flex, и
+   * навигация встаёт под шапкой. Дерево при этом одно: два разных не пришлось
+   * бы синхронизировать, но активный раздел терялся бы при смене ширины.
+   */
+  @media (min-width: 900px) {
+    order: 1;
   }
 `;
 

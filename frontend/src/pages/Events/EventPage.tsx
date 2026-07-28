@@ -10,6 +10,8 @@ import { EventOwnerControls } from "./EventOwnerControls";
 import { downloadEventIcs } from "../../utils/calendar";
 import { EventCover } from "../../components/EventCover/EventCover";
 import { FavoriteButton } from "../../components/Favorite/FavoriteButton";
+import { CommentRow } from "./CommentRow";
+import { InvitationManager } from "./InvitationManager";
 import bridge from "@vkontakte/vk-bridge";
 import {
   Panel,
@@ -22,7 +24,6 @@ import {
   Title,
   Spacing,
   Separator,
-  Avatar,
 } from "@vkontakte/vkui";
 import {
   Icon28CalendarOutline,
@@ -50,17 +51,6 @@ const CommentInput = styled.input`
     border-color: var(--vkui--color_background_accent);
   }
 `;
-
-function formatCommentDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function EventPageComponent() {
   const { id } = useParams<{ id: string }>();
@@ -323,6 +313,11 @@ function EventPageComponent() {
           </div>
         )}
 
+        {/* Приглашения имеют смысл только у закрытого события и только у автора. */}
+        {isOwner && eventData.format === "private" && (
+          <InvitationManager eventId={String(eventData.id)} />
+        )}
+
         <div style={{ padding: "12px 16px" }}>
           {!isJoined ? (
             // Кнопку гасим, но сервер всё равно проверяет лимит сам: между
@@ -410,22 +405,18 @@ function EventPageComponent() {
             compact
           >
             {comments.map((c) => (
-              <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-                <Avatar size={36} src={c.author?.avatar} initials={c.author?.name?.[0]} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{c.author?.name ?? "Гость"}</div>
-                  <Text style={{ fontSize: 14, overflowWrap: "break-word" }}>{c.text}</Text>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--vkui--color_text_secondary)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {formatCommentDate(c.createdAt)}
-                  </div>
-                </div>
-              </div>
+              <CommentRow
+                key={c.id}
+                comment={c}
+                canEdit={c.author?.id === sessionStore.user.id}
+                canDelete={c.author?.id === sessionStore.user.id || isOwner}
+                onSaved={(updated) =>
+                  setComments((prev) =>
+                    prev.map((item) => (item.id === updated.id ? updated : item)),
+                  )
+                }
+                onDeleted={() => setComments((prev) => prev.filter((item) => item.id !== c.id))}
+              />
             ))}
           </AsyncContent>
 

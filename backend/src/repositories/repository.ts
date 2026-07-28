@@ -132,6 +132,8 @@ export interface PovodRepository {
   listComments(eventId: string): Promise<Comment[]>;
   getComment(id: string): Promise<Comment | undefined>;
   createComment(input: CreateCommentInput): Promise<Comment>;
+  /** Правка текста комментария; проставляет отметку `editedAt` (BE-009). */
+  updateComment(id: string, text: string, editedAt: string): Promise<Comment | undefined>;
   deleteComment(id: string): Promise<boolean>;
 
   /** Пишет пачку уведомлений одним вызовом: одно действие обычно касается многих. */

@@ -89,6 +89,11 @@ export const commentCreateSchema = z.object({
   eventId: z.string().min(1, "eventId обязателен"),
 });
 
+/** Правка комментария: меняется только текст (BE-009). */
+export const commentUpdateSchema = z.object({
+  text: z.string().trim().min(1, "Текст комментария обязателен").max(2000),
+});
+
 /** Обновление собственного профиля: все поля необязательны (BE-010). */
 export const profileUpdateSchema = z
   .object({
