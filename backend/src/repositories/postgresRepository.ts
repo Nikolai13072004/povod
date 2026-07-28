@@ -13,6 +13,7 @@ import type {
   EventFilters,
   ExternalIdentity,
   JoinEventResult,
+  PasswordResetToken,
   PovodRepository,
 } from "./repository.js";
 import { eventDateToIso } from "../db/eventDate.js";
@@ -88,6 +89,15 @@ interface NotificationRow {
   changes: string[] | null;
   created_at: Date | string;
   read_at: Date | string | null;
+}
+
+interface PasswordResetTokenRow {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  created_at: Date | string;
+  expires_at: Date | string;
+  used_at: Date | string | null;
 }
 
 interface SessionRow {
@@ -984,6 +994,58 @@ export class PostgresRepository implements PovodRepository {
   async deleteExpiredSessions(now: string): Promise<number> {
     const result = await this.pool.query(
       "DELETE FROM auth_sessions WHERE expires_at <= $1 OR revoked_at IS NOT NULL",
+      [now],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  async revokeUserSessions(userId: string, revokedAt: string): Promise<number> {
+    const result = await this.pool.query(
+      "UPDATE auth_sessions SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL",
+      [userId, revokedAt],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  async createPasswordResetToken(token: PasswordResetToken): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO password_reset_tokens (id, user_id, token_hash, created_at, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [token.id, token.userId, token.tokenHash, token.createdAt, token.expiresAt],
+    );
+  }
+
+  async getPasswordResetToken(tokenHash: string): Promise<PasswordResetToken | undefined> {
+    const result = await this.pool.query<PasswordResetTokenRow>(
+      `SELECT id, user_id, token_hash, created_at, expires_at, used_at
+         FROM password_reset_tokens WHERE token_hash = $1`,
+      [tokenHash],
+    );
+    const row = result.rows[0];
+    if (!row) return undefined;
+    return {
+      id: row.id,
+      userId: row.user_id,
+      tokenHash: row.token_hash,
+      createdAt: toIso(row.created_at),
+      expiresAt: toIso(row.expires_at),
+      usedAt: row.used_at ? toIso(row.used_at) : undefined,
+    };
+  }
+
+  async consumePasswordResetToken(id: string, usedAt: string): Promise<boolean> {
+    // Условие в самом UPDATE: два одновременных перехода по одной ссылке иначе
+    // оба увидели бы «ещё не использована».
+    const result = await this.pool.query(
+      "UPDATE password_reset_tokens SET used_at = $2 WHERE id = $1 AND used_at IS NULL",
+      [id, usedAt],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async deleteExpiredPasswordResetTokens(now: string): Promise<number> {
+    const result = await this.pool.query(
+      "DELETE FROM password_reset_tokens WHERE expires_at <= $1 OR used_at IS NOT NULL",
       [now],
     );
     return result.rowCount ?? 0;

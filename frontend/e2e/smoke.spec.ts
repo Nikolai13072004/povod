@@ -32,6 +32,27 @@ test("неверный пароль не пускает и объясняет п
   await expect(page).not.toHaveURL(/page-1/);
 });
 
+test("забытый пароль не подтверждает, зарегистрирован ли адрес", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Забыли пароль?" }).click();
+
+  await page.getByPlaceholder("Email").fill("nobody-here@povod.test");
+  await page.getByRole("button", { name: "Прислать ссылку" }).click();
+
+  // Ответ одинаков и для чужого адреса: иначе форма превращается в проверялку
+  // «кто зарегистрирован» (SEC-008).
+  await expect(page.getByText(/Если такой адрес зарегистрирован/)).toBeVisible();
+});
+
+test("ссылка восстановления с негодным токеном честно отказывает", async ({ page }) => {
+  await page.goto("/reset-password?token=выдуманный");
+
+  await page.getByPlaceholder("Новый пароль").fill("long-enough-password");
+  await page.getByRole("button", { name: "Сохранить пароль" }).click();
+
+  await expect(page.getByText(/недействительна или уже использована/)).toBeVisible();
+});
+
 test("сессия переживает перезагрузку страницы", async ({ page }) => {
   await login(page, "elmira@povod.app", "povod-demo");
   await reachFeed(page);

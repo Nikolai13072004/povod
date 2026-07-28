@@ -42,10 +42,33 @@ test("config accepts explicit safe production settings", () => {
     NODE_ENV: "production",
     CORS_ORIGIN: "https://povod.example",
     DEMO_AUTH_ENABLED: "false",
+    MAIL_TRANSPORT: "none",
+    APP_URL: "https://povod.example",
   });
 
   assert.equal(config.corsOrigin, "https://povod.example");
   assert.equal(config.demoAuthEnabled, false);
+  assert.equal(config.appUrl, "https://povod.example");
+});
+
+test("config refuses a mail transport that only writes to the log in production", () => {
+  // Иначе восстановление пароля «работает»: человек видит «письмо отправлено»,
+  // а ссылка уходит в лог сервера и никому не приходит (SEC-008).
+  assert.throws(
+    () =>
+      loadConfig({
+        NODE_ENV: "production",
+        CORS_ORIGIN: "https://povod.example",
+        DEMO_AUTH_ENABLED: "false",
+      }),
+    /MAIL_TRANSPORT/,
+  );
+});
+
+test("config rejects an app URL that is not a bare origin", () => {
+  // Из APP_URL собираются ссылки в письмах — путь или query там всё сломают.
+  assert.throws(() => loadConfig({ APP_URL: "https://povod.example/app" }), /APP_URL/);
+  assert.equal(loadConfig({}).appUrl, "http://localhost:5173");
 });
 
 test("config rejects malformed values", () => {

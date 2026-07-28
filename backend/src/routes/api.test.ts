@@ -1074,6 +1074,100 @@ test("the feed puts events matching the viewer's interests first", async (contex
   assert.equal(after.ids[0], wanted.id, "подходящее по интересам поднимается наверх");
 });
 
+/** Перехватывает ссылку восстановления из лога: почтового провайдера нет. */
+async function requestReset(baseUrl: string, email: string): Promise<string | undefined> {
+  const [{ logger }] = await Promise.all([import("../logger.js")]);
+  let link: string | undefined;
+  const original = logger.info;
+  logger.info = (...args: unknown[]) => {
+    const line = args.map(String).join(" ");
+    const match = line.match(/token=([\w-]+)/);
+    if (match) link = match[1];
+  };
+  try {
+    const response = await fetch(`${baseUrl}/api/Auth/password-reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    assert.equal(response.status, 204);
+  } finally {
+    logger.info = original;
+  }
+  return link;
+}
+
+test("password reset does not reveal whether an address is registered (SEC-008)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+
+  // Ответ одинаков: иначе форма превращается в проверялку «кто зарегистрирован».
+  const known = await requestReset(baseUrl, "elmira@povod.app");
+  const unknown = await requestReset(baseUrl, "nobody@povod.app");
+
+  assert.ok(known, "для существующего адреса ссылка выдаётся");
+  assert.equal(unknown, undefined, "для чужого адреса ничего не создаётся");
+});
+
+test("password reset changes the password once and revokes every session", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const oldToken = await loginDemo(baseUrl);
+  const resetToken = await requestReset(baseUrl, "elmira@povod.app");
+  assert.ok(resetToken);
+
+  const changed = await fetch(`${baseUrl}/api/Auth/password-reset/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: resetToken, password: "new-strong-password" }),
+  });
+  assert.equal(changed.status, 204);
+
+  // Смена пароля — способ выгнать того, кто вошёл без спроса.
+  assert.equal((await fetch(`${baseUrl}/api/Auth/session`, authorized(oldToken))).status, 401);
+
+  // Старый пароль больше не подходит, новый — подходит.
+  const withOld = await fetch(`${baseUrl}/api/Auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "elmira@povod.app", password: "povod-demo" }),
+  });
+  assert.equal(withOld.status, 401);
+
+  const withNew = await fetch(`${baseUrl}/api/Auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "elmira@povod.app", password: "new-strong-password" }),
+  });
+  assert.equal(withNew.status, 200);
+
+  // Ссылка одноразовая.
+  const reused = await fetch(`${baseUrl}/api/Auth/password-reset/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: resetToken, password: "another-password" }),
+  });
+  assert.equal(reused.status, 400);
+});
+
+test("password reset rejects an invented token and a weak password", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+
+  const invented = await fetch(`${baseUrl}/api/Auth/password-reset/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: "выдуманный", password: "long-enough-password" }),
+  });
+  // Выдуманный, просроченный и использованный токены неотличимы в ответе.
+  assert.equal(invented.status, 400);
+
+  const resetToken = await requestReset(baseUrl, "elmira@povod.app");
+  const weak = await fetch(`${baseUrl}/api/Auth/password-reset/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: resetToken, password: "1234567" }),
+  });
+  assert.equal(weak.status, 400, "пароль короче восьми символов принимать нельзя");
+});
+
 test("event creation validates image type and rejects spoofed MIME (SEC-005)", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const token = await loginDemo(baseUrl);

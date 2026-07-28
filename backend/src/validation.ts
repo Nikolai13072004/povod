@@ -74,6 +74,16 @@ export const invitationCreateSchema = z.object({
   maxUses: z.number().int().min(1).max(1000).optional(),
 });
 
+/** Запрос ссылки восстановления (SEC-008). */
+export const passwordResetRequestSchema = z.object({
+  email: z.string().trim().email("Некорректный email"),
+});
+
+export const passwordResetConfirmSchema = z.object({
+  token: z.string().min(1, "Токен обязателен"),
+  password: z.string().min(8, "Пароль должен быть не короче 8 символов").max(200),
+});
+
 export const commentCreateSchema = z.object({
   text: z.string().min(1, "Текст комментария обязателен"),
   eventId: z.string().min(1, "eventId обязателен"),

@@ -7,6 +7,7 @@ import type {
   EventFilters,
   ExternalIdentity,
   JoinEventResult,
+  PasswordResetToken,
   PovodRepository,
 } from "./repository.js";
 import { seedComments, seedEvents, seedUsers } from "../seed.js";
@@ -50,6 +51,7 @@ export class MemoryRepository implements PovodRepository {
   /** Избранное: пользователь → идентификаторы событий (PROD-001). */
   private favorites = new Map<string, Set<string>>();
   private invitations: EventInvitation[] = [];
+  private passwordResetTokens: PasswordResetToken[] = [];
   private passwordCredentials = new Map<string, string>();
   private sessions = new Map<string, AuthSession>();
   private externalIdentities = new Map<string, ExternalIdentity>();
@@ -493,6 +495,46 @@ export class MemoryRepository implements PovodRepository {
         removed += 1;
       }
     }
+    if (removed > 0) this.scheduleSave();
+    return removed;
+  }
+
+  async revokeUserSessions(userId: string, revokedAt: string): Promise<number> {
+    let revoked = 0;
+    for (const session of this.sessions.values()) {
+      if (session.userId !== userId || session.revokedAt) continue;
+      session.revokedAt = revokedAt;
+      revoked += 1;
+    }
+    if (revoked > 0) this.scheduleSave();
+    return revoked;
+  }
+
+  async createPasswordResetToken(token: PasswordResetToken): Promise<void> {
+    this.passwordResetTokens.push(clone(token));
+    this.scheduleSave();
+  }
+
+  async getPasswordResetToken(tokenHash: string): Promise<PasswordResetToken | undefined> {
+    const token = this.passwordResetTokens.find((item) => item.tokenHash === tokenHash);
+    return token ? clone(token) : undefined;
+  }
+
+  async consumePasswordResetToken(id: string, usedAt: string): Promise<boolean> {
+    const token = this.passwordResetTokens.find((item) => item.id === id);
+    if (!token || token.usedAt) return false;
+    token.usedAt = usedAt;
+    this.scheduleSave();
+    return true;
+  }
+
+  async deleteExpiredPasswordResetTokens(now: string): Promise<number> {
+    const before = this.passwordResetTokens.length;
+    const cutoff = Date.parse(now);
+    this.passwordResetTokens = this.passwordResetTokens.filter(
+      (token) => !token.usedAt && Date.parse(token.expiresAt) > cutoff,
+    );
+    const removed = before - this.passwordResetTokens.length;
     if (removed > 0) this.scheduleSave();
     return removed;
   }

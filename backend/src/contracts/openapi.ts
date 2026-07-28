@@ -24,6 +24,8 @@ import {
   invitationCreateSchema,
   loginSchema,
   markNotificationsSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
   profileUpdateSchema,
   registerSchema,
 } from "../validation.js";
@@ -119,6 +121,36 @@ registry.registerPath({
   description: "Отзывает сессию на сервере и сбрасывает куки.",
   security,
   responses: { 204: { description: "Сессия отозвана" }, 401: errors[401] },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/Auth/password-reset",
+  tags: ["Auth"],
+  summary: "Запросить ссылку восстановления пароля",
+  description:
+    "Ответ одинаков независимо от того, есть такой адрес или нет: иначе форма " +
+    "превращается в способ выяснить, зарегистрирован ли человек (SEC-008).",
+  request: { body: json(passwordResetRequestSchema) },
+  responses: {
+    204: { description: "Запрос принят" },
+    400: errors[400],
+    429: { description: "Слишком часто", ...json(errorSchema) },
+    503: { description: "Восстановление отключено", ...json(errorSchema) },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/Auth/password-reset/confirm",
+  tags: ["Auth"],
+  summary: "Сменить пароль по ссылке",
+  description: "Токен одноразовый и живёт час. Успешная смена отзывает все сессии пользователя.",
+  request: { body: json(passwordResetConfirmSchema) },
+  responses: {
+    204: { description: "Пароль изменён, сессии отозваны" },
+    400: { description: "Ссылка недействительна или уже использована", ...json(errorSchema) },
+  },
 });
 
 // --- события -----------------------------------------------------------------
