@@ -45,7 +45,16 @@ const environmentSchema = z
      * Транспорт писем. `console` печатает ссылку в лог — годится для разработки,
      * но в production означает, что письма никому не уходят.
      */
-    MAIL_TRANSPORT: z.enum(["console", "none"]).default("console"),
+    MAIL_TRANSPORT: z.enum(["console", "none", "resend"]).default("console"),
+    RESEND_API_KEY: z.string().trim().default(""),
+    /** Отправитель: `user@example.com` либо `Имя <user@example.com>`. */
+    MAIL_FROM: z
+      .string()
+      .trim()
+      .default("")
+      .refine((value) => value === "" || isMailAddress(value), {
+        message: "must be an email address, optionally as 'Name <user@example.com>'",
+      }),
     DEMO_AUTH_ENABLED: booleanValue.optional(),
     DEMO_AUTH_PASSWORD: z.string().min(8).default("povod-demo"),
     ENABLE_EXTERNAL_EVENTS: booleanValue.default("true"),
@@ -62,6 +71,25 @@ const environmentSchema = z
         path: ["AUTH_COOKIE_SECURE"],
         message: "must be true when AUTH_COOKIE_SAMESITE is 'none' (browsers drop such cookies)",
       });
+    }
+    // Проверяется во всех окружениях: транспорт без ключа или без отправителя
+    // сломан одинаково и в разработке, и в production. Ловим на старте, а не на
+    // первом забытом пароле.
+    if (environment.MAIL_TRANSPORT === "resend") {
+      if (!environment.RESEND_API_KEY) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["RESEND_API_KEY"],
+          message: "must be set when MAIL_TRANSPORT is 'resend'",
+        });
+      }
+      if (!environment.MAIL_FROM) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["MAIL_FROM"],
+          message: "must be set when MAIL_TRANSPORT is 'resend'",
+        });
+      }
     }
     if (environment.NODE_ENV !== "production") return;
     if (environment.MAIL_TRANSPORT === "console") {
@@ -111,6 +139,13 @@ function isHttpOrigin(value: string): boolean {
   }
 }
 
+/** `user@example.com` либо `Имя <user@example.com>`. */
+function isMailAddress(value: string): boolean {
+  const angled = /^[^<>]*<([^<>\s]+)>$/.exec(value);
+  const address = angled?.[1] ?? value;
+  return /^[^\s@,]+@[^\s@,.]+(\.[^\s@,.]+)+$/.test(address);
+}
+
 function isPostgresUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -136,7 +171,9 @@ export interface AppConfig {
   authCookieSecure: boolean;
   authCookieDomain: string;
   appUrl: string;
-  mailTransport: "console" | "none";
+  mailTransport: "console" | "none" | "resend";
+  resendApiKey: string;
+  mailFrom: string;
   demoAuthEnabled: boolean;
   demoAuthPassword: string;
   externalEvents: boolean;
@@ -169,6 +206,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     authCookieDomain: values.AUTH_COOKIE_DOMAIN,
     appUrl: values.APP_URL,
     mailTransport: values.MAIL_TRANSPORT,
+    resendApiKey: values.RESEND_API_KEY,
+    mailFrom: values.MAIL_FROM,
     demoAuthEnabled: values.DEMO_AUTH_ENABLED ?? values.NODE_ENV !== "production",
     demoAuthPassword: values.DEMO_AUTH_PASSWORD,
     externalEvents: values.ENABLE_EXTERNAL_EVENTS,

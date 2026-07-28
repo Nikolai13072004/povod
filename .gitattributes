@@ -1,0 +1,18 @@
+# Перевод строки в рабочем каталоге — LF на всех платформах.
+#
+# Без этого при core.autocrlf=true (значение по умолчанию у Git for Windows)
+# файлы выкладываются с CRLF, хотя в репозитории лежат с LF. Обычно это никого
+# не трогает, но тесты, сравнивающие сгенерированный текст с файлом на диске,
+# начинают падать только на Windows: генератор пишет LF, а с диска читается
+# CRLF. Первым попался backend/src/contracts/openapi.test.ts.
+* text=auto eol=lf
+
+# Двоичные файлы не трогать: любая «нормализация» их портит.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
