@@ -6,6 +6,8 @@ import type {
   CreateCommentInput,
   EventFilters,
   ExternalIdentity,
+  FriendRequests,
+  FriendshipOutcome,
   JoinEventResult,
   PasswordResetToken,
   PovodRepository,
@@ -51,6 +53,8 @@ export class MemoryRepository implements PovodRepository {
   /** Избранное: пользователь → идентификаторы событий (PROD-001). */
   private favorites = new Map<string, Set<string>>();
   private invitations: EventInvitation[] = [];
+  /** Заявки, ждущие ответа. Принятые дружбы живут в `user.friends` (SEC-012). */
+  private friendRequests: { from: string; to: string; createdAt: string }[] = [];
   private passwordResetTokens: PasswordResetToken[] = [];
   private passwordCredentials = new Map<string, string>();
   private sessions = new Map<string, AuthSession>();
@@ -365,26 +369,79 @@ export class MemoryRepository implements PovodRepository {
     return clone(this.users.filter((item) => ids.has(item.id)));
   }
 
-  async addFriend(userId: string, friendId: string): Promise<User | undefined> {
+  /**
+   * Заявка в друзья (SEC-012).
+   *
+   * Ожидающие заявки живут отдельным списком, а `user.friends` по-прежнему
+   * означает «принятая дружба»: так снимок на диск и все существующие ответы
+   * API сохраняют прежний смысл, а новое состояние не размазывается по двум
+   * представлениям одного отношения.
+   */
+  async requestFriendship(userId: string, friendId: string): Promise<FriendshipOutcome> {
+    if (userId === friendId) return "self";
     const user = this.users.find((item) => item.id === userId);
     const friend = this.users.find((item) => item.id === friendId);
-    if (!user || !friend) return undefined;
-    /*
-     * Дружба с самим собой — не «разное поведение адаптеров», а порча данных.
-     * В PostgreSQL это отсекает и ранний возврат, и CHECK (user_id < friend_id)
-     * в схеме; здесь защиты не было: `canonicalFriendship` при равных
-     * аргументах возвращает [id, id], дальше leftUser и rightUser — один и тот
-     * же объект, и собственный идентификатор попадал в собственный список
-     * друзей. Снимок на диск это переживало.
-     */
-    if (userId === friendId) return clone(user);
-    const [left, right] = canonicalFriendship(userId, friendId);
-    const leftUser = this.users.find((item) => item.id === left)!;
-    const rightUser = this.users.find((item) => item.id === right)!;
-    leftUser.friends = [...new Set([...(leftUser.friends ?? []), right])];
-    rightUser.friends = [...new Set([...(rightUser.friends ?? []), left])];
+    if (!user || !friend) return "not-found";
+
+    if ((user.friends ?? []).includes(friendId)) return "already-friends";
+
+    // Встречная заявка: «добавить в друзья» в ответ на приглашение и есть согласие.
+    const incoming = this.friendRequests.find(
+      (item) => item.from === friendId && item.to === userId,
+    );
+    if (incoming) {
+      this.friendRequests = this.friendRequests.filter((item) => item !== incoming);
+      this.linkFriends(user, friend);
+      this.scheduleSave();
+      return "accepted";
+    }
+
+    if (this.friendRequests.some((item) => item.from === userId && item.to === friendId)) {
+      return "already-requested";
+    }
+
+    this.friendRequests.push({ from: userId, to: friendId, createdAt: new Date().toISOString() });
     this.scheduleSave();
-    return clone(user);
+    return "requested";
+  }
+
+  async listFriendRequests(userId: string): Promise<FriendRequests | undefined> {
+    if (!this.users.some((item) => item.id === userId)) return undefined;
+    const byId = (id: string) => this.users.find((item) => item.id === id);
+    return {
+      incoming: clone(
+        this.friendRequests
+          .filter((item) => item.to === userId)
+          .map((item) => byId(item.from))
+          .filter((item): item is User => Boolean(item)),
+      ),
+      outgoing: clone(
+        this.friendRequests
+          .filter((item) => item.from === userId)
+          .map((item) => byId(item.to))
+          .filter((item): item is User => Boolean(item)),
+      ),
+    };
+  }
+
+  async acceptFriendRequest(userId: string, requesterId: string): Promise<boolean> {
+    const user = this.users.find((item) => item.id === userId);
+    const requester = this.users.find((item) => item.id === requesterId);
+    if (!user || !requester) return false;
+    const pending = this.friendRequests.find(
+      (item) => item.from === requesterId && item.to === userId,
+    );
+    if (!pending) return false;
+    this.friendRequests = this.friendRequests.filter((item) => item !== pending);
+    this.linkFriends(user, requester);
+    this.scheduleSave();
+    return true;
+  }
+
+  /** Симметричная запись принятой дружбы. */
+  private linkFriends(user: User, friend: User): void {
+    user.friends = [...new Set([...(user.friends ?? []), friend.id])];
+    friend.friends = [...new Set([...(friend.friends ?? []), user.id])];
   }
 
   async removeFriend(userId: string, friendId: string): Promise<boolean | undefined> {
@@ -393,10 +450,21 @@ export class MemoryRepository implements PovodRepository {
     if (!user || !friend) return undefined;
     const hadFriendship =
       (user.friends ?? []).includes(friendId) || (friend.friends ?? []).includes(userId);
+    // Один метод на три действия: расторгнуть дружбу, отклонить чужую заявку и
+    // отозвать свою. Снаружи это одно и то же — «убрать связь».
+    const requestCount = this.friendRequests.length;
+    this.friendRequests = this.friendRequests.filter(
+      (item) =>
+        !(
+          (item.from === userId && item.to === friendId) ||
+          (item.from === friendId && item.to === userId)
+        ),
+    );
+    const hadRequest = this.friendRequests.length !== requestCount;
     user.friends = (user.friends ?? []).filter((id) => id !== friendId);
     friend.friends = (friend.friends ?? []).filter((id) => id !== userId);
     this.scheduleSave();
-    return hadFriendship;
+    return hadFriendship || hadRequest;
   }
 
   async listComments(eventId: string): Promise<Comment[]> {

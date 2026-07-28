@@ -390,6 +390,42 @@
           "items",
           "unread"
         ]
+      },
+      "FriendshipStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "FriendRequests": {
+        "type": "object",
+        "properties": {
+          "incoming": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "outgoing": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          }
+        },
+        "required": [
+          "incoming",
+          "outgoing"
+        ]
       }
     },
     "parameters": {}
@@ -2252,6 +2288,15 @@
           "Users"
         ],
         "summary": "Друзья пользователя",
+        "description": "Только принятые дружбы: ожидающая заявка друзьями ещё не делает.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "schema": {
@@ -2292,7 +2337,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Добавить друга",
+        "summary": "Отправить заявку в друзья",
+        "description": "Создаёт заявку. Если встречная заявка уже висит, вызов её принимает — тогда ответ 200 со статусом accepted.",
         "security": [
           {
             "sessionCookie": []
@@ -2330,8 +2376,213 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Заявка принята или уже существовала",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendshipStatus"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Заявка отправлена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendshipStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав или не пройдена проверка CSRF",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/{userId}/friends/requests": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Свои заявки в друзья",
+        "description": "Входящие и исходящие. Чужие заявки не показываются никому.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Заявки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendRequests"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав или не пройдена проверка CSRF",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/{userId}/friends/requests/{requesterId}/accept": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Принять заявку в друзья",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "requesterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
           "204": {
-            "description": "Добавлен"
+            "description": "Принята"
+          },
+          "403": {
+            "description": "Недостаточно прав или не пройдена проверка CSRF",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/{userId}/friends/{friendId}": {
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Убрать связь",
+        "description": "Расторгает дружбу, отклоняет входящую заявку или отзывает свою.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "friendId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Убрана"
           },
           "403": {
             "description": "Недостаточно прав или не пройдена проверка CSRF",

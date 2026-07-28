@@ -54,7 +54,7 @@ test("a user cannot befriend themselves", async () => {
   await repository.init();
 
   const before = (await repository.listFriends("u1"))?.map((user) => user.id) ?? [];
-  await repository.addFriend("u1", "u1");
+  assert.equal(await repository.requestFriendship("u1", "u1"), "self");
   const after = (await repository.listFriends("u1"))?.map((user) => user.id) ?? [];
 
   assert.deepEqual(after, before);
@@ -65,7 +65,13 @@ test("friendship is visible to both users and removed symmetrically", async () =
   const repository = new MemoryRepository();
   await repository.init();
 
-  await repository.addFriend("u2", "u3");
+  // Дружба возникает только после согласия второй стороны (SEC-012).
+  assert.equal(await repository.requestFriendship("u2", "u3"), "requested");
+  assert.deepEqual(
+    (await repository.listFriends("u2"))?.map((user) => user.id),
+    ["u1"],
+  );
+  assert.equal(await repository.acceptFriendRequest("u3", "u2"), true);
   assert.deepEqual((await repository.listFriends("u2"))?.map((user) => user.id).sort(), [
     "u1",
     "u3",

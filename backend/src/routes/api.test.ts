@@ -397,13 +397,131 @@ test("private events and user emails are not exposed publicly", async (context) 
   const ownerEvent = await fetch(`${baseUrl}/api/Events/${event.id}`, authorized(token));
   assert.equal(ownerEvent.status, 200);
 
-  const usersResponse = await fetch(`${baseUrl}/api/Users`);
+  // Каталог пользователей закрыт от анонимов: раньше он отвечал кому угодно и
+  // выгружал имена, аватары, города и связи всего сервиса одним запросом.
+  const anonymousUsers = await fetch(`${baseUrl}/api/Users`);
+  assert.equal(anonymousUsers.status, 401);
+
+  const usersResponse = await fetch(`${baseUrl}/api/Users`, authorized(token));
   const users = (await usersResponse.json()) as Array<Record<string, unknown>>;
   assert.equal(usersResponse.status, 200);
+  // Чужой email не уходит наружу даже вошедшему.
   assert.equal(
     users.some((user) => "email" in user),
     false,
   );
+
+  // Список друзей — тоже не публичные данные.
+  const anonymousFriends = await fetch(`${baseUrl}/api/Users/u1/friends`);
+  assert.equal(anonymousFriends.status, 401);
+});
+
+test("friendship needs the other person to agree (SEC-012)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const alice = await loginDemo(baseUrl); // u1
+  const bob = await registerUser(baseUrl, { email: "bob@povod.app" });
+
+  const friendsOf = async (token: string, id: string) => {
+    const response = await fetch(`${baseUrl}/api/Users/${id}/friends`, authorized(token));
+    return ((await response.json()) as { id: string }[]).map((user) => user.id);
+  };
+  const request = (token: string, id: string, friendId: string) =>
+    fetch(
+      `${baseUrl}/api/Users/${id}/friends`,
+      authorized(token, { method: "POST", body: JSON.stringify({ friendId }) }),
+    );
+
+  // Заявка не делает людей друзьями: раньше нажатие одного меняло запись второго.
+  const requested = await request(bob.token, bob.id, "u1");
+  assert.equal(requested.status, 201);
+  assert.deepEqual(await requested.json(), { status: "pending" });
+  assert.ok(!(await friendsOf(bob.token, bob.id)).includes("u1"));
+  assert.ok(!(await friendsOf(alice, "u1")).includes(bob.id));
+
+  // Повторное нажатие идемпотентно.
+  assert.equal((await request(bob.token, bob.id, "u1")).status, 200);
+
+  // Заявку видит только адресат, и только свою.
+  const incoming = await fetch(`${baseUrl}/api/Users/u1/friends/requests`, authorized(alice));
+  const requests = (await incoming.json()) as { incoming: { id: string }[] };
+  assert.deepEqual(
+    requests.incoming.map((user) => user.id),
+    [bob.id],
+  );
+  const foreign = await fetch(`${baseUrl}/api/Users/u1/friends/requests`, authorized(bob.token));
+  assert.equal(foreign.status, 403);
+
+  const accepted = await fetch(
+    `${baseUrl}/api/Users/u1/friends/requests/${bob.id}/accept`,
+    authorized(alice, { method: "POST" }),
+  );
+  assert.equal(accepted.status, 204);
+  assert.ok((await friendsOf(alice, "u1")).includes(bob.id));
+  assert.ok((await friendsOf(bob.token, bob.id)).includes("u1"));
+
+  // Повторное принятие уже нечего принимать.
+  const again = await fetch(
+    `${baseUrl}/api/Users/u1/friends/requests/${bob.id}/accept`,
+    authorized(alice, { method: "POST" }),
+  );
+  assert.equal(again.status, 404);
+});
+
+test("answering an incoming request with your own counts as agreement", async (context) => {
+  // Иначе двое, одновременно нажавшие «добавить в друзья», зависли бы каждый со
+  // своей заявкой и ждали бы друг друга.
+  const { baseUrl } = await startTestApp(context);
+  const alice = await loginDemo(baseUrl);
+  const bob = await registerUser(baseUrl, { email: "counter@povod.app" });
+
+  await fetch(
+    `${baseUrl}/api/Users/${bob.id}/friends`,
+    authorized(bob.token, { method: "POST", body: JSON.stringify({ friendId: "u1" }) }),
+  );
+  const answered = await fetch(
+    `${baseUrl}/api/Users/u1/friends`,
+    authorized(alice, { method: "POST", body: JSON.stringify({ friendId: bob.id }) }),
+  );
+
+  assert.equal(answered.status, 200);
+  assert.deepEqual(await answered.json(), { status: "accepted" });
+
+  const friends = await fetch(`${baseUrl}/api/Users/u1/friends`, authorized(alice));
+  assert.ok(((await friends.json()) as { id: string }[]).some((user) => user.id === bob.id));
+});
+
+test("declining and cancelling a request both remove it", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const alice = await loginDemo(baseUrl);
+  const bob = await registerUser(baseUrl, { email: "declined@povod.app" });
+
+  const send = () =>
+    fetch(
+      `${baseUrl}/api/Users/${bob.id}/friends`,
+      authorized(bob.token, { method: "POST", body: JSON.stringify({ friendId: "u1" }) }),
+    );
+  const pendingFor = async (token: string, id: string) => {
+    const response = await fetch(`${baseUrl}/api/Users/${id}/friends/requests`, authorized(token));
+    return (await response.json()) as { incoming: unknown[]; outgoing: unknown[] };
+  };
+
+  await send();
+  // Адресат отклоняет.
+  const declined = await fetch(
+    `${baseUrl}/api/Users/u1/friends/${bob.id}`,
+    authorized(alice, { method: "DELETE" }),
+  );
+  assert.equal(declined.status, 204);
+  assert.equal((await pendingFor(alice, "u1")).incoming.length, 0);
+
+  await send();
+  // Автор отзывает свою.
+  const cancelled = await fetch(
+    `${baseUrl}/api/Users/${bob.id}/friends/u1`,
+    authorized(bob.token, { method: "DELETE" }),
+  );
+  assert.equal(cancelled.status, 204);
+  assert.equal((await pendingFor(bob.token, bob.id)).outgoing.length, 0);
 });
 
 test("event API requires an ISO instant and valid timezone", async (context) => {

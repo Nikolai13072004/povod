@@ -12,6 +12,8 @@ import type {
   CreateCommentInput,
   EventFilters,
   ExternalIdentity,
+  FriendRequests,
+  FriendshipOutcome,
   JoinEventResult,
   PasswordResetToken,
   PovodRepository,
@@ -781,7 +783,7 @@ export class PostgresRepository implements PovodRepository {
        WHERE u.id IN (
          SELECT CASE WHEN f.user_id = $1 THEN f.friend_id ELSE f.user_id END
          FROM friendships f
-         WHERE f.user_id = $1 OR f.friend_id = $1
+         WHERE (f.user_id = $1 OR f.friend_id = $1) AND f.status = 'accepted'
        )
        ORDER BY u.name`,
       [userId],
@@ -802,19 +804,82 @@ export class PostgresRepository implements PovodRepository {
     return true;
   }
 
-  async addFriend(userId: string, friendId: string): Promise<User | undefined> {
-    if (userId === friendId) return this.getUser(userId);
+  async requestFriendship(userId: string, friendId: string): Promise<FriendshipOutcome> {
+    if (userId === friendId) return "self";
     const [left, right] = canonicalFriendship(userId, friendId);
-    const linked = await this.withTransaction(async (client) => {
-      if (!(await this.lockUserPair(client, left, right))) return false;
-      await client.query(
-        `INSERT INTO friendships (user_id, friend_id)
-         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+    return this.withTransaction(async (client) => {
+      if (!(await this.lockUserPair(client, left, right))) return "not-found";
+
+      // Строку связи тоже блокируем: два встречных «добавить в друзья»
+      // одновременно иначе оба увидели бы пустоту и вставили бы по заявке.
+      const existing = await client.query<{ status: string; requested_by: string | null }>(
+        "SELECT status, requested_by FROM friendships WHERE user_id = $1 AND friend_id = $2 FOR UPDATE",
         [left, right],
       );
-      return true;
+
+      const current = existing.rows[0];
+      if (current) {
+        if (current.status === "accepted") return "already-friends";
+        // Встречная заявка — принимаем её: согласие и есть «добавить в друзья».
+        if (current.requested_by !== userId) {
+          await client.query(
+            `UPDATE friendships SET status = 'accepted', responded_at = now()
+             WHERE user_id = $1 AND friend_id = $2`,
+            [left, right],
+          );
+          return "accepted";
+        }
+        return "already-requested";
+      }
+
+      await client.query(
+        `INSERT INTO friendships (user_id, friend_id, status, requested_by)
+         VALUES ($1, $2, 'pending', $3)`,
+        [left, right, userId],
+      );
+      return "requested";
     });
-    return linked ? this.getUser(userId) : undefined;
+  }
+
+  async listFriendRequests(userId: string): Promise<FriendRequests | undefined> {
+    if (!(await this.getUser(userId))) return undefined;
+    const counterpart = "CASE WHEN f.user_id = $1 THEN f.friend_id ELSE f.user_id END";
+    const [incoming, outgoing] = await Promise.all([
+      this.pool.query<UserRow>(
+        `${USER_SELECT}
+         WHERE u.id IN (
+           SELECT ${counterpart} FROM friendships f
+           WHERE (f.user_id = $1 OR f.friend_id = $1)
+             AND f.status = 'pending' AND f.requested_by <> $1
+         )
+         ORDER BY u.name`,
+        [userId],
+      ),
+      this.pool.query<UserRow>(
+        `${USER_SELECT}
+         WHERE u.id IN (
+           SELECT ${counterpart} FROM friendships f
+           WHERE (f.user_id = $1 OR f.friend_id = $1)
+             AND f.status = 'pending' AND f.requested_by = $1
+         )
+         ORDER BY u.name`,
+        [userId],
+      ),
+    ]);
+    return { incoming: incoming.rows.map(mapUser), outgoing: outgoing.rows.map(mapUser) };
+  }
+
+  async acceptFriendRequest(userId: string, requesterId: string): Promise<boolean> {
+    if (userId === requesterId) return false;
+    const [left, right] = canonicalFriendship(userId, requesterId);
+    // Условие принятия целиком внутри UPDATE: проверять отдельным SELECT значило
+    // бы оставить окно, в котором заявку успевают отозвать.
+    const result = await this.pool.query(
+      `UPDATE friendships SET status = 'accepted', responded_at = now()
+       WHERE user_id = $1 AND friend_id = $2 AND status = 'pending' AND requested_by = $3`,
+      [left, right, requesterId],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async removeFriend(userId: string, friendId: string): Promise<boolean | undefined> {

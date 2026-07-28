@@ -62,7 +62,7 @@ advisory-блокировкой, поэтому одновременный за�
 | Region | **Frankfurt** — тот же, что у базы |
 | Root Directory | `backend` |
 | Runtime | Node |
-| Build Command | `npm ci && npm run build` |
+| Build Command | `npm ci --include=dev && npm run build` |
 | Start Command | `npm start` |
 | Health Check Path | `/health/ready` |
 | Instance Type | Free |
@@ -70,6 +70,13 @@ advisory-блокировкой, поэтому одновременный за�
 `/health/ready` действительно проверяет доступность базы, а не только живость
 процесса, — поэтому Render не отправит трафик на экземпляр, который поднялся,
 но до базы не достучался.
+
+**`--include=dev` обязателен.** Переменная `NODE_ENV=production` заставляет npm
+пропускать dev-зависимости, а компилятор TypeScript и `@types/node` лежат
+именно там. Без флага сборка падает на `error TS2688: Cannot find type
+definition file for 'node'`. Убрать `NODE_ENV=production` вместо этого нельзя:
+на нём держатся защиты конфигурации — запрет демо-входа, запрет почтового
+транспорта, пишущего в лог, и требование явного `CORS_ORIGIN`.
 
 ### Переменные окружения
 
@@ -130,8 +137,9 @@ VITE_API_URL=https://povod-api.onrender.com
 VITE_DEMO_AUTH_ENABLED=false
 ```
 
-Адрес backend возьми со страницы сервиса из шага 2 — если имя `povod-api` было
-занято, Render добавит суффикс, и адрес будет другим.
+Адрес backend возьми со страницы сервиса из шага 2. Render добавляет к имени
+случайный суффикс (`povod` превращается в `povod-v1fg.onrender.com`), поэтому
+угадать адрес нельзя — только скопировать.
 
 > Переменные `VITE_*` **вшиваются в сборку**. Изменить их и просто перезапустить
 > сервис недостаточно — нужен новый деплой (Manual Deploy → Deploy latest
@@ -210,6 +218,7 @@ Yandex Cloud. Приложение при этом не меняется — т�
 
 | Симптом | Причина |
 | --- | --- |
+| Сборка падает на `TS2688: Cannot find type definition file for 'node'` | В Build Command нет `--include=dev`; `NODE_ENV=production` выкинул dev-зависимости |
 | Вход проходит, но страница снова просит войти | `AUTH_COOKIE_SAMESITE` не `none` |
 | В консоли браузера ошибка CORS | `CORS_ORIGIN` не совпадает с адресом frontend буква в букву |
 | Прямая ссылка на событие даёт 404 | Нет правила перезаписи `/*` → `/index.html` |
