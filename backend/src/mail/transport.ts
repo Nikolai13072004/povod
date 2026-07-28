@@ -1,5 +1,6 @@
 import { logger } from "../logger.js";
 import type { MailMessage } from "./message.js";
+import { createSmtpTransport } from "./smtp.js";
 
 /**
  * Доставка писем.
@@ -97,9 +98,14 @@ export function createResendTransport({
 }
 
 export interface MailTransportConfig {
-  mailTransport: "console" | "none" | "resend";
+  mailTransport: "console" | "none" | "resend" | "smtp";
   resendApiKey: string;
   mailFrom: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPassword: string;
 }
 
 export function createMailTransport(
@@ -112,6 +118,15 @@ export function createMailTransport(
         apiKey: config.resendApiKey,
         from: config.mailFrom,
         ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case "smtp":
+      return createSmtpTransport({
+        host: config.smtpHost,
+        port: config.smtpPort,
+        secure: config.smtpSecure,
+        user: config.smtpUser,
+        password: config.smtpPassword,
+        from: config.mailFrom,
       });
     case "console":
       return consoleTransport;
