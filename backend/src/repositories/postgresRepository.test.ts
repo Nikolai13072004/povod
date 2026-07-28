@@ -222,6 +222,93 @@ test(
   },
 );
 
+test("full-text search matches a different word form (BE-012)", { skip }, async () => {
+  const repository = await freshRepository();
+  await repository.createEvent({
+    id: "fts-1",
+    title: "Большие концерты",
+    description: "Играем вживую",
+    startsAt: "2026-08-01T12:00:00.000Z",
+    timezone: "Europe/Moscow",
+    location: "Клубы города",
+    author: "Эльмира",
+    authorId: "u1",
+    participants: 1,
+    participantIds: ["u1"],
+    createdAt: "2026-07-01T10:00:00.000Z",
+  });
+
+  // Прежний ILIKE '%концерт%' нашёл бы это по подстроке, а вот «концертами» —
+  // уже нет. Морфология русского снимает вопрос формы слова.
+  for (const query of ["концерт", "концертами", "клуб"]) {
+    const found = await repository.listEvents({ search: query });
+    assert.ok(
+      found.some((event) => event.id === "fts-1"),
+      `«${query}» должен находить событие`,
+    );
+  }
+
+  // Одинокая скобка не должна ронять запрос: пользователь вводит что угодно.
+  await assert.doesNotReject(() => repository.listEvents({ search: "конц( & !" }));
+  assert.deepEqual(await repository.listEvents({ search: "бухгалтерия" }), []);
+});
+
+test("keyset pagination walks the whole feed exactly once (BE-003)", { skip }, async () => {
+  const repository = await freshRepository();
+  const [{ cursorOf }] = await Promise.all([import("../feed")]);
+
+  // Одинаковая дата создания у нескольких событий — обычное дело при импорте.
+  // Без сравнения по id страницы теряли бы или дублировали такие записи.
+  for (let index = 0; index < 6; index += 1) {
+    await repository.createEvent({
+      id: `page-${index}`,
+      title: `Событие ${index}`,
+      description: "",
+      startsAt: "2026-08-01T12:00:00.000Z",
+      timezone: "Europe/Moscow",
+      location: "",
+      author: "Эльмира",
+      authorId: "u1",
+      participants: 1,
+      participantIds: ["u1"],
+      createdAt: "2026-07-01T10:00:00.000Z",
+    });
+  }
+
+  const seen: string[] = [];
+  let cursor;
+  for (let page = 0; page < 20; page += 1) {
+    const items = await repository.listEvents({ limit: 2, cursor });
+    if (items.length === 0) break;
+    seen.push(...items.map((event) => event.id));
+    cursor = cursorOf(items[items.length - 1], undefined);
+  }
+
+  assert.equal(new Set(seen).size, seen.length, "события не должны повторяться");
+  assert.equal(seen.length, 9, "6 созданных + 3 сида");
+});
+
+test("interest ordering wins over freshness (BE-003)", { skip }, async () => {
+  const repository = await freshRepository();
+  await repository.createEvent({
+    id: "match",
+    title: "По интересу",
+    description: "",
+    startsAt: "2026-08-01T12:00:00.000Z",
+    timezone: "Europe/Moscow",
+    location: "",
+    category: "Кёрлинг",
+    author: "Эльмира",
+    authorId: "u1",
+    participants: 1,
+    participantIds: ["u1"],
+    createdAt: "2020-01-01T10:00:00.000Z", // намеренно самое старое
+  });
+
+  const ordered = await repository.listEvents({ preferInterests: ["кёрлинг"], limit: 10 });
+  assert.equal(ordered[0]?.id, "match", "совпадение по интересу поднимается выше свежести");
+});
+
 test("seed data is imported into normalized tables", { skip }, async () => {
   const repository = await freshRepository();
 

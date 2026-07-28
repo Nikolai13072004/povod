@@ -64,6 +64,9 @@ class EventStore {
   eventDetailErrors = new Map<string, string>();
   isLoading = false;
   loaded = false;
+  /** Позиция следующей страницы ленты; пусто — дальше ничего нет (BE-003). */
+  nextCursor: string | undefined = undefined;
+  isLoadingMore = false;
   error: string | null = null;
   isMyEventsLoading = false;
   myEventsLoaded = false;
@@ -85,9 +88,10 @@ class EventStore {
     try {
       const res = await eventsAPI.getAll();
       if (res.error || !res.data) throw new Error(res.error ?? "Пустой ответ сервера");
-      const items = res.data.map(normalize);
+      const items = res.data.items.map(normalize);
       runInAction(() => {
         this.events = items;
+        this.nextCursor = res.data!.nextCursor;
         this.loaded = true;
         this.isLoading = false;
       });
@@ -95,6 +99,38 @@ class EventStore {
       runInAction(() => {
         this.error = e instanceof Error ? e.message : "Не удалось загрузить события";
         this.isLoading = false;
+      });
+    }
+  };
+
+  /**
+   * Догрузка следующей страницы ленты (BE-003).
+   *
+   * Новые события дописываются к уже показанным, а не заменяют их: пользователь
+   * нажал «Показать ещё», а не «обновить». Повторы отсекаются по id — на границе
+   * страниц одно и то же событие теоретически может прийти дважды, если его
+   * успели изменить между запросами.
+   */
+  loadMoreEvents = async (): Promise<void> => {
+    if (this.isLoadingMore || !this.nextCursor) return;
+    runInAction(() => {
+      this.isLoadingMore = true;
+      this.error = null;
+    });
+    try {
+      const res = await eventsAPI.getAll({ cursor: this.nextCursor });
+      if (res.error || !res.data) throw new Error(res.error ?? "Пустой ответ сервера");
+      const incoming = res.data.items.map(normalize);
+      runInAction(() => {
+        const known = new Set(this.events.map((event) => event.id));
+        this.events = [...this.events, ...incoming.filter((event) => !known.has(event.id))];
+        this.nextCursor = res.data!.nextCursor;
+        this.isLoadingMore = false;
+      });
+    } catch (e) {
+      runInAction(() => {
+        this.error = e instanceof Error ? e.message : "Не удалось загрузить ещё события";
+        this.isLoadingMore = false;
       });
     }
   };

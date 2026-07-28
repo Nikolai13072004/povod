@@ -49,12 +49,30 @@ async function checkPublicContract() {
   assert.equal(ping.response.status, 200);
   assert.equal(ping.payload.message, "pong");
 
+  // Лента отдаётся страницами (BE-003): конверт с items и необязательным курсором.
   const events = await request("api/Events");
   assert.equal(events.response.status, 200);
-  assert.ok(Array.isArray(events.payload), "GET /api/Events must return an array");
-  events.payload.slice(0, 10).forEach(assertEvent);
+  assert.ok(Array.isArray(events.payload?.items), "GET /api/Events must return { items }");
+  assert.ok(
+    events.payload.nextCursor === undefined || typeof events.payload.nextCursor === "string",
+    "nextCursor must be a string or absent",
+  );
+  events.payload.items.slice(0, 10).forEach(assertEvent);
 
-  return events.payload.length;
+  // Вторая страница не должна повторять первую: курсор задаёт позицию, а не смещение.
+  if (events.payload.nextCursor) {
+    const next = await request(
+      `api/Events?cursor=${encodeURIComponent(events.payload.nextCursor)}`,
+    );
+    assert.equal(next.response.status, 200);
+    const firstIds = new Set(events.payload.items.map((event) => event.id));
+    assert.ok(
+      next.payload.items.every((event) => !firstIds.has(event.id)),
+      "the second page must not repeat the first",
+    );
+  }
+
+  return events.payload.items.length;
 }
 
 async function checkAuthenticatedContract() {

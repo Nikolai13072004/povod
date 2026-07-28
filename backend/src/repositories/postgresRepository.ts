@@ -303,9 +303,28 @@ export class PostgresRepository implements PovodRepository {
     };
 
     if (filters.search) {
-      values.push(`%${filters.search}%`, `%${filters.search}%`);
+      /**
+       * Полнотекстовый поиск с русской морфологией (BE-012).
+       *
+       * `ILIKE '%слово%'` совпадал только по точной подстроке: «концерты» не
+       * находились по «концерт», а «встречу» — по «встреча». Здесь работает
+       * стемминг, поэтому форма слова перестала иметь значение.
+       *
+       * `websearch_to_tsquery` выбран за то, что не бросает исключение на
+       * произвольном пользовательском вводе — в отличие от `to_tsquery`,
+       * которому достаточно одинокой скобки.
+       *
+       * `ILIKE` остался рядом как запасной путь: он ловит совпадение по началу
+       * слова, пока пользователь ещё дописывает запрос («конц» → «концерт»),
+       * чего полнотекстовый индекс без префиксного запроса не делает.
+       */
+      values.push(filters.search, `%${filters.search}%`);
+      const query = `$${values.length - 1}`;
+      const like = `$${values.length}`;
       conditions.push(
-        `(e.title ILIKE $${values.length - 1} OR e.description ILIKE $${values.length})`,
+        `(e.search_vector @@ websearch_to_tsquery('russian', ${query})
+          OR e.title ILIKE ${like}
+          OR e.location ILIKE ${like})`,
       );
     }
     if (filters.category) add("lower(e.category) = lower(?)", filters.category);
@@ -340,11 +359,52 @@ export class PostgresRepository implements PovodRepository {
     }
     if (filters.activeAfter) add("e.starts_at >= ?", filters.activeAfter);
 
+    /**
+     * Совпадение с интересами зрителя — булево выражение, которое участвует и в
+     * сортировке, и в сравнении с курсором. Приводим к 1/0: с числом строчное
+     * сравнение в курсоре читается однозначнее, чем с `true`/`false`.
+     */
+    let interestRank = "0";
+    if (filters.preferInterests?.length) {
+      values.push(filters.preferInterests);
+      interestRank = `(CASE WHEN lower(coalesce(e.category, '')) = ANY(
+        SELECT lower(interest) FROM unnest($${values.length}::text[]) AS interest
+      ) OR EXISTS (
+        SELECT 1 FROM unnest(e.tags) AS tag
+        WHERE lower(tag) = ANY(SELECT lower(interest) FROM unnest($${values.length}::text[]) AS interest)
+      ) THEN 1 ELSE 0 END)`;
+    }
+
+    // Постраничная выдача — только для ленты (без явной сортировки по дате начала).
+    const paginated = !filters.sort;
+    if (paginated && filters.cursor) {
+      values.push(
+        filters.cursor.matchesInterests ? 1 : 0,
+        filters.cursor.createdAt,
+        filters.cursor.id,
+      );
+      // Сравнение кортежей вместо цепочки OR: так условие точно совпадает с
+      // порядком сортировки и не пропускает записи на границе страниц.
+      conditions.push(
+        `(${interestRank}, e.created_at, e.id) < ($${values.length - 2}, $${values.length - 1}, $${values.length})`,
+      );
+    }
+
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const order = filters.sort
-      ? `ORDER BY e.starts_at ${filters.sort === "asc" ? "ASC" : "DESC"}`
-      : "ORDER BY e.created_at DESC";
-    const result = await this.pool.query<EventRow>(`${EVENT_SELECT} ${where} ${order}`, values);
+      ? `ORDER BY e.starts_at ${filters.sort === "asc" ? "ASC" : "DESC"}, e.id DESC`
+      : `ORDER BY ${interestRank} DESC, e.created_at DESC, e.id DESC`;
+
+    let limit = "";
+    if (filters.limit !== undefined) {
+      values.push(filters.limit);
+      limit = `LIMIT $${values.length}`;
+    }
+
+    const result = await this.pool.query<EventRow>(
+      `${EVENT_SELECT} ${where} ${order} ${limit}`,
+      values,
+    );
     return result.rows.map(mapEvent);
   }
 

@@ -139,6 +139,13 @@ export interface NotificationFeed {
   unread: number;
 }
 
+/** Страница ленты (BE-003). */
+export interface EventPage {
+  items: Event[];
+  /** Отсутствует — дальше ничего нет. */
+  nextCursor?: string;
+}
+
 /** Приглашение без секрета — таким его отдаёт список для автора (BE-008). */
 export interface Invitation {
   id: string;
@@ -206,7 +213,18 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 }
 
 export const eventsAPI = {
-  getAll: () => fetchApi<Event[]>("api/Events"),
+  /**
+   * Лента отдаётся страницами (BE-003). `nextCursor` отсутствует — это конец.
+   * Курсор непрозрачен: клиенту незачем знать, что внутри.
+   */
+  getAll: (params: { search?: string; cursor?: string; limit?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.search) query.set("search", params.search);
+    if (params.cursor) query.set("cursor", params.cursor);
+    if (params.limit) query.set("limit", String(params.limit));
+    const suffix = query.toString();
+    return fetchApi<EventPage>(`api/Events${suffix ? `?${suffix}` : ""}`);
+  },
 
   getById: (id: string, inviteToken?: string) =>
     fetchApi<Event>(
