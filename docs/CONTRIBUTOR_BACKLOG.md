@@ -270,6 +270,7 @@ git push -u origin feature/FE-001-responsive-layout
 | --- | --- | --- | --- |
 | MEDIA-001 | P1 | DECISION | Перейти с base64 в JSON на object storage с presigned upload, лимитами и удалением неиспользуемых объектов. |
 | MEDIA-002 | P1 | READY | Генерировать thumbnails и несколько размеров, удалять EXIF/геоданные, проверять MIME и dimensions. |
+| MEDIA-003 | P1 | DONE | Загрузка своего фото профиля. Картинка уменьшается в браузере перед отправкой: аватарка до 256×256 квадратом, обложка события до 1280px. Это же чинит отказ «Изображение больше 5 MB» на снимках с телефона и отодвигает потолок бесплатной базы. |
 | MAP-001 | P1 | DECISION | Выбрать geocoding provider с допустимыми условиями использования, quota и privacy policy. |
 | MAP-002 | P1 | READY | Хранить структурированное место: display name, coordinates, provider ID; не смешивать адрес и ссылку. |
 | MAP-003 | P2 | READY | Добавить fallback без карты, если внешний script/provider недоступен. |

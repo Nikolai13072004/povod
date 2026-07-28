@@ -12,6 +12,12 @@ import { eventStore } from "../../stores/EventStore";
 import { browserTimezone, localDateTimeToIso } from "../../utils/eventDate";
 import { useToast } from "../../components/Toast/ToastProvider";
 import { INTERESTS } from "../../data/interests";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  COVER_RESIZE,
+  describeUnsupportedImage,
+  resizeImageToDataUrl,
+} from "../../utils/imageResize";
 
 const FormContainer = styled.div`
   min-height: 100vh;
@@ -341,31 +347,31 @@ export default function CreateEventForm() {
     format: "public",
   });
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    // Сбрасываем сразу: иначе повторный выбор того же файла не даст события.
+    event.target.value = "";
     if (file) {
-      if (!file.type.startsWith("image/")) {
-        showToast("Пожалуйста, выберите файл изображения", { type: "error" });
+      const unsupported = describeUnsupportedImage(file);
+      if (unsupported) {
+        showToast(unsupported, { type: "error" });
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
-        showToast("Файл слишком большой. Максимальный размер: 5MB", { type: "error" });
-        return;
+      /*
+       * Уменьшаем перед отправкой. Снимок с телефона весит 4–8 МБ, в base64 это
+       * ещё +33%, а сервер принимает не больше 5 МБ — то есть фото с
+       * современного телефона прикрепить было попросту нельзя. После сжатия до
+       * 1280px по большей стороне это ~200 КБ.
+       */
+      try {
+        const dataUrl = await resizeImageToDataUrl(file, COVER_RESIZE);
+        setFormData((prev) => ({ ...prev, photoData: dataUrl, photoSource: "gallery" }));
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Не удалось обработать изображение", {
+          type: "error",
+        });
       }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          setFormData((prev) => ({
-            ...prev,
-            photoData: result,
-            photoSource: "gallery",
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -505,10 +511,10 @@ export default function CreateEventForm() {
         {/* Скрытый инпут */}
         <input
           type="file"
-          accept="image/*"
+          accept={ACCEPTED_IMAGE_TYPES.join(",")}
           ref={fileInputRef}
           style={{ display: "none" }}
-          onChange={handleFileChange}
+          onChange={(event) => void handleFileChange(event)}
         />
 
         <PhotoSection>
