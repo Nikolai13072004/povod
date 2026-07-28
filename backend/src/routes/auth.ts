@@ -15,7 +15,7 @@ import { confirmPasswordReset, requestPasswordReset } from "../auth/passwordRese
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "../auth/password.js";
 import { issueSession, type IssuedSession } from "../auth/session.js";
 import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware.js";
-import { clearSessionCookies, setSessionCookies } from "../auth/cookies.js";
+import { clearSessionCookies, csrfTokenFor, setSessionCookies } from "../auth/cookies.js";
 import type { User } from "../types.js";
 import type { Response } from "express";
 import { createAuthRateLimit } from "../auth/rateLimit.js";
@@ -34,11 +34,25 @@ const passwordResetRateLimit = createAuthRateLimit(5, 60 * 60 * 1000);
  *
  * Токен остаётся в ответе намеренно: VK Mini App работает в iframe, где сторонние
  * куки может резать браузер, а интеграционные тесты и не-браузерные клиенты кук
- * вообще не ведут. Веб-фронт токен из ответа не сохраняет — он ходит по куке.
+ * вообще не ведут.
+ *
+ * CSRF-токен уезжает и кукой, и полем ответа. Кука — основной путь: её ставит
+ * тот же домен, что и сессионную, и фронт читает её через `document.cookie`.
+ *
+ * Но при развёртывании, где фронт и API живут на разных доменах (типичный
+ * случай на бесплатных хостингах: `povod-web.onrender.com` и
+ * `povod-v1fg.onrender.com`), скрипты фронта эту куку **не видят вовсе** —
+ * `document.cookie` показывает только куки своего домена. Сессионную куку
+ * браузер при этом отправляет, поэтому сервер требует заголовок, а взять его
+ * фронту неоткуда: получался 403 на первом же изменяющем запросе.
+ *
+ * Секрета это не раскрывает: токен и так лежал в куке, доступной скриптам, а
+ * сам сессионный токен из него не восстанавливается — он производный, через
+ * SHA-256.
  */
 function respondWithSession(res: Response, session: IssuedSession, status = 200): void {
   setSessionCookies(res, session.token, session.expiresAt);
-  res.status(status).json(session);
+  res.status(status).json({ ...session, csrfToken: csrfTokenFor(session.token) });
 }
 
 authRouter.post(

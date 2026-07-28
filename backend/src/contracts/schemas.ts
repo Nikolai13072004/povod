@@ -143,6 +143,10 @@ export const authSessionSchema = z
     token: z.string().openapi({
       description: "Резерв для клиентов без кук (VK Mini App). Веб-фронт ходит по HttpOnly-куке.",
     }),
+    csrfToken: z.string().openapi({
+      description:
+        "Токен двойной отправки. Дублирует куку povod_csrf для случая, когда фронт и API живут на разных доменах: там читаемая кука API невидима для скриптов фронта. Клиент шлёт его заголовком X-CSRF-Token.",
+    }),
     expiresAt: isoDateTime(),
     user: userSchema,
   })

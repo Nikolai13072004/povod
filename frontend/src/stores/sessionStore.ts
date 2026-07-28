@@ -4,9 +4,10 @@ import { CURRENT_USER } from "../currentUser";
 import {
   authAPI,
   clearLocalSession,
-  hasCookieSession,
+  hasReadableCsrfCookie,
   hasStoredSession,
   setSessionToken,
+  setCsrfToken,
   usersAPI,
   type AuthSession,
   type ProfileUpdate,
@@ -203,10 +204,21 @@ class SessionStore {
     if (this.authenticated && this.user.id !== session.user.id) {
       eventStore.resetSessionState();
     }
-    // Куки сработали — токен в браузере не храним вовсе (SEC-001) и подчищаем
-    // возможный остаток от прежней схемы с sessionStorage. Резерв остаётся только
-    // там, где куки недоступны: VK Mini App внутри iframe.
-    setSessionToken(hasCookieSession() ? undefined : session.token);
+    /*
+     * Сначала сохраняем CSRF-токен из ответа: на кросс-доменном развёртывании
+     * кука API невидима скриптам фронта, и без этого значения заголовок двойной
+     * отправки взять неоткуда — любой изменяющий запрос упирался бы в 403.
+     * Порядок важен: `hasCookieSession()` ниже смотрит и на него тоже.
+     */
+    setCsrfToken(session.csrfToken);
+    /*
+     * Резервный Bearer нужен там, где кука API не видна скриптам: это и
+     * VK Mini App в iframe (браузер режет сторонние куки), и развёртывание с
+     * фронтом на отдельном домене. Признак один — читается ли CSRF-кука
+     * напрямую. Если читается, фронт и API на одном сайте, куки работают
+     * привычно, и токен в браузере не храним вовсе (SEC-001).
+     */
+    setSessionToken(hasReadableCsrfCookie() ? undefined : session.token);
     runInAction(() => {
       this.user = session.user;
       this.authenticated = true;

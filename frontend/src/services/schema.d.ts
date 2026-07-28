@@ -1964,6 +1964,8 @@ export interface components {
         AuthSession: {
             /** @description Резерв для клиентов без кук (VK Mini App). Веб-фронт ходит по HttpOnly-куке. */
             token: string;
+            /** @description Токен двойной отправки. Дублирует куку povod_csrf для случая, когда фронт и API живут на разных доменах: там читаемая кука API невидима для скриптов фронта. Клиент шлёт его заголовком X-CSRF-Token. */
+            csrfToken: string;
             /** Format: date-time */
             expiresAt: string;
             user: components["schemas"]["User"];

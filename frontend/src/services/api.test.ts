@@ -5,6 +5,7 @@ import {
   eventsAPI,
   hasCookieSession,
   hasStoredSession,
+  setCsrfToken,
   setSessionToken,
 } from "./api";
 
@@ -60,6 +61,29 @@ describe("транспорт API и признаки сессии", () => {
 
     // Суть SEC-001: при рабочих куках токен в запрос не подставляется.
     expect(lastHeaders(fetchMock).authorization).toBeUndefined();
+  });
+
+  it("шлёт CSRF-заголовок из ответа, когда кука API не видна (разные домены)", async () => {
+    // На кросс-доменном развёртывании `document.cookie` не показывает куку,
+    // выставленную доменом API, — а сессионную куку браузер при этом отправляет.
+    // Без запасного пути сервер требовал заголовок, взять его было неоткуда, и
+    // любой изменяющий запрос упирался в 403. Поймано на настоящем деплое.
+    setCsrfToken("derived-from-session");
+    const fetchMock = mockFetch();
+
+    await eventsAPI.create({ title: "Встреча" } as never);
+
+    expect(lastHeaders(fetchMock)["x-csrf-token"]).toBe("derived-from-session");
+  });
+
+  it("кука важнее сохранённого значения: она всегда свежая", async () => {
+    setCsrfToken("устаревшее");
+    setCsrfCookie("из-куки");
+    const fetchMock = mockFetch();
+
+    await eventsAPI.create({ title: "Встреча" } as never);
+
+    expect(lastHeaders(fetchMock)["x-csrf-token"]).toBe("из-куки");
   });
 
   it("падает на резервный Bearer, если куки недоступны", async () => {

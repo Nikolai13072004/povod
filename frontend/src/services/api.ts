@@ -14,6 +14,7 @@ export interface AuthSession {
 }
 
 const SESSION_TOKEN_KEY = "povod.sessionToken";
+const CSRF_TOKEN_KEY = "povod.csrfToken";
 const CSRF_COOKIE = "povod_csrf";
 const CSRF_HEADER = "X-CSRF-Token";
 
@@ -27,11 +28,57 @@ function readCookie(name: string): string {
 }
 
 /**
- * Сессия живёт в `HttpOnly`-куке (SEC-001) — из JS её не прочитать, но рядом
- * сервер ставит читаемую CSRF-куку. Её наличие и есть признак живой куки-сессии.
+ * CSRF-токен для заголовка двойной отправки.
+ *
+ * Кука — основной путь, но она принадлежит домену API. Когда фронт и API живут
+ * на разных доменах (обычное дело на бесплатных хостингах:
+ * `povod-web.onrender.com` и `povod-v1fg.onrender.com`), `document.cookie`
+ * её **не видит вовсе** — там только куки своего домена. Сессионную куку
+ * браузер при этом отправляет, поэтому сервер требует заголовок, и без запасного
+ * пути любой изменяющий запрос упирался в 403.
+ *
+ * Запасной путь — значение из ответа на вход, сохранённое рядом с сессионным
+ * токеном. Секрета это не добавляет: кука и так была доступна скриптам.
+ */
+function csrfToken(): string {
+  const fromCookie = readCookie(CSRF_COOKIE);
+  if (fromCookie) return fromCookie;
+  try {
+    return sessionStorage.getItem(CSRF_TOKEN_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function setCsrfToken(token?: string): void {
+  try {
+    if (token) sessionStorage.setItem(CSRF_TOKEN_KEY, token);
+    else sessionStorage.removeItem(CSRF_TOKEN_KEY);
+  } catch {
+    /* хранилище недоступно (приватный режим) — остаётся путь через куку */
+  }
+}
+
+/**
+ * Видна ли CSRF-кука напрямую.
+ *
+ * Это признак того, что фронт и API на одном сайте: тогда куки работают
+ * привычно и резервный Bearer-токен хранить незачем (SEC-001). Если куки не
+ * видно — либо разные домены, либо браузер режет сторонние куки в iframe
+ * (VK Mini App), — резерв нужен.
+ */
+export function hasReadableCsrfCookie(): boolean {
+  return readCookie(CSRF_COOKIE) !== "";
+}
+
+/**
+ * Есть ли основания считать, что сессия существует.
+ *
+ * Смотрит и на сохранённый CSRF-токен: на разных доменах куку не видно, и без
+ * этого приложение после перезагрузки страницы решило бы, что входа не было.
  */
 export function hasCookieSession(): boolean {
-  return readCookie(CSRF_COOKIE) !== "";
+  return csrfToken() !== "";
 }
 
 /**
@@ -66,6 +113,7 @@ export function hasStoredSession(): boolean {
  */
 export function clearLocalSession(): void {
   setSessionToken();
+  setCsrfToken();
   document.cookie = `${CSRF_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
@@ -170,15 +218,25 @@ function describeApiError(payload: ApiErrorPayload | null, status: number): stri
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   try {
     const url = `${appConfig.apiBaseUrl}${endpoint}`;
-    const csrfToken = readCookie(CSRF_COOKIE);
-    const fallbackToken = csrfToken ? "" : getSessionToken();
+    /*
+     * Заголовок двойной отправки и резервный Bearer решают разные задачи.
+     *
+     * CSRF-токен нужен всегда, когда он есть: на разных доменах он приходит из
+     * сохранённого значения, а не из куки.
+     *
+     * Bearer — только там, где кука API не читается, то есть куки либо
+     * сторонние и порезаны (VK Mini App), либо чужого домена. При рабочих
+     * куках токен в запрос не подставляется вовсе (SEC-001).
+     */
+    const csrf = csrfToken();
+    const fallbackToken = hasReadableCsrfCookie() ? "" : getSessionToken();
     const response = await fetch(url, {
       // Без этого браузер не приложит HttpOnly-куку сессии к cross-origin запросу.
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
         // Double submit: сервер сверит заголовок с одноимённой кукой (SEC-001).
-        ...(csrfToken ? { [CSRF_HEADER]: csrfToken } : {}),
+        ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
         ...(fallbackToken ? { Authorization: `Bearer ${fallbackToken}` } : {}),
         ...options.headers,
       },
