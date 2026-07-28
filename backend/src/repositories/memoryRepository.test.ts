@@ -46,6 +46,21 @@ test("without a limit joining is unbounded, and a missing event is reported as s
   assert.equal((await repository.joinEvent("does-not-exist", "u1")).outcome, "not-found");
 });
 
+test("a user cannot befriend themselves", async () => {
+  // В PostgreSQL это отсекают ранний возврат и CHECK (user_id < friend_id);
+  // здесь защиты не было, и собственный идентификатор попадал в собственный
+  // список друзей — причём снимок на диск это переживал.
+  const repository = new MemoryRepository();
+  await repository.init();
+
+  const before = (await repository.listFriends("u1"))?.map((user) => user.id) ?? [];
+  await repository.addFriend("u1", "u1");
+  const after = (await repository.listFriends("u1"))?.map((user) => user.id) ?? [];
+
+  assert.deepEqual(after, before);
+  assert.ok(!after.includes("u1"), "пользователь не должен быть сам себе другом");
+});
+
 test("friendship is visible to both users and removed symmetrically", async () => {
   const repository = new MemoryRepository();
   await repository.init();

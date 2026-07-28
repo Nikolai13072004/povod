@@ -1019,6 +1019,71 @@ test("invitation opens exactly one private event for its bearer", async (context
   assert.equal(exhausted.status, 403);
 });
 
+test("a single-use invitation lets exactly one person in, even under a race", async (context) => {
+  /*
+   * Раньше порядок был: проверить счётчик -> записать участника -> израсходовать
+   * лимит, причём результат расхода отбрасывался. Двое одновременно проходили
+   * проверку (оба видели usedCount=0), оба записывались, и второй оставался
+   * участником навсегда, хотя ссылка была на одного.
+   */
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const secret = await createEvent(baseUrl, owner, { title: "Один вход", format: "private" });
+
+  const created = await fetch(
+    `${baseUrl}/api/Events/${secret.id}/invitations`,
+    authorized(owner, { method: "POST", body: JSON.stringify({ maxUses: 1 }) }),
+  );
+  const { token: invite } = (await created.json()) as { token: string };
+
+  const first = await registerUser(baseUrl, { email: "race-one@povod.app" });
+  const second = await registerUser(baseUrl, { email: "race-two@povod.app" });
+
+  const join = (token: string) =>
+    fetch(
+      `${baseUrl}/api/Events/${secret.id}/join?invite=${invite}`,
+      authorized(token, { method: "POST" }),
+    );
+
+  const [a, b] = await Promise.all([join(first.token), join(second.token)]);
+  const statuses = [a.status, b.status].sort();
+  assert.deepEqual(statuses, [200, 403], "по одноразовой ссылке должен пройти ровно один");
+
+  // И в самом событии участников ровно двое: автор и прошедший.
+  const view = await fetch(`${baseUrl}/api/Events/${secret.id}`, authorized(owner));
+  const event = (await view.json()) as { participantIds: string[] };
+  assert.equal(event.participantIds.length, 2);
+});
+
+test("re-reading a page does not consume an invitation", async (context) => {
+  // Обратная сторона: расход перенесён до записи, и уже записанный участник не
+  // должен тратить ссылку повторным нажатием — иначе приглашение на пятерых
+  // исчерпается, пока один перечитывает страницу.
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl);
+  const guest = await registerUser(baseUrl, { email: "reread@povod.app" });
+  const secret = await createEvent(baseUrl, owner, { title: "Перечитать", format: "private" });
+
+  const created = await fetch(
+    `${baseUrl}/api/Events/${secret.id}/invitations`,
+    authorized(owner, { method: "POST", body: JSON.stringify({ maxUses: 2 }) }),
+  );
+  const { token: invite } = (await created.json()) as { token: string };
+
+  const join = () =>
+    fetch(
+      `${baseUrl}/api/Events/${secret.id}/join?invite=${invite}`,
+      authorized(guest.token, { method: "POST" }),
+    );
+
+  assert.equal((await join()).status, 200);
+  assert.equal((await join()).status, 200, "повторное нажатие идемпотентно");
+
+  const listed = await fetch(`${baseUrl}/api/Events/${secret.id}/invitations`, authorized(owner));
+  const [invitation] = (await listed.json()) as { usedCount: number }[];
+  assert.equal(invitation.usedCount, 1, "второй заход не должен тратить ссылку");
+});
+
 test("invitations are the author's alone and can be revoked", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const owner = await loginDemo(baseUrl);
