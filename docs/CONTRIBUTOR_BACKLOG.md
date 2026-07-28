@@ -229,7 +229,7 @@ git push -u origin feature/FE-001-responsive-layout
 | OPS-001 | P0 | DONE | GitHub Actions: проверки, интеграционные тесты PostgreSQL и E2E. |
 | OPS-002 | P0 | READY | Добавить branch protection для `main`: PR, успешные checks и запрет force push. Настраивается владельцем репозитория. |
 | OPS-003 | P0 | DONE | Добавлены шаблон Pull Request и шаблоны issue. |
-| OPS-004 | P1 | DECISION | Выбрать production hosting frontend/backend/PostgreSQL и описать архитектуру deploy без привязки домена к одной платформе. |
+| OPS-004 | P1 | DONE | Развёртывание описано в `docs/DEPLOY_RENDER.md`: Render Postgres + web service + static site, порядок шагов и проверка. Платформа не зашита в код — приложение настраивается переменными окружения, поэтому переезд на Timeweb/Selectel не требует правок. Ограничения бесплатных планов и досягаемость из России названы явно. |
 | OPS-005 | P1 | READY | Добавить production Compose/manifest с явными secrets, healthchecks, restart policy и resource limits. |
 | OPS-006 | P1 | READY | Автоматизировать применение миграций как отдельный release step с блокировкой и понятным rollback-планом. |
 | OPS-007 | P1 | DECISION | Настроить резервные копии PostgreSQL, retention и периодическую проверку восстановления. |
