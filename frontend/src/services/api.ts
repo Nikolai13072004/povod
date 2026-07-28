@@ -104,6 +104,69 @@ export type EventWrite = Omit<
   "id" | "author" | "authorId" | "participants" | "participantIds" | "createdAt"
 >;
 
+interface ApiIssue {
+  message?: string;
+  path?: (string | number)[];
+}
+
+interface ApiErrorPayload {
+  error?: string;
+  issues?: ApiIssue[];
+}
+
+/** Человекочитаемые названия полей: `path` из Zod содержит имена из схемы. */
+const FIELD_LABELS: Record<string, string> = {
+  name: "Имя",
+  email: "Email",
+  password: "Пароль",
+  title: "Название",
+  description: "Описание",
+  startsAt: "Дата начала",
+  endsAt: "Дата окончания",
+  location: "Место",
+  category: "Категория",
+  tags: "Теги",
+  coords: "Координаты",
+  participantLimit: "Ограничение мест",
+  text: "Текст",
+  city: "Город",
+  interests: "Интересы",
+  image: "Изображение",
+};
+
+/**
+ * Собирает сообщение об ошибке из ответа сервера.
+ *
+ * Сервер на неверный ввод отвечает `{ error: "Validation failed", issues: [...] }`,
+ * где у каждой записи есть путь до поля и внятный текст. Раньше бралось только
+ * `error`, и человек видел «Validation failed» — фразу, из которой невозможно
+ * понять, что именно поправить. На настоящей регистрации это выглядело так:
+ * сервер написал «Некорректный email», а на экране появилось «Validation failed».
+ *
+ * Несколько ошибок склеиваются: форма показывает одну строку, и умолчать о
+ * второй ошибке значит заставить исправлять поля по одному.
+ */
+function describeApiError(payload: ApiErrorPayload | null, status: number): string {
+  const issues = payload?.issues ?? [];
+  if (issues.length > 0) {
+    const described = issues
+      .map((issue) => {
+        const message = issue.message?.trim();
+        if (!message) return undefined;
+        const field = issue.path?.[0];
+        const label = typeof field === "string" ? FIELD_LABELS[field] : undefined;
+        // Подпись поля добавляется, только если она известна: «Некорректный
+        // email» и так понятно, а «participantLimit: ...» — нет.
+        return label && !message.toLowerCase().includes(label.toLowerCase())
+          ? `${label}: ${message}`
+          : message;
+      })
+      .filter((item): item is string => Boolean(item));
+    if (described.length > 0) return described.join(". ");
+  }
+  return payload?.error ?? `API Error: ${status}`;
+}
+
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   try {
     const url = `${appConfig.apiBaseUrl}${endpoint}`;
@@ -123,7 +186,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     });
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
       const isCredentialAttempt =
         endpoint === "api/Auth/login" ||
         endpoint === "api/Auth/register" ||
@@ -133,7 +196,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
         window.dispatchEvent(new Event("povod:unauthorized"));
       }
       return {
-        error: payload?.error ?? `API Error: ${response.status}`,
+        error: describeApiError(payload, response.status),
         status: response.status,
       };
     }
