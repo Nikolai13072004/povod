@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { sessionStore } from "../stores/sessionStore";
 import { setStoredInterests } from "../storage";
 import { useInterestForm } from "../hooks/useInterestForm";
+import { INTERESTS } from "../data/interests";
 
 const PageContainer = styled.div`
   display: flex;
@@ -87,29 +88,13 @@ const Footer = styled.div`
   padding-top: 20px;
 `;
 
-const categories = [
-  { id: "sport", label: "Спорт" },
-  { id: "art", label: "Искусство" },
-  { id: "travel", label: "Путешествие" },
-  { id: "it", label: "IT" },
-  { id: "games", label: "Компьютерные игры" },
-  { id: "tech", label: "Технологии" },
-  { id: "food", label: "Еда" },
-  { id: "board_games", label: "Настольные игры" },
-  { id: "science", label: "Наука" },
-  { id: "music", label: "Музыка" },
-  { id: "self_dev", label: "Саморазвитие" },
-  { id: "edu", label: "Образование" },
-  { id: "cinema", label: "Кино" },
-  { id: "shopping", label: "Шопинг" },
-  { id: "restaurant", label: "Ресторан" },
-  { id: "museum", label: "Музей" },
-  { id: "rest", label: "Отдых" },
-];
+const categories = INTERESTS.map((label) => ({ id: label, label }));
 
 export function SelectInterestPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [location, setLocation] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   //   const [peopleFrom, setPeopleFrom] = useState("2");
   //   const [peopleTo, setPeopleTo] = useState("100");
 
@@ -136,8 +121,34 @@ export function SelectInterestPage() {
     setSelected((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
-  const handleContinue = () => {
+  /**
+   * Онбординг сохраняется на сервере.
+   *
+   * Раньше выбор уходил только в localStorage. Лента сортируется по интересам
+   * из профиля (`preferInterests` на сервере), а там оставался пустой массив —
+   * персонализация не включалась ни у кого, кто прошёл онбординг. Город
+   * собирался и валидировался, но не записывался никуда.
+   *
+   * Флаг `onboarded` ставится только после успешного сохранения: иначе шаг
+   * больше не повторить, а данные так и не дойдут до сервера.
+   */
+  const handleContinue = async () => {
     const labels = categories.filter((c) => selected.includes(c.id)).map((c) => c.label);
+    const trimmedCity = location.trim();
+
+    setSaving(true);
+    setSaveError(null);
+    const saved = await sessionStore.updateProfile({
+      interests: labels,
+      ...(trimmedCity ? { city: trimmedCity } : {}),
+    });
+    setSaving(false);
+
+    if (!saved) {
+      setSaveError(sessionStore.error ?? "Не удалось сохранить интересы. Попробуйте ещё раз");
+      return;
+    }
+
     setStoredInterests(sessionStore.user.id, labels);
     localStorage.setItem("isAuth", "true");
     localStorage.setItem("onboarded", "true");
@@ -209,17 +220,26 @@ export function SelectInterestPage() {
       </Section>
 
       <Footer>
+        {saveError && (
+          <Text
+            role="alert"
+            style={{ color: "var(--povod-danger)", fontSize: 13, marginBottom: 8 }}
+          >
+            {saveError}
+          </Text>
+        )}
         <Button
           size="l"
           stretched
-          disabled={!isValid || selected.length === 0}
+          loading={saving}
+          disabled={!isValid || selected.length === 0 || saving}
           appearance="accent"
           style={{
             background: isValid ? "var(--povod-primary)" : "var(--povod-border-strong)",
             borderRadius: 12,
             height: 52,
           }}
-          onClick={handleContinue}
+          onClick={() => void handleContinue()}
         >
           Продолжить
         </Button>

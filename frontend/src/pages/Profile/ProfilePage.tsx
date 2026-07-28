@@ -21,6 +21,7 @@ import { observer } from "mobx-react-lite";
 import bridge from "@vkontakte/vk-bridge";
 import { getStoredInterests, setStoredInterests } from "../../storage";
 import { useTheme } from "../../context/ThemeContext";
+import { INTERESTS } from "../../data/interests";
 
 const PageRoot = styled.div`
   display: flex;
@@ -205,8 +206,19 @@ const UserProfile = () => {
   const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Реальные интересы пользователя (его выбор) — из локального хранилища
-    setInterests(getStoredInterests(sessionStore.user.id));
+    /*
+     * Источник правды — профиль на сервере, localStorage только кэш для первого
+     * кадра. Раньше было наоборот, и это стирало данные: с другого компьютера
+     * (где localStorage пуст) список открывался пустым, добавление одного
+     * интереса слало `PUT` с массивом из одного элемента, а сервер заменяет
+     * массив целиком — прежние интересы исчезали навсегда. С городом то же:
+     * поле открывалось пустым и «Сохранить» записывало пустую строку.
+     */
+    const serverInterests = sessionStore.user.interests;
+    setInterests(
+      serverInterests?.length ? serverInterests : getStoredInterests(sessionStore.user.id),
+    );
+    setCity(sessionStore.user.city ?? sessionStore.city ?? "");
 
     // Друзья: внутри ВК — настоящие из ВКонтакте; в браузере — из бэкенда (демо)
     if (sessionStore.isVK) {
@@ -216,8 +228,10 @@ const UserProfile = () => {
         if (res.data) setFriends(res.data);
       });
     }
+    // Пересинхронизация при смене пользователя: иначе после выхода и входа под
+    // другим аккаунтом на экране остались бы чужие интересы и город.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionStore.user.id]);
 
   const loadVkFriends = async () => {
     try {
@@ -272,24 +286,7 @@ const UserProfile = () => {
     }
   };
 
-  const allAvailableInterests = [
-    "Спорт",
-    "Искусство",
-    "Путешествие",
-    "IT",
-    "Компьютерные игры",
-    "Технологии",
-    "Еда",
-    "Настольные игры",
-    "Наука",
-    "Музыка",
-    "Саморазвитие",
-    "ЗОЖ",
-    "Образование",
-    "Кино",
-    "Шопинг",
-    "Ресторан",
-  ];
+  const allAvailableInterests = INTERESTS;
 
   const handleCloseProfile = () => {
     navigate(-1);

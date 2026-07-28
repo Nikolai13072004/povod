@@ -159,7 +159,26 @@ function EventPageComponent() {
     );
   }
 
-  if (!eventData) return null;
+  // Последний рубеж. `return null` рисовал пустую страницу без шапки и без
+  // выхода — любая будущая рассинхронизация кэша снова дала бы белый экран.
+  if (!eventData) {
+    return (
+      <Panel id="unavailable">
+        <PanelHeader before={<PanelHeaderBack onClick={() => navigate(-1)} />}>Событие</PanelHeader>
+        <Group>
+          <AsyncContent
+            loading={false}
+            empty
+            emptyTitle="Событие недоступно"
+            emptyDescription="Возможно, оно было удалено или доступ к нему ограничен."
+            emptyActions={[
+              { label: "Открыть ленту", onClick: () => navigate("/page-1"), mode: "primary" },
+            ]}
+          />
+        </Group>
+      </Panel>
+    );
+  }
 
   const participants = eventData.participants ?? 0;
   const limit = eventData.participantLimit;

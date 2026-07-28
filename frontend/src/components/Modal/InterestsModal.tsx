@@ -1,6 +1,7 @@
 import styled from "@emotion/styled";
 import { ModalPage, ModalPageHeader, PanelHeaderButton, Button } from "@vkontakte/vkui";
 import { Icon24Dismiss } from "@vkontakte/icons";
+import { INTERESTS } from "../../data/interests";
 
 const InterestsGrid = styled.div`
   display: flex;
@@ -32,25 +33,7 @@ interface InterestsModalProps {
   onClose: () => void;
 }
 
-const INTERESTS_OPTIONS = [
-  "Спорт",
-  "Искусство",
-  "Путешествия",
-  "IT",
-  "Компьютерные игры",
-  "Технологии",
-  "Еда",
-  "Настольные игры",
-  "Наука",
-  "Музыка",
-  "Саморазвитие",
-  "Образование",
-  "Кино",
-  "Шопинг",
-  "Ресторан",
-  "Музей",
-  "Отдых",
-];
+const INTERESTS_OPTIONS = INTERESTS;
 
 export function InterestsModal({ id, onClose }: InterestsModalProps) {
   return (
