@@ -360,40 +360,50 @@ export class PostgresRepository implements PovodRepository {
     if (filters.activeAfter) add("e.starts_at >= ?", filters.activeAfter);
 
     /**
-     * Совпадение с интересами зрителя — булево выражение, которое участвует и в
-     * сортировке, и в сравнении с курсором. Приводим к 1/0: с числом строчное
-     * сравнение в курсоре читается однозначнее, чем с `true`/`false`.
+     * Совпадение с интересами зрителя — выражение, участвующее и в сортировке,
+     * и в сравнении с курсором. Значение 1/0, а не `true`/`false`: так сравнение
+     * кортежей с курсором читается однозначнее.
+     *
+     * Когда интересов нет, выражение не добавляется вовсе. Подставлять вместо
+     * него константу нельзя: `ORDER BY 0` PostgreSQL читает как номер колонки в
+     * списке выборки, а нулевой колонки не бывает. Заодно запрос остаётся ровно
+     * тем, под который заведён индекс `(created_at DESC, id DESC)`.
      */
-    let interestRank = "0";
+    let interestRank: string | undefined;
     if (filters.preferInterests?.length) {
       values.push(filters.preferInterests);
-      interestRank = `(CASE WHEN lower(coalesce(e.category, '')) = ANY(
-        SELECT lower(interest) FROM unnest($${values.length}::text[]) AS interest
-      ) OR EXISTS (
-        SELECT 1 FROM unnest(e.tags) AS tag
-        WHERE lower(tag) = ANY(SELECT lower(interest) FROM unnest($${values.length}::text[]) AS interest)
+      const wanted = `SELECT lower(interest) FROM unnest($${values.length}::text[]) AS interest`;
+      interestRank = `(CASE WHEN lower(coalesce(e.category, '')) = ANY(${wanted}) OR EXISTS (
+        SELECT 1 FROM unnest(e.tags) AS tag WHERE lower(tag) = ANY(${wanted})
       ) THEN 1 ELSE 0 END)`;
     }
 
     // Постраничная выдача — только для ленты (без явной сортировки по дате начала).
-    const paginated = !filters.sort;
-    if (paginated && filters.cursor) {
-      values.push(
-        filters.cursor.matchesInterests ? 1 : 0,
-        filters.cursor.createdAt,
-        filters.cursor.id,
-      );
+    if (!filters.sort && filters.cursor) {
       // Сравнение кортежей вместо цепочки OR: так условие точно совпадает с
       // порядком сортировки и не пропускает записи на границе страниц.
-      conditions.push(
-        `(${interestRank}, e.created_at, e.id) < ($${values.length - 2}, $${values.length - 1}, $${values.length})`,
-      );
+      if (interestRank) {
+        values.push(
+          filters.cursor.matchesInterests ? 1 : 0,
+          filters.cursor.createdAt,
+          filters.cursor.id,
+        );
+        conditions.push(
+          `(${interestRank}, e.created_at, e.id) < ($${values.length - 2}, $${values.length - 1}, $${values.length})`,
+        );
+      } else {
+        values.push(filters.cursor.createdAt, filters.cursor.id);
+        conditions.push(`(e.created_at, e.id) < ($${values.length - 1}, $${values.length})`);
+      }
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const feedOrder = interestRank
+      ? `${interestRank} DESC, e.created_at DESC, e.id DESC`
+      : "e.created_at DESC, e.id DESC";
     const order = filters.sort
       ? `ORDER BY e.starts_at ${filters.sort === "asc" ? "ASC" : "DESC"}, e.id DESC`
-      : `ORDER BY ${interestRank} DESC, e.created_at DESC, e.id DESC`;
+      : `ORDER BY ${feedOrder}`;
 
     let limit = "";
     if (filters.limit !== undefined) {
