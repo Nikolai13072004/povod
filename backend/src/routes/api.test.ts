@@ -180,6 +180,41 @@ test("login puts the session into an HttpOnly cookie and CSRF into a readable on
   assert.notEqual(cookieValue(csrfCookie), cookieValue(sessionCookie));
 });
 
+test("the login response carries the CSRF token the server will expect", async (context) => {
+  /*
+   * Кросс-доменное развёртывание: фронт на одном домене, API на другом. Куку
+   * povod_csrf ставит домен API, и `document.cookie` на фронте её НЕ ВИДИТ —
+   * там только куки своего домена. Сессионную куку браузер при этом шлёт,
+   * поэтому сервер требует заголовок, а взять его фронту было неоткуда: любой
+   * изменяющий запрос упирался в 403. Поймано на настоящем деплое.
+   */
+  const { baseUrl } = await startTestApp(context);
+  const response = await fetch(`${baseUrl}/api/Auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "elmira@povod.app", password: "povod-demo" }),
+  });
+  const body = (await response.json()) as { csrfToken?: string };
+  assert.ok(body.csrfToken, "ответ на вход обязан нести CSRF-токен");
+
+  // Значение должно совпадать с кукой — сервер сверяет заголовок именно с ней.
+  const cookies = setCookies(response);
+  assert.equal(body.csrfToken, cookieValue(cookies.get("povod_csrf") ?? ""));
+
+  // И оно должно проходить проверку: имитируем фронт, который куку не читает,
+  // а берёт токен из тела ответа.
+  const session = cookieValue(cookies.get("povod_session") ?? "");
+  const write = await fetch(`${baseUrl}/api/Events/2/join`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: `povod_session=${session}`,
+      "X-CSRF-Token": body.csrfToken!,
+    },
+  });
+  assert.notEqual(write.status, 403, "токен из тела ответа обязан проходить проверку");
+});
+
 test("a cookie session authenticates requests without the Authorization header", async (context) => {
   const { baseUrl } = await startTestApp(context);
   const browser = await loginWithCookies(baseUrl);

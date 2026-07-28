@@ -220,6 +220,7 @@ Yandex Cloud. Приложение при этом не меняется — т�
 | --- | --- |
 | Сборка падает на `TS2688: Cannot find type definition file for 'node'` | В Build Command нет `--include=dev`; `NODE_ENV=production` выкинул dev-зависимости |
 | Вход проходит, но страница снова просит войти | `AUTH_COOKIE_SAMESITE` не `none` |
+| `CSRF token missing or invalid` после входа | Версия backend старше SEC-016: на разных доменах фронт не может прочитать CSRF-куку API |
 | В консоли браузера ошибка CORS | `CORS_ORIGIN` не совпадает с адресом frontend буква в букву |
 | Прямая ссылка на событие даёт 404 | Нет правила перезаписи `/*` → `/index.html` |
 | Первый запрос идёт минуту | Бесплатный сервис спал, это ожидаемо |
