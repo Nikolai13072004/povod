@@ -88,7 +88,9 @@ describe("список переписок", () => {
     expect(screen.getByText("Переписок пока нет")).toBeInTheDocument();
     // Объяснение правила обязательно: иначе непонятно, почему список пуст.
     expect(screen.getByText(/принял вашу заявку в друзья/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Мои друзья" })).toBeInTheDocument();
+    // Ведёт к людям, а не в свой профиль: чтобы появилась первая переписка,
+    // нужно сначала кого-то найти и подружиться.
+    expect(screen.getByRole("button", { name: "Найти людей" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Открыть ленту" })).toBeInTheDocument();
   });
 

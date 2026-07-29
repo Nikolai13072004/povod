@@ -140,7 +140,9 @@ export const ChatList = observer(() => {
           searching
             ? [{ label: "Сбросить поиск", onClick: () => chatStore.setSearch(""), mode: "primary" }]
             : [
-                { label: "Мои друзья", onClick: () => navigate("/Profile"), mode: "primary" },
+                // Ведёт к людям, а не в свой профиль: чтобы появилась первая
+                // переписка, нужно сначала кого-то найти и подружиться.
+                { label: "Найти людей", onClick: () => navigate("/users"), mode: "primary" },
                 { label: "Открыть ленту", onClick: () => navigate("/page-1") },
               ]
         }

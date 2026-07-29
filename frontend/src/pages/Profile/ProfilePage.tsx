@@ -174,6 +174,39 @@ const InterestsHeading = styled.h2`
   color: var(--vkui--color_text_primary);
 `;
 
+/** Заголовок и выход к списку людей в одной строке. */
+const FriendsHeader = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-right: 12px;
+`;
+
+const FriendCard = styled.button`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 72px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--povod-primary);
+    outline-offset: 2px;
+    border-radius: var(--povod-radius-sm);
+  }
+`;
+
+const FriendName = styled.span`
+  font-size: 12px;
+  text-align: center;
+  color: var(--vkui--color_text_primary);
+`;
+
 const ChipsContainer = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -613,30 +646,30 @@ const UserProfile = () => {
           {/* Заявки идут выше списка: на них надо ответить, а список — справка. */}
           <FriendRequests userId={sessionStore.user.id} onAccepted={() => void loadFriends()} />
 
-          <InterestsHeading>Друзья ({friends.length})</InterestsHeading>
+          <FriendsHeader>
+            <InterestsHeading>Друзья ({friends.length})</InterestsHeading>
+            {/*
+              Единственный путь к чужому профилю раньше вёл через автора
+              события: человека, не создавшего ни одного повода, нельзя было
+              найти вообще — ни подружиться, ни написать (PROD-012).
+            */}
+            <Button mode="tertiary" size="s" onClick={() => navigate("/users")}>
+              Найти людей
+            </Button>
+          </FriendsHeader>
           <ChipsContainer style={{ gap: 16 }}>
             {friends.map((f) => (
-              <div
+              // Кнопка, а не div: карточки друзей никуда не вели, хотя выглядели
+              // кликабельными, и переписка с ними открывалась только в обход.
+              <FriendCard
                 key={f.id}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 6,
-                  width: 72,
-                }}
+                type="button"
+                onClick={() => navigate(`/users/${f.id}`)}
+                aria-label={`Профиль: ${f.name}`}
               >
                 <Avatar size={56} src={f.avatar} initials={f.name?.[0]} />
-                <span
-                  style={{
-                    fontSize: 12,
-                    textAlign: "center",
-                    color: "var(--vkui--color_text_primary)",
-                  }}
-                >
-                  {f.name}
-                </span>
-              </div>
+                <FriendName>{f.name}</FriendName>
+              </FriendCard>
             ))}
             {friends.length === 0 && (
               <span style={{ color: "var(--vkui--color_text_secondary)", fontSize: 14 }}>
