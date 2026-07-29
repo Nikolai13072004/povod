@@ -14,9 +14,21 @@ import { ScrollToTop } from "./components/ScrollToTop/ScrollToTop";
 import { AppUpdatePrompt } from "./components/AppUpdate/AppUpdatePrompt";
 import { useTheme } from "./context/ThemeContext";
 
-const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
+const AppContainer = styled.div<{
+  isWhiteBg?: boolean;
+  $hasNav?: boolean;
+  $lockViewport?: boolean;
+}>`
   min-height: 100vh;
   min-height: 100dvh;
+  /*
+   * Экран переписки живёт по своим правилам: он обязан занять ровно высоту окна,
+   * а не растягивать страницу. Прокрутку внутри ведёт только лента сообщений,
+   * поэтому здесь страница фиксируется по высоте и не скроллится целиком — иначе
+   * поле ввода уезжает под шапку, которую высота "весь экран" не вычитала.
+   */
+  ${(props) =>
+    props.$lockViewport ? "height: 100dvh; overflow: hidden; box-sizing: border-box;" : ""}
   display: flex;
   flex-direction: column;
   /* Проверка пропса + !important, чтобы перебить index.css */
@@ -31,7 +43,7 @@ const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
      (у страниц разный фон), из-за чего фон заметно «мигал» при переходе. */
 `;
 
-const MainContent = styled.div`
+const MainContent = styled.div<{ $fill?: boolean }>`
   flex: 1;
   width: 100%;
   box-sizing: border-box;
@@ -50,6 +62,14 @@ const MainContent = styled.div`
   @media (min-width: 900px) {
     order: 1;
   }
+
+  /*
+   * Режим переписки: без вертикальных отступов и как flex-колонка, чтобы
+   * дочерний экран мог занять оставшуюся высоту через flex, а не через 100dvh.
+   * Двойной амперсанд перебивает медиазапросы выше — иначе их padding вернулся бы.
+   */
+  ${(props) =>
+    props.$fill ? "&& { padding: 0; min-height: 0; display: flex; flex-direction: column; }" : ""}
 `;
 
 /** Максимальная ширина колонки контента для текущего маршрута. */
@@ -66,6 +86,9 @@ const App = observer(() => {
   // startsWith, а не строгое равенство: иначе экран переписки `/chats/:id`
   // молча терял белый фон и токены сцены, настроенные для списка.
   const isChatPage = location.pathname.startsWith("/chats");
+  // Именно переписка `/chats/:id`, а не список: только ей нужна раскладка во
+  // всю высоту окна с пришпиленным полем ввода.
+  const isChatThread = /^\/chats\/[^/]+$/.test(location.pathname);
   const isSelectInterestPage = location.pathname === "/SelectInterestPage";
   const isProfilePage = location.pathname === "/Profile";
   const isNotificationsPage = location.pathname === "/notifications";
@@ -134,14 +157,15 @@ const App = observer(() => {
             <AppContainer
               isWhiteBg={isChatPage}
               $hasNav={showAppChrome}
+              $lockViewport={isChatThread}
               style={
                 { "--povod-content-max": contentMaxWidth(location.pathname) } as React.CSSProperties
               }
             >
               {showTopHeader && <THeader />}
 
-              <MainContent>
-                <ContentWidth as="main">
+              <MainContent $fill={isChatThread}>
+                <ContentWidth as="main" $fill={isChatThread}>
                   <Suspense
                     fallback={
                       <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>

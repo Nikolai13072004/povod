@@ -11,9 +11,14 @@ import styled from "@emotion/styled";
  * оболочка приложения задаёт в зависимости от маршрута (узкая для авторизации и
  * онбординга, широкая для списков с сеткой карточек).
  */
-export const ContentWidth = styled.div`
+export const ContentWidth = styled.div<{ $fill?: boolean }>`
   width: 100%;
   max-width: var(--povod-content-max, 760px);
   margin-inline: auto;
   box-sizing: border-box;
+  /*
+   * Режим переписки: колонка сама становится flex-контейнером во всю высоту,
+   * чтобы экран диалога занял оставшееся место, а не считал его от 100dvh.
+   */
+  ${(props) => (props.$fill ? "flex: 1; min-height: 0; display: flex; flex-direction: column;" : "")}
 `;
