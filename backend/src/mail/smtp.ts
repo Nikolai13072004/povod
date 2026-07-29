@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import nodemailer, { type Transporter } from "nodemailer";
 import type { MailTransport } from "./transport.js";
 
@@ -29,10 +30,18 @@ export interface SmtpOptions {
   from: string;
   /** Подменяется в тестах, чтобы не открывать соединение. */
   createTransport?: typeof nodemailer.createTransport;
+  /** Подменяется в тестах, чтобы не ходить в DNS. */
+  resolveHost?: (host: string) => Promise<string>;
 }
 
 /** Внешний сервер, не ответивший за это время, считается недоступным. */
 const TIMEOUT_MS = 10_000;
+
+/** Адрес почтового сервера в IPv4 — см. пояснение в `createSmtpTransport`. */
+async function defaultResolveHost(host: string): Promise<string> {
+  const { address } = await lookup(host, { family: 4 });
+  return address;
+}
 
 export function createSmtpTransport({
   host,
@@ -42,6 +51,7 @@ export function createSmtpTransport({
   password,
   from,
   createTransport = nodemailer.createTransport,
+  resolveHost = defaultResolveHost,
 }: SmtpOptions): MailTransport {
   /*
    * Соединение создаётся один раз и переиспользуется: рукопожатие TLS с
@@ -53,21 +63,44 @@ export function createSmtpTransport({
    * измеряются минутами.
    */
   let transporter: Transporter | undefined;
-  const connection = (): Transporter =>
-    (transporter ??= createTransport({
-      host,
+
+  const connection = async (): Promise<Transporter> => {
+    if (transporter) return transporter;
+
+    /*
+     * Имя разрешаем в IPv4 сами.
+     *
+     * У контейнеров многих хостингов (в том числе Render) нет исходящего IPv6,
+     * а `smtp.gmail.com` отдаёт и A, и AAAA. Node шёл по AAAA и падал сразу:
+     *
+     *   connect ENETUNREACH 2a00:1450:4001:c21::6d:465 — code ESOCKET
+     *
+     * Ошибка выглядит как «SMTP заблокирован», хотя порт открыт — просто
+     * стучимся не по тому протоколу. Выбрать семейство адресов через настройки
+     * nodemailer нельзя: такой опции у него нет.
+     */
+    const address = await resolveHost(host);
+
+    transporter = createTransport({
+      host: address,
       port,
       secure,
       auth: { user, pass: password },
+      // Сертификат выписан на имя, а не на адрес: без этого проверка TLS
+      // провалится, потому что в `host` теперь цифры.
+      tls: { servername: host },
       connectionTimeout: TIMEOUT_MS,
       greetingTimeout: TIMEOUT_MS,
       socketTimeout: TIMEOUT_MS,
-    }));
+    });
+    return transporter;
+  };
 
   return {
     name: "smtp",
     send: async (message) => {
-      await connection().sendMail({
+      const mailer = await connection();
+      await mailer.sendMail({
         from,
         to: message.to,
         subject: message.subject,
