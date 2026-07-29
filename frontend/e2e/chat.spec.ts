@@ -15,9 +15,18 @@ import { reachFeed, register, uniqueEmail } from "./helpers";
 /** Тот же адрес, что в `webServer` конфигурации Playwright. */
 const BACKEND_URL = "http://127.0.0.1:8081";
 
-/** Отправляет заявку в друзья с чужого профиля. */
-async function requestFriendship(page: Page, peerId: string): Promise<void> {
-  await page.goto(`/users/${peerId}`);
+/**
+ * Отправляет заявку в друзья, доходя до человека тем же путём, что и живой
+ * пользователь: через список людей, а не по прямой ссылке.
+ *
+ * Прямой `goto` скрыл бы главное. До появления экрана «Люди» чужой профиль
+ * открывался ровно одним способом — кликом по автору события, — и человека,
+ * не создавшего ни одного повода, нельзя было найти вообще. Заявка в друзья и
+ * переписка существовали, но были недостижимы (PROD-012).
+ */
+async function requestFriendship(page: Page, peerName: string): Promise<void> {
+  await page.goto("/users");
+  await page.getByRole("button", { name: `Профиль: ${peerName}` }).click();
   await page.getByRole("button", { name: "Добавить в друзья" }).click();
   await expect(page.getByRole("button", { name: "Отменить заявку" })).toBeVisible();
 }
@@ -55,7 +64,7 @@ test("друзья переписываются, а посторонний не 
   await expect(borisPage.getByText("Переписка недоступна")).toBeVisible();
 
   // Заявка и согласие.
-  await requestFriendship(borisPage, aliceId);
+  await requestFriendship(borisPage, "Алиса");
   await page.goto(`/users/${borisId}`);
   await page.getByRole("button", { name: "Принять заявку" }).click();
   await expect(page.getByRole("button", { name: "Написать" })).toBeVisible();
@@ -89,14 +98,13 @@ test("друзья переписываются, а посторонний не 
 test("своё сообщение правится с отметкой и удаляется", async ({ page, context }) => {
   await register(page, "Автор", uniqueEmail("author"));
   await reachFeed(page);
-  const authorId = await currentUserId(page);
 
   const peerPage = await context.browser()!.newPage();
   await register(peerPage, "Собеседник", uniqueEmail("peer"));
   await reachFeed(peerPage);
   const peerId = await currentUserId(peerPage);
 
-  await requestFriendship(peerPage, authorId);
+  await requestFriendship(peerPage, "Автор");
   await page.goto(`/users/${peerId}`);
   await page.getByRole("button", { name: "Принять заявку" }).click();
   await page.getByRole("button", { name: "Написать" }).click();

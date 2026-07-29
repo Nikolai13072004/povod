@@ -26,6 +26,7 @@ const EventPage = lazy(() =>
 const SignUpEventsPage = lazy(() => import("../pages/page-3/page-3"));
 const ChatPage = lazy(() => import("../pages/chat/ChatPage"));
 const ChatThreadPage = lazy(() => import("../pages/chat/ChatThreadPage"));
+const PeoplePage = lazy(() => import("../pages/People/PeoplePage"));
 const CreateEventForm = lazy(() => import("../pages/CreateEvent/CreateEventForm"));
 const NotificationsPage = lazy(() =>
   import("../components/Notification/NotificationsPage").then((m) => ({
@@ -52,6 +53,8 @@ export const router = createBrowserRouter([
           { path: "events", element: <SignUpEventsPage /> },
           { path: "SelectInterestPage", element: <SelectInterestPage /> },
           { path: "Profile", element: <UserProfile /> },
+          // Список объявлен до `:id`, иначе «люди» разобрались бы как профиль.
+          { path: "users", element: <PeoplePage /> },
           { path: "users/:id", element: <AuthorProfilePage /> },
           { path: "chats", element: <ChatPage /> },
           { path: "chats/:userId", element: <ChatThreadPage /> },
