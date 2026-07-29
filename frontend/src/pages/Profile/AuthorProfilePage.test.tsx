@@ -9,6 +9,7 @@ const mockApi = vi.hoisted(() => ({
   getFriends: vi.fn(),
   getFriendRequests: vi.fn(),
   addFriend: vi.fn(),
+  acceptFriendRequest: vi.fn(),
   removeFriend: vi.fn(),
 }));
 
@@ -18,6 +19,7 @@ vi.mock("../../services/api", () => ({
     getFriends: mockApi.getFriends,
     getFriendRequests: mockApi.getFriendRequests,
     addFriend: mockApi.addFriend,
+    acceptFriendRequest: mockApi.acceptFriendRequest,
     removeFriend: mockApi.removeFriend,
   },
   eventsAPI: { getByAuthor: mockApi.getByAuthor },
@@ -28,6 +30,7 @@ vi.mock("../../stores/sessionStore", () => ({
 }));
 
 import { ToastProvider } from "../../components/Toast/ToastProvider";
+import { friendsStore } from "../../stores/friendsStore";
 import { AuthorProfilePage } from "./AuthorProfilePage";
 
 const author = {
@@ -66,6 +69,8 @@ function renderPage(path = "/users/u1") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Связь живёт в сторе-синглтоне: без сброса состояние течёт между тестами.
+  friendsStore.reset();
   mockApi.getUser.mockResolvedValue({ data: author, status: 200 });
   mockApi.getByAuthor.mockResolvedValue({ data: authorEvents, status: 200 });
   mockApi.getFriends.mockResolvedValue({ data: [], status: 200 });
@@ -128,8 +133,41 @@ describe("AuthorProfilePage", () => {
 });
 
 describe("связь с человеком", () => {
+  /** Сервер после действия отдаёт новое состояние — стор перечитывает его целиком. */
+  const serverSays = (state: { friends?: boolean; incoming?: boolean; outgoing?: boolean }) => {
+    mockApi.getFriends.mockResolvedValue({ data: state.friends ? [author] : [], status: 200 });
+    mockApi.getFriendRequests.mockResolvedValue({
+      data: {
+        incoming: state.incoming ? [author] : [],
+        outgoing: state.outgoing ? [author] : [],
+      },
+      status: 200,
+    });
+  };
+
+  it("до ответа сервера кнопок нет вовсе", async () => {
+    /*
+     * Раньше начальным состоянием было «не друзья», и у настоящего друга
+     * рисовалась кнопка «Добавить в друзья»: нажатие возвращало «уже друзья»,
+     * статус прыгал обратно, и снаружи это выглядело как «показывает неправду,
+     * пока не обновишь страницу».
+     */
+    let release: (value: unknown) => void = () => {};
+    mockApi.getFriends.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
+    renderPage();
+
+    await screen.findByText("Эльмира Гильманова");
+    expect(screen.queryByRole("button", { name: "Добавить в друзья" })).not.toBeInTheDocument();
+
+    release({ data: [author], status: 200 });
+    expect(await screen.findByRole("button", { name: "Написать" })).toBeInTheDocument();
+  });
+
   it("даёт отправить заявку — до этого сделать это было негде вовсе", async () => {
-    mockApi.addFriend.mockResolvedValue({ data: { status: "pending" }, status: 201 });
+    mockApi.addFriend.mockImplementation(async () => {
+      serverSays({ outgoing: true });
+      return { data: { status: "pending" }, status: 201 };
+    });
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: "Добавить в друзья" }));
@@ -139,11 +177,11 @@ describe("связь с человеком", () => {
   });
 
   it("встречная заявка принимается тем же нажатием", async () => {
-    mockApi.getFriendRequests.mockResolvedValue({
-      data: { incoming: [author], outgoing: [] },
-      status: 200,
+    serverSays({ incoming: true });
+    mockApi.addFriend.mockImplementation(async () => {
+      serverSays({ friends: true });
+      return { data: { status: "accepted" }, status: 200 };
     });
-    mockApi.addFriend.mockResolvedValue({ data: { status: "accepted" }, status: 200 });
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: "Принять заявку" }));
@@ -151,11 +189,23 @@ describe("связь с человеком", () => {
   });
 
   it("у друга появляется переход в переписку", async () => {
-    mockApi.getFriends.mockResolvedValue({ data: [author], status: 200 });
+    serverSays({ friends: true });
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: "Написать" }));
     expect(await screen.findByText("переписка")).toBeInTheDocument();
+  });
+
+  it("убрать из друзей меняет кнопку без перезагрузки", async () => {
+    serverSays({ friends: true });
+    mockApi.removeFriend.mockImplementation(async () => {
+      serverSays({});
+      return { status: 204 };
+    });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Убрать из друзей" }));
+    expect(await screen.findByRole("button", { name: "Добавить в друзья" })).toBeInTheDocument();
   });
 
   it("на своём профиле кнопок связи нет", async () => {
@@ -164,7 +214,5 @@ describe("связь с человеком", () => {
 
     await screen.findByText("Эльмира Гильманова");
     expect(screen.queryByRole("button", { name: "Добавить в друзья" })).not.toBeInTheDocument();
-    // И связь не запрашивается вовсе: спрашивать про дружбу с самим собой нечего.
-    expect(mockApi.getFriends).not.toHaveBeenCalled();
   });
 });

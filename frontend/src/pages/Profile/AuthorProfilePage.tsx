@@ -6,7 +6,9 @@ import { Icon20PlaceOutline } from "@vkontakte/icons";
 import { AsyncContent } from "../../components/AsyncContent";
 import { eventsAPI, usersAPI, type Event as ApiEvent, type User } from "../../services/api";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
+import { observer } from "mobx-react-lite";
 import { sessionStore } from "../../stores/sessionStore";
+import { friendsStore } from "../../stores/friendsStore";
 import { useToast } from "../../components/Toast/ToastProvider";
 
 const Header = styled.div`
@@ -26,9 +28,6 @@ const LinkActions = styled.div`
   gap: 8px;
   padding-top: 4px;
 `;
-
-/** Состояние связи с человеком: от него зависит единственная кнопка. */
-type LinkState = "none" | "outgoing" | "incoming" | "friends";
 
 const UserName = styled.h1`
   margin: 0;
@@ -104,7 +103,7 @@ const EventMeta = styled.span`
  * Данные берутся из публичных эндпоинтов, которые уже не отдают email
  * (`presentPublicUser`), поэтому личные данные здесь не раскрываются.
  */
-export function AuthorProfilePage() {
+function AuthorProfilePageView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -115,39 +114,21 @@ export function AuthorProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [link, setLink] = useState<LinkState>("none");
   const [linking, setLinking] = useState(false);
 
   const myId = sessionStore.user.id;
   const isMe = Boolean(id) && id === myId;
 
-  /**
-   * Состояние связи с этим человеком.
+  /*
+   * Связь берётся из общего стора, а не из локального состояния.
    *
-   * Определяется не одним запросом: сервер отдаёт список друзей и список
-   * заявок отдельно, а показать надо одну кнопку. Владелец профиля своих
-   * заявок не увидит — они спрашиваются от своего имени.
+   * Раньше она лежала в трёх компонентах отдельно и заполнялась один раз, при
+   * монтировании: действия соседнего экрана и второго человека до неё не
+   * доходили никак. Плюс начальным значением было «не друзья», хотя ответа ещё
+   * не было, — у настоящего друга рисовалась кнопка «Добавить в друзья»,
+   * нажатие возвращало «уже друзья», и статус прыгал обратно.
    */
-  const loadLink = useCallback(async () => {
-    if (!id || !myId || id === myId) return;
-    const [friends, requests] = await Promise.all([
-      usersAPI.getFriends(myId),
-      usersAPI.getFriendRequests(myId),
-    ]);
-    if (friends.data?.some((friend) => friend.id === id)) {
-      setLink("friends");
-      return;
-    }
-    if (requests.data?.outgoing.some((person) => person.id === id)) {
-      setLink("outgoing");
-      return;
-    }
-    if (requests.data?.incoming.some((person) => person.id === id)) {
-      setLink("incoming");
-      return;
-    }
-    setLink("none");
-  }, [id, myId]);
+  const link = friendsStore.linkTo(id ?? "");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -178,22 +159,29 @@ export function AuthorProfilePage() {
 
   useEffect(() => {
     void load();
-    void loadLink();
-  }, [load, loadLink]);
+  }, [load]);
+
+  useEffect(() => {
+    if (!myId) return;
+    void friendsStore.load(myId);
+    // Пока экран открыт, второй человек мог принять заявку или убрать из
+    // друзей: без опроса это видно только после перезагрузки.
+    friendsStore.startPolling(myId);
+    return () => friendsStore.stopPolling();
+  }, [myId]);
 
   const requestFriendship = async () => {
     if (!id || !myId) return;
     setLinking(true);
-    const response = await usersAPI.addFriend(myId, id);
+    const outcome = await friendsStore.request(myId, id);
     setLinking(false);
-    if (!response.data) {
-      showToast(response.error ?? "Не удалось отправить заявку", { type: "error" });
+    if (!outcome) {
+      showToast("Не удалось отправить заявку", { type: "error" });
       return;
     }
-    // `accepted` — встречная заявка уже висела, и этот вызов её принял.
-    setLink(response.data.status === "accepted" ? "friends" : "outgoing");
+    // «friends» — встречная заявка уже висела, и этот вызов её принял.
     showToast(
-      response.data.status === "accepted"
+      outcome === "friends"
         ? `${user?.name ?? "Пользователь"} теперь у вас в друзьях`
         : "Заявка отправлена",
       { type: "success" },
@@ -203,13 +191,9 @@ export function AuthorProfilePage() {
   const cancelFriendship = async () => {
     if (!id || !myId) return;
     setLinking(true);
-    const response = await usersAPI.removeFriend(myId, id);
+    const removed = await friendsStore.remove(myId, id);
     setLinking(false);
-    if (response.error) {
-      showToast(response.error, { type: "error" });
-      return;
-    }
-    setLink("none");
+    if (!removed) showToast("Не удалось изменить связь", { type: "error" });
   };
 
   return (
@@ -255,7 +239,11 @@ export function AuthorProfilePage() {
                   негде вовсе: принять чужую интерфейс умел, а свою послать —
                   нет, и подружиться через приложение было невозможно.
                 */}
-                {!isMe && myId && (
+                {/*
+                  При `unknown` не рисуем ничего: показать «Добавить в друзья»
+                  тому, кто уже друг, хуже, чем показать пустоту на полсекунды.
+                */}
+                {!isMe && myId && link !== "unknown" && (
                   <LinkActions>
                     {link === "none" && (
                       <Button loading={linking} disabled={linking} onClick={requestFriendship}>
@@ -316,3 +304,6 @@ export function AuthorProfilePage() {
     </Panel>
   );
 }
+
+/** observer: связь живёт в MobX-сторе, без обёртки экран о ней не узнает. */
+export const AuthorProfilePage = observer(AuthorProfilePageView);

@@ -2429,7 +2429,7 @@ export interface components {
             eventId: string;
         };
         /** @enum {string} */
-        NotificationType: "event_updated" | "event_cancelled" | "event_comment" | "event_joined" | "direct_message";
+        NotificationType: "event_updated" | "event_cancelled" | "event_comment" | "event_joined" | "direct_message" | "friend_request" | "friend_accepted";
         Notification: {
             id: string;
             userId: string;

@@ -117,6 +117,10 @@ export const NotificationsPage = observer(() => {
     if (notification.type === "direct_message") {
       return notification.actorId ? `/chats/${notification.actorId}` : undefined;
     }
+    // У заявки — тоже человек, но вести надо на его профиль: там кнопка ответа.
+    if (notification.type === "friend_request" || notification.type === "friend_accepted") {
+      return notification.actorId ? `/users/${notification.actorId}` : undefined;
+    }
     // Отменённое событие открывать негде — ссылки на него больше не существует.
     return notification.eventId ? `/page-1/${notification.eventId}` : undefined;
   };

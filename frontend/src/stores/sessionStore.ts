@@ -18,6 +18,7 @@ import { filtersStore } from "./filtersStore";
 import { notificationsStore } from "./notificationsStore";
 import { favoritesStore } from "./favoritesStore";
 import { chatStore } from "./chatStore";
+import { friendsStore } from "./friendsStore";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -213,6 +214,7 @@ class SessionStore {
     notificationsStore.reset();
     favoritesStore.reset();
     chatStore.reset();
+    friendsStore.reset();
   }
 
   private applySession(session: AuthSession): void {
