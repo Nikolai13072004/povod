@@ -211,6 +211,7 @@ export function runDirectMessageConformance(
     const editedAt = new Date().toISOString();
     const updated = await repository.updateDirectMessage(
       sentResult.message.id,
+      "u1",
       "опечатка",
       editedAt,
     );
@@ -219,15 +220,70 @@ export function runDirectMessageConformance(
     assert.equal(updated?.editedAt, editedAt, "собеседник обязан видеть, что реплику меняли");
   });
 
+  test(named("чужое сообщение не правится и не удаляется"), { skip }, async () => {
+    const repository = await freshRepository();
+    const sentResult = await send(repository, "u1", "u2", "моё");
+    if (sentResult.outcome !== "sent") return;
+
+    // Получатель — не автор: подменять чужие слова, оставляя чужое имя, нельзя.
+    const stolen = await repository.updateDirectMessage(
+      sentResult.message.id,
+      "u2",
+      "подмена",
+      new Date().toISOString(),
+    );
+    assert.equal(stolen, undefined);
+    assert.equal(await repository.deleteDirectMessage(sentResult.message.id, "u2"), false);
+  });
+
+  test(named("после расторжения дружбы правка закрыта вместе с отправкой"), { skip }, async () => {
+    /*
+     * Дыра, найденная состязательным разбором уже готовой фичи. Отправка после
+     * расторжения отвечала отказом, а правка — нет: переписав все прежние
+     * реплики, человек продолжал доставлять текст тому, кто его отфрендил.
+     * «Убрать из друзей» — единственный доступный жертве рычаг, блокировок в
+     * продукте нет.
+     */
+    const repository = await freshRepository();
+    const sentResult = await send(repository, "u1", "u2", "пока дружили");
+    if (sentResult.outcome !== "sent") return;
+
+    await repository.removeFriend("u2", "u1");
+
+    const edited = await repository.updateDirectMessage(
+      sentResult.message.id,
+      "u1",
+      "текст, доставленный в обход",
+      new Date().toISOString(),
+    );
+    assert.equal(edited, undefined, "правка обязана закрываться вместе с отправкой");
+
+    const history = await repository.listDirectMessages("u1", "u2", {
+      limit: DEFAULT_THREAD_LIMIT,
+    });
+    assert.equal(history[0]?.text, "пока дружили", "текст не изменился");
+  });
+
+  test(named("удалить своё можно и без дружбы"), { skip }, async () => {
+    // Обратная сторона: запрет удаления запер бы слова человека, которого
+    // отфрендили, в чужой переписке навсегда.
+    const repository = await freshRepository();
+    const sentResult = await send(repository, "u1", "u2", "хочу забрать");
+    if (sentResult.outcome !== "sent") return;
+
+    await repository.removeFriend("u2", "u1");
+    assert.equal(await repository.deleteDirectMessage(sentResult.message.id, "u1"), true);
+  });
+
   test(named("удаление убирает сообщение из переписки"), { skip }, async () => {
     const repository = await freshRepository();
     const sentResult = await send(repository, "u1", "u2", "лишнее");
     assert.equal(sentResult.outcome, "sent");
     if (sentResult.outcome !== "sent") return;
 
-    assert.equal(await repository.deleteDirectMessage(sentResult.message.id), true);
+    assert.equal(await repository.deleteDirectMessage(sentResult.message.id, "u1"), true);
     assert.equal(
-      await repository.deleteDirectMessage(sentResult.message.id),
+      await repository.deleteDirectMessage(sentResult.message.id, "u1"),
       false,
       "повтор — ложь",
     );
@@ -242,7 +298,7 @@ export function runDirectMessageConformance(
     const sentResult = await send(repository, "u1", "u2", "лишнее");
     if (sentResult.outcome !== "sent") return;
 
-    await repository.deleteDirectMessage(sentResult.message.id);
+    await repository.deleteDirectMessage(sentResult.message.id, "u1");
     assert.equal(await repository.countUnreadDirectMessages("u2"), 0);
   });
 

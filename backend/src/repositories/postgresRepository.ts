@@ -1018,21 +1018,43 @@ export class PostgresRepository implements PovodRepository {
 
   async updateDirectMessage(
     id: string,
+    senderId: string,
     text: string,
     editedAt: string,
   ): Promise<DirectMessage | undefined> {
+    /*
+     * Авторство и дружба — часть условия UPDATE, а не отдельная проверка перед
+     * ним. Проверка снаружи оставила бы окно между двумя запросами, а главное —
+     * её легко забыть: ровно так правка и оказалась лазейкой в обход
+     * расторжения дружбы (BE-004, PROD-011).
+     *
+     * `friendships` хранит пару в каноническом порядке, поэтому сравнение идёт
+     * с least/greatest, а не с двумя вариантами.
+     */
     const result = await this.pool.query<DirectMessageRow>(
-      `UPDATE direct_messages SET text = $2, edited_at = $3
-        WHERE id = $1
-        RETURNING id, sender_id, recipient_id, text, created_at, edited_at, read_at`,
-      [id, text, editedAt],
+      `UPDATE direct_messages m
+          SET text = $3, edited_at = $4
+        WHERE m.id = $1
+          AND m.sender_id = $2
+          AND EXISTS (
+            SELECT 1 FROM friendships f
+             WHERE f.user_id = least(m.sender_id, m.recipient_id)
+               AND f.friend_id = greatest(m.sender_id, m.recipient_id)
+               AND f.status = 'accepted'
+          )
+        RETURNING m.id, m.sender_id, m.recipient_id, m.text, m.created_at, m.edited_at, m.read_at`,
+      [id, senderId, text, editedAt],
     );
     const row = result.rows[0];
     return row ? mapDirectMessage(row) : undefined;
   }
 
-  async deleteDirectMessage(id: string): Promise<boolean> {
-    const result = await this.pool.query("DELETE FROM direct_messages WHERE id = $1", [id]);
+  async deleteDirectMessage(id: string, senderId: string): Promise<boolean> {
+    // Дружба не нужна: убрать собственный текст — действие в пользу приватности.
+    const result = await this.pool.query(
+      "DELETE FROM direct_messages WHERE id = $1 AND sender_id = $2",
+      [id, senderId],
+    );
     return (result.rowCount ?? 0) > 0;
   }
 

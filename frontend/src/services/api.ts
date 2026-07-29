@@ -7,11 +7,13 @@ interface ApiResponse<T> {
   status: number;
 }
 
-export interface AuthSession {
-  token: string;
-  expiresAt: string;
-  user: User;
-}
+/*
+ * Объявлен ниже, вместе с остальными типами контракта: этот интерфейс был
+ * написан руками и успел разойтись со схемой — в нём не хватало `csrfToken`,
+ * хотя сервер его отдаёт и фронт им пользуется. Ровно та болезнь, ради которой
+ * заводился единый контракт (ARCH-002); поймать её было нечем, потому что
+ * типы фронта не проверялись вовсе.
+ */
 
 const SESSION_TOKEN_KEY = "povod.sessionToken";
 const CSRF_TOKEN_KEY = "povod.csrfToken";
@@ -149,6 +151,7 @@ export type Comment = Schemas["Comment"];
 export type NotificationType = Schemas["NotificationType"];
 export type Notification = Schemas["Notification"];
 export type NotificationFeed = Schemas["NotificationFeed"];
+export type AuthSession = Schemas["AuthSession"];
 export type DirectMessage = Schemas["DirectMessage"];
 export type Dialog = Schemas["Dialog"];
 export type DialogList = Schemas["DialogList"];

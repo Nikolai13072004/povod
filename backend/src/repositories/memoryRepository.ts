@@ -527,20 +527,24 @@ export class MemoryRepository implements PovodRepository {
 
   async updateDirectMessage(
     id: string,
+    senderId: string,
     text: string,
     editedAt: string,
   ): Promise<DirectMessage | undefined> {
-    const message = this.messages.find((item) => item.id === id);
+    const message = this.messages.find((item) => item.id === id && item.senderId === senderId);
     if (!message) return undefined;
+    // Правка — это доставка нового текста, то есть та же отправка. Разреши её
+    // без проверки дружбы — и «убрать из друзей» перестанет закрывать канал.
+    if (!(await this.areFriends(senderId, message.recipientId))) return undefined;
     message.text = text;
     message.editedAt = editedAt;
     this.scheduleSave();
     return clone(message);
   }
 
-  async deleteDirectMessage(id: string): Promise<boolean> {
+  async deleteDirectMessage(id: string, senderId: string): Promise<boolean> {
     const before = this.messages.length;
-    this.messages = this.messages.filter((item) => item.id !== id);
+    this.messages = this.messages.filter((item) => !(item.id === id && item.senderId === senderId));
     if (this.messages.length === before) return false;
     this.scheduleSave();
     return true;

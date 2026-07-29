@@ -368,3 +368,102 @@ test("отправка из браузера требует CSRF-токен", as
   });
   assert.equal(withToken.status, 201);
 });
+
+test("расторжение дружбы закрывает и правку, а не только отправку", async (context) => {
+  /*
+   * Дыра, найденная состязательным разбором уже готовой фичи.
+   *
+   * `POST` после расторжения отвечал 404, а `PUT` — нет: переписав все прежние
+   * реплики, человек продолжал доставлять текст тому, кто его отфрендил, и
+   * текст доезжал следующим опросом переписки. «Убрать из друзей» —
+   * единственный доступный жертве рычаг, блокировок в продукте нет.
+   */
+  const { baseUrl } = await startTestApp(context);
+  const abuser = await register(baseUrl, "Абьюзер");
+  const victim = await register(baseUrl, "Жертва");
+  await befriend(baseUrl, abuser, victim);
+
+  const sent = await send(baseUrl, abuser, victim.id, "привет");
+  const { id } = (await sent.json()) as { id: string };
+
+  const unfriended = await fetch(
+    `${baseUrl}/api/Users/${victim.id}/friends/${abuser.id}`,
+    authorized(victim.token, { method: "DELETE" }),
+  );
+  assert.equal(unfriended.status, 204);
+
+  const edit = await fetch(
+    `${baseUrl}/api/Messages/${id}`,
+    authorized(abuser.token, { method: "PUT", body: JSON.stringify({ text: "травля" }) }),
+  );
+  assert.equal(edit.status, 404, "правка обязана закрываться вместе с отправкой");
+
+  // Текст в переписке жертвы не изменился.
+  const thread = await fetch(
+    `${baseUrl}/api/Messages/dialog/${abuser.id}`,
+    authorized(victim.token),
+  );
+  const body = (await thread.json()) as { items: { text: string }[] };
+  assert.deepEqual(
+    body.items.map((item) => item.text),
+    ["привет"],
+  );
+});
+
+test("удалить своё можно и после расторжения дружбы", async (context) => {
+  // Обратная сторона правила: запрет запер бы слова отфренженного человека в
+  // чужой переписке навсегда.
+  const { baseUrl } = await startTestApp(context);
+  const author = await register(baseUrl, "Автор");
+  const peer = await register(baseUrl, "Собеседник");
+  await befriend(baseUrl, author, peer);
+
+  const sent = await send(baseUrl, author, peer.id, "хочу забрать");
+  const { id } = (await sent.json()) as { id: string };
+
+  await fetch(
+    `${baseUrl}/api/Users/${peer.id}/friends/${author.id}`,
+    authorized(peer.token, { method: "DELETE" }),
+  );
+
+  const removed = await fetch(
+    `${baseUrl}/api/Messages/${id}`,
+    authorized(author.token, { method: "DELETE" }),
+  );
+  assert.equal(removed.status, 204);
+});
+
+test("курсор с невнятной датой отдаёт первую страницу, а не 500", async (context) => {
+  /*
+   * `createdAt` проверялся только на тип, поэтому строка вроде «не-дата»
+   * доезжала до SQL как `$2::timestamptz`: PostgreSQL отвечал 22007, а клиент
+   * получал 500 на собственноручно испорченном параметре. In-memory адаптер
+   * при этом спокойно отдавал 200 — расхождение, заметное только в бою.
+   */
+  const { baseUrl } = await startTestApp(context);
+  const alice = await register(baseUrl, "Алиса");
+  const boris = await register(baseUrl, "Борис");
+  await befriend(baseUrl, alice, boris);
+  await send(baseUrl, alice, boris.id, "привет");
+
+  const broken = Buffer.from(JSON.stringify({ id: "a", createdAt: "не-дата" }), "utf8").toString(
+    "base64url",
+  );
+  const url = new URL(`${baseUrl}/api/Messages/dialog/${alice.id}`);
+  url.searchParams.set("cursor", broken);
+
+  const response = await fetch(url, authorized(boris.token));
+  assert.equal(response.status, 200);
+  assert.equal(((await response.json()) as { items: unknown[] }).items.length, 1);
+});
+
+test("переписка не оседает в кэше браузера", async (context) => {
+  // На общем устройстве кэшированные ответы переживут выход из аккаунта.
+  const { baseUrl } = await startTestApp(context);
+  const alice = await register(baseUrl, "Алиса");
+
+  for (const path of ["/api/Messages", "/api/Messages/unread"]) {
+    const response = await fetch(`${baseUrl}${path}`, authorized(alice.token));
+    assert.equal(response.headers.get("cache-control"), "no-store", path);
+  }
+});

@@ -146,7 +146,11 @@ describe("транспорт API и признаки сессии", () => {
       }),
     );
 
-    const response = await authAPI.register("123", "4131@com", "123456789");
+    const response = await authAPI.register({
+      name: "123",
+      email: "4131@com",
+      password: "123456789",
+    });
     expect(response.error).toBe("Некорректный email");
   });
 
@@ -161,7 +165,7 @@ describe("транспорт API и признаки сессии", () => {
       }),
     );
 
-    const response = await authAPI.register("я", "a@b.ru", "123");
+    const response = await authAPI.register({ name: "я", email: "a@b.ru", password: "123" });
     // «Имя слишком короткое» уже называет поле — подпись не дублируется.
     expect(response.error).toBe(
       "Имя слишком короткое. Пароль: Строка должна содержать минимум 8 символов",
@@ -171,7 +175,11 @@ describe("транспорт API и признаки сессии", () => {
   it("оставляет общее сообщение, когда подробностей нет", async () => {
     mockFetch(jsonResponse(409, { error: "Пользователь с таким email уже существует" }));
 
-    const response = await authAPI.register("Илья", "a@b.ru", "12345678");
+    const response = await authAPI.register({
+      name: "Илья",
+      email: "a@b.ru",
+      password: "12345678",
+    });
     expect(response.error).toBe("Пользователь с таким email уже существует");
   });
 

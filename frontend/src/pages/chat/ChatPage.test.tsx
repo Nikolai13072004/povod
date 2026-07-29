@@ -13,6 +13,8 @@ const mockChatStore = vi.hoisted(() => ({
   search: "",
   loadDialogs: vi.fn(),
   setSearch: vi.fn(),
+  startDialogsPolling: vi.fn(),
+  stopDialogsPolling: vi.fn(),
 }));
 
 vi.mock("../../stores/chatStore", () => ({ chatStore: mockChatStore }));

@@ -29,6 +29,17 @@ import {
 
 export const messagesRouter = Router();
 
+/*
+ * Личная переписка не должна оседать в дисковом кэше браузера: на общем
+ * устройстве она переживёт выход из аккаунта и достанется следующему. Service
+ * worker её не кэширует (в нём только статика), но обычный HTTP-кэш этим не
+ * управляется — заголовок нужен явно, и helmet его не ставит.
+ */
+messagesRouter.use((_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 /** Один и тот же отказ на все случаи: подробности утекли бы наружу. */
 const noDialog = () => new HttpError(404, "Диалог не найден");
 
@@ -172,24 +183,32 @@ messagesRouter.post(
 /**
  * Правка своего сообщения.
  *
- * Править может только автор: подменять чужие слова, оставляя чужое имя,
- * нельзя — то же правило, что у комментариев (BE-009). Отметка «изменён»
- * обязательна, иначе переписка молча переписывает саму себя.
+ * Править может только автор — подменять чужие слова, оставляя чужое имя,
+ * нельзя (BE-009), — и только пока дружба подтверждена.
+ *
+ * Второе условие важнее, чем кажется. Правка доставляет НОВЫЙ текст в чужую
+ * переписку, то есть делает ровно то же, что отправка. Пока его не было,
+ * «убрать из друзей» — единственный доступный человеку рычаг, блокировок в
+ * продукте нет — закрывало только `POST`: отправка отвечала 404, а переписать
+ * все прежние реплики на что угодно по-прежнему было можно, и текст доезжал
+ * до собеседника следующим опросом переписки.
+ *
+ * Проверка живёт внутри `updateDirectMessage`, вместе с записью. Здесь её
+ * ставить нельзя по той же причине, что и у отправки: между двумя `await`
+ * дружбу успевают расторгнуть.
  */
 messagesRouter.put(
   "/:id",
   requireAuth,
+  sendRateLimit,
   asyncHandler(async (req, res) => {
     const user = getAuthUser(res.locals as AuthLocals);
-    const repository = getRepository();
-    const message = await repository.getDirectMessage(req.params.id);
-    // Чужое сообщение неотличимо от несуществующего: иначе перебором
-    // идентификаторов можно выяснить, что переписка есть.
-    if (!message || message.senderId !== user.id) throw noDialog();
-
     const { text } = messageUpdateSchema.parse(req.body);
-    const updated = await repository.updateDirectMessage(
-      message.id,
+    // Чужое сообщение, несуществующее и «дружбы больше нет» неразличимы:
+    // иначе перебором идентификаторов выясняется, что переписка есть.
+    const updated = await getRepository().updateDirectMessage(
+      req.params.id,
+      user.id,
       text,
       new Date().toISOString(),
     );
@@ -198,15 +217,21 @@ messagesRouter.put(
   }),
 );
 
+/**
+ * Удаление своего сообщения.
+ *
+ * Подтверждённая дружба здесь не требуется: убрать собственный текст —
+ * действие в пользу приватности, и запрещать его тому, кого отфрендили,
+ * значило бы запереть его слова в чужой переписке навсегда.
+ */
 messagesRouter.delete(
   "/:id",
   requireAuth,
+  sendRateLimit,
   asyncHandler(async (req, res) => {
     const user = getAuthUser(res.locals as AuthLocals);
-    const repository = getRepository();
-    const message = await repository.getDirectMessage(req.params.id);
-    if (!message || message.senderId !== user.id) throw noDialog();
-    await repository.deleteDirectMessage(message.id);
+    const removed = await getRepository().deleteDirectMessage(req.params.id, user.id);
+    if (!removed) throw noDialog();
     res.status(204).send();
   }),
 );

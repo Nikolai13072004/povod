@@ -52,6 +52,15 @@ export function decodeMessageCursor(value: string | undefined): MessageCursor | 
   try {
     const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as MessageCursor;
     if (typeof parsed?.id !== "string" || typeof parsed?.createdAt !== "string") return undefined;
+    /*
+     * Метку обязательно проверить на разбираемость, а не только на тип.
+     * Строка вроде "не-дата" типом проходит и доезжает до SQL как
+     * `$2::timestamptz` — PostgreSQL отвечает 22007, обработчик такой код не
+     * знает, и клиент получает 500 на собственноручно испорченном параметре.
+     * In-memory адаптер при этом спокойно отдаёт 200: расхождение,
+     * воспроизводимое только в бою.
+     */
+    if (!Number.isFinite(Date.parse(parsed.createdAt))) return undefined;
     return { createdAt: parsed.createdAt, id: parsed.id };
   } catch {
     return undefined;

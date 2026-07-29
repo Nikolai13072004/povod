@@ -25,6 +25,7 @@ const PAGE_SIZE = 30;
 
 const UNREAD_POLL_MS = 60_000;
 const THREAD_POLL_MS = 15_000;
+const DIALOGS_POLL_MS = 30_000;
 
 export interface ThreadState {
   peer?: User;
@@ -66,13 +67,30 @@ class ChatStore {
 
   threads = new Map<string, ThreadState>();
 
+  /**
+   * Поколение стора. Растёт при каждом reset().
+   *
+   * Ответы в полёте не отменяются: у fetchApi нет AbortController, а на
+   * бесплатном хостинге с холодным стартом запрос живёт десятки секунд. Без
+   * счётчика ответ, пришедший ПОСЛЕ выхода, заново наполнял бы очищенный стор
+   * данными вышедшего человека — и они доставались бы следующему.
+   */
+  private generation = 0;
+
   private unreadTimer?: ReturnType<typeof setInterval>;
   private unreadVisibility?: () => void;
+  private dialogsTimer?: ReturnType<typeof setInterval>;
+  private dialogsVisibility?: () => void;
   private threadTimer?: ReturnType<typeof setInterval>;
   private threadVisibility?: () => void;
 
   constructor() {
     makeAutoObservable(this);
+  }
+
+  /** Ответ пришёл после reset() — его результат уже никому не принадлежит. */
+  private stale(generation: number): boolean {
+    return generation !== this.generation;
   }
 
   thread(peerId: string): ThreadState {
@@ -104,8 +122,10 @@ class ChatStore {
       this.dialogsError = null;
     });
 
+    const generation = this.generation;
     const response = await messagesAPI.getDialogs();
     runInAction(() => {
+      if (this.stale(generation)) return;
       if (response.data) {
         this.dialogs = response.data.items;
         this.unread = response.data.unread;
@@ -124,8 +144,10 @@ class ChatStore {
       this.patchThread(peerId, { loading: true, error: null });
     });
 
+    const generation = this.generation;
     const response = await messagesAPI.getThread(peerId, { limit: PAGE_SIZE });
     runInAction(() => {
+      if (this.stale(generation)) return;
       if (response.data) {
         this.applyThread(peerId, response.data);
       } else if (response.status === 404) {
@@ -142,7 +164,11 @@ class ChatStore {
   private applyThread(peerId: string, page: MessageThread): void {
     this.patchThread(peerId, {
       peer: page.peer,
-      messages: page.items,
+      // Порядок нормализуется здесь, а не принимается на веру: дальше он
+      // поддерживается слиянием, и два разных источника истины о сортировке
+      // разошлись бы молча — первая страница легла бы иначе, чем все
+      // последующие.
+      messages: [...page.items].sort(newestFirst),
       nextCursor: page.nextCursor,
       canSend: page.canSend,
       loading: false,
@@ -160,11 +186,13 @@ class ChatStore {
       this.patchThread(peerId, { loadingMore: true });
     });
 
+    const generation = this.generation;
     const response = await messagesAPI.getThread(peerId, {
       cursor: current.nextCursor,
       limit: PAGE_SIZE,
     });
     runInAction(() => {
+      if (this.stale(generation)) return;
       const thread = this.thread(peerId);
       if (response.data) {
         this.patchThread(peerId, {
@@ -195,8 +223,10 @@ class ChatStore {
       this.patchThread(peerId, { sending: true, sendError: null });
     });
 
+    const generation = this.generation;
     const response = await messagesAPI.send(peerId, trimmed);
     runInAction(() => {
+      if (this.stale(generation)) return;
       const thread = this.thread(peerId);
       if (response.data) {
         this.patchThread(peerId, {
@@ -222,9 +252,11 @@ class ChatStore {
   edit = async (peerId: string, messageId: string, text: string): Promise<boolean> => {
     const trimmed = text.trim();
     if (!trimmed) return false;
+    const generation = this.generation;
     const response = await messagesAPI.update(messageId, trimmed);
     if (!response.data) return false;
     runInAction(() => {
+      if (this.stale(generation)) return;
       const thread = this.thread(peerId);
       this.patchThread(peerId, {
         messages: thread.messages.map((item) => (item.id === messageId ? response.data! : item)),
@@ -234,9 +266,11 @@ class ChatStore {
   };
 
   remove = async (peerId: string, messageId: string): Promise<boolean> => {
+    const generation = this.generation;
     const response = await messagesAPI.remove(messageId);
     if (response.error) return false;
     runInAction(() => {
+      if (this.stale(generation)) return;
       const thread = this.thread(peerId);
       this.patchThread(peerId, {
         messages: thread.messages.filter((item) => item.id !== messageId),
@@ -272,7 +306,9 @@ class ChatStore {
       });
     }
 
+    const generation = this.generation;
     const response = await messagesAPI.markRead(peerId);
+    if (this.stale(generation)) return;
     if (response.error) {
       await this.refreshUnread();
       return;
@@ -284,11 +320,39 @@ class ChatStore {
 
   /** Тихий: ошибку не показываем — значок не стоит паники, а 401 выкинет из аккаунта. */
   refreshUnread = async (): Promise<void> => {
+    const generation = this.generation;
     const response = await messagesAPI.unreadCount();
     if (response.data) {
       runInAction(() => {
+        if (this.stale(generation)) return;
         this.unread = response.data!.unread;
       });
+    }
+  };
+
+  /**
+   * Опрос списка диалогов, пока экран открыт.
+   *
+   * Тридцать секунд — между минутой у счётчика и пятнадцатью у переписки:
+   * список менее срочен, чем открытый диалог, но замирать на всю сессию, как
+   * было, ему нельзя.
+   */
+  startDialogsPolling = (intervalMs = DIALOGS_POLL_MS): void => {
+    this.stopDialogsPolling();
+    const tick = () => {
+      if (document.visibilityState === "visible") void this.loadDialogs(true);
+    };
+    this.dialogsTimer = setInterval(tick, intervalMs);
+    document.addEventListener("visibilitychange", tick);
+    this.dialogsVisibility = tick;
+  };
+
+  stopDialogsPolling = (): void => {
+    if (this.dialogsTimer) clearInterval(this.dialogsTimer);
+    this.dialogsTimer = undefined;
+    if (this.dialogsVisibility) {
+      document.removeEventListener("visibilitychange", this.dialogsVisibility);
+      this.dialogsVisibility = undefined;
     }
   };
 
@@ -323,13 +387,16 @@ class ChatStore {
     this.stopThreadPolling();
     const tick = async () => {
       if (document.visibilityState !== "visible") return;
-      const response = await messagesAPI.getThread(peerId, { limit: PAGE_SIZE });
-      if (!response.data) return;
+      const generation = this.generation;
+      // Тик живёт в setInterval: любое исключение отсюда всплывает как
+      // необработанный отказ промиса, который негде поймать и не видно.
+      const response = await messagesAPI.getThread(peerId, { limit: PAGE_SIZE }).catch(() => null);
+      if (!response?.data || this.stale(generation)) return;
       const incoming = response.data.items;
       runInAction(() => {
         const thread = this.thread(peerId);
         this.patchThread(peerId, {
-          messages: mergeMessages(thread.messages, incoming),
+          messages: mergeMessages(thread.messages, incoming, { authoritative: true }),
           canSend: response.data!.canSend,
           peer: response.data!.peer,
         });
@@ -358,8 +425,20 @@ class ChatStore {
   reset = (): void => {
     this.stopUnreadPolling();
     this.stopThreadPolling();
+    this.stopDialogsPolling();
     runInAction(() => {
+      // Растёт первым: всё, что вернётся после этой строки, уже устарело.
+      this.generation += 1;
       this.dialogs = [];
+      /*
+       * Флаг загрузки обязан сброситься здесь.
+       *
+       * Ответ, пришедший после reset(), выходит по проверке поколения — и не
+       * доходит до строки, которая снимает `dialogsLoading`. Оставь его
+       * взведённым, и следующий вход в аккаунт упрётся в ранний выход
+       * `loadDialogs`: список не загрузится никогда, без ошибки на экране.
+       */
+      this.dialogsLoading = false;
       this.dialogsLoaded = false;
       this.dialogsError = null;
       this.search = "";
@@ -369,21 +448,47 @@ class ChatStore {
   };
 }
 
+/** Свежие первыми; при равной метке порядок решает `id`, иначе он не строгий. */
+function newestFirst(left: DirectMessage, right: DirectMessage): number {
+  if (left.createdAt !== right.createdAt) return left.createdAt < right.createdAt ? 1 : -1;
+  if (left.id === right.id) return 0;
+  return left.id < right.id ? 1 : -1;
+}
+
 /**
- * Слияние страниц с дедупликацией по `id` и сортировкой «свежие первыми».
+ * Слияние страниц с дедупликацией по `id`.
  *
  * Дубли неизбежны: опрос перезапрашивает первую страницу целиком, а отправка
  * добавляет сообщение, которое придёт и следующим тиком.
+ *
+ * `authoritative` включается, когда пришла ПЕРВАЯ страница: тогда ответ —
+ * полная и точная картина своего отрезка истории, и сообщение, которого в нём
+ * нет, было удалено. Без этого удалённая собеседником реплика висела бы на
+ * экране бессрочно: слияние только добавляло записи и никогда не убирало, а
+ * повторный вход на экран упирался в `loaded`.
+ *
+ * Отрезок ограничен снизу самым старым пришедшим сообщением — всё, что глубже,
+ * лежит на непрошенных страницах, и трогать его нельзя.
  */
-function mergeMessages(current: DirectMessage[], incoming: DirectMessage[]): DirectMessage[] {
+function mergeMessages(
+  current: DirectMessage[],
+  incoming: DirectMessage[],
+  { authoritative = false }: { authoritative?: boolean } = {},
+): DirectMessage[] {
   const byId = new Map(current.map((item) => [item.id, item]));
+
+  if (authoritative && incoming.length > 0) {
+    const known = new Set(incoming.map((item) => item.id));
+    const oldest = incoming[incoming.length - 1]!;
+    for (const [id, item] of byId) {
+      if (known.has(id)) continue;
+      // Внутри отрезка и не пришло — значит удалено.
+      if (newestFirst(item, oldest) <= 0) byId.delete(id);
+    }
+  }
+
   for (const item of incoming) byId.set(item.id, item);
-  return [...byId.values()].sort((left, right) => {
-    if (left.createdAt !== right.createdAt) return left.createdAt < right.createdAt ? 1 : -1;
-    // При равной метке порядок решает id — иначе он не строгий, и список прыгает.
-    if (left.id === right.id) return 0;
-    return left.id < right.id ? 1 : -1;
-  });
+  return [...byId.values()].sort(newestFirst);
 }
 
 export const chatStore = new ChatStore();

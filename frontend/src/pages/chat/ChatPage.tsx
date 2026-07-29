@@ -101,7 +101,18 @@ export const ChatList = observer(() => {
   const searching = chatStore.search.trim().length > 0;
 
   useEffect(() => {
-    void chatStore.loadDialogs();
+    /*
+     * Каждый заход — заново, и дальше по таймеру.
+     *
+     * Без `force` стор возвращался по `dialogsLoaded` и список замирал на всю
+     * сессию: пока человек ходил по приложению, значок в шапке рос, а сам
+     * список новой переписки не показывал. Опроса у него тоже не было —
+     * `startThreadPolling` работает только на открытой переписке, а счётчик
+     * тянет одно число.
+     */
+    void chatStore.loadDialogs(true);
+    chatStore.startDialogsPolling();
+    return () => chatStore.stopDialogsPolling();
   }, []);
 
   return (

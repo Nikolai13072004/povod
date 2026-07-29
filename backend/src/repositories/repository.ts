@@ -232,13 +232,33 @@ export interface PovodRepository {
    */
   sendDirectMessage(input: CreateMessageInput): Promise<SendMessageResult>;
   getDirectMessage(id: string): Promise<DirectMessage | undefined>;
-  /** Правка своего сообщения; проставляет отметку `editedAt`. */
+  /**
+   * Правка своего сообщения; проставляет отметку `editedAt`.
+   *
+   * Авторство и дружба проверяются ЗДЕСЬ, в одной транзакции с записью, а не
+   * вызывающим кодом. Правка — это доставка нового текста в чужую переписку,
+   * то есть то же действие, что отправка, и запрещать её обязано то же
+   * правило. Иначе «убрать из друзей» перестаёт закрывать канал: отправка
+   * отвечает 404, а переписать все прежние реплики на что угодно по-прежнему
+   * можно, и текст доедет до собеседника следующим опросом.
+   *
+   * `undefined` — сообщения нет, оно чужое или дружбы больше нет. Снаружи эти
+   * случаи неразличимы намеренно.
+   */
   updateDirectMessage(
     id: string,
+    senderId: string,
     text: string,
     editedAt: string,
   ): Promise<DirectMessage | undefined>;
-  deleteDirectMessage(id: string): Promise<boolean>;
+  /**
+   * Удаление своего сообщения.
+   *
+   * Подтверждённая дружба здесь НЕ требуется: убрать собственный текст —
+   * действие в пользу приватности, и запрещать его тому, кого отфрендили,
+   * значило бы запереть его слова в чужой переписке навсегда.
+   */
+  deleteDirectMessage(id: string, senderId: string): Promise<boolean>;
   /** Страница переписки, свежие первыми; курсор листает вглубь истории. */
   listDirectMessages(
     userId: string,
