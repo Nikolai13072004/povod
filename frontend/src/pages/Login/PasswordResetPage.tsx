@@ -11,12 +11,16 @@ import { authAPI } from "../../services/api";
  * приходит на второй по ссылке из письма и первый в этот момент не видит.
  */
 
+/*
+ * Отступом, а не `min-height: 100dvh`. Полная высота экрана внутри контейнера,
+ * у которого есть свои отступы, всегда даёт лишние пиксели — страница начинала
+ * прокручиваться на пустом месте. Отступ сверху держит карточку в удобной зоне
+ * и на телефоне, и на широком экране, а прокрутки не появляется вовсе.
+ */
 const Page = styled.main`
-  min-height: 100vh;
-  min-height: 100dvh;
   display: grid;
-  place-items: center;
-  padding: 24px 16px;
+  place-items: start center;
+  padding: clamp(24px, 12vh, 96px) 16px 32px;
   background: var(--povod-bg);
 `;
 

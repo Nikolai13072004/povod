@@ -72,8 +72,17 @@ const App = observer(() => {
   const isSelectInterestPage = location.pathname === "/SelectInterestPage";
   const isProfilePage = location.pathname === "/Profile";
   const isNotificationsPage = location.pathname === "/notifications";
+  /*
+   * Экраны для тех, кто ещё не вошёл: форма входа и восстановление пароля.
+   *
+   * Навигация приложения на них бессмысленна и вредна: ссылки ведут туда, куда
+   * анониму нельзя, и нажатие выбрасывает обратно с «войдите снова». Плюс шапка
+   * с навигацией добавляли высоту, из-за которой карточка восстановления
+   * уезжала вниз и страница начинала прокручиваться.
+   */
+  const isPublicRoute = location.pathname === "/" || location.pathname === "/reset-password";
   const showAppChrome =
-    location.pathname !== "/" && !isSelectInterestPage && !isProfilePage && !isNotificationsPage;
+    !isPublicRoute && !isSelectInterestPage && !isProfilePage && !isNotificationsPage;
 
   /**
    * Карточка события рисует собственную шапку (VKUI `PanelHeader` с кнопкой «назад»),
