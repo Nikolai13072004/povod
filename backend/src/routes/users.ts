@@ -4,6 +4,7 @@ import { asyncHandler, HttpError } from "../middleware.js";
 import { friendAddSchema, profileUpdateSchema } from "../validation.js";
 import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware.js";
 import { presentPublicUser } from "../presenters.js";
+import { notifyFriendAccepted, notifyFriendRequest } from "../notifications.js";
 
 export const usersRouter = Router();
 
@@ -109,6 +110,9 @@ usersRouter.post(
       // одно и то же: принимать нечего.
       throw new HttpError(404, "Friend request not found");
     }
+    // Иначе отправивший заявку не узнаёт об ответе никак и вынужден заходить в
+    // чужой профиль и проверять кнопку.
+    await notifyFriendAccepted(req.params.requesterId, user);
     res.status(204).send();
   }),
 );
@@ -128,6 +132,7 @@ usersRouter.post(
         throw new HttpError(400, "Нельзя добавить в друзья самого себя");
       case "accepted":
         // Встречная заявка уже висела — этот вызов её принял.
+        await notifyFriendAccepted(friendId, user);
         res.status(200).json({ status: "accepted" });
         return;
       case "already-friends":
@@ -135,9 +140,13 @@ usersRouter.post(
         return;
       case "already-requested":
         // Повторное нажатие идемпотентно: заявка одна, и она уже отправлена.
+        // Уведомление тоже не дублируется: второе нажатие ничего не меняет.
         res.status(200).json({ status: "pending" });
         return;
       case "requested":
+        // Без этого заявка приходила молча: увидеть её можно было, только
+        // заглянув в профиль, а колокольчик не загорался вовсе (SEC-015).
+        await notifyFriendRequest(friendId, user);
         res.status(201).json({ status: "pending" });
     }
   }),

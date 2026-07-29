@@ -113,11 +113,6 @@ export async function notifyEventJoined(event: Event, actor: User): Promise<void
 /**
  * Новое личное сообщение (PROD-011).
  *
- * Единственный тип уведомления без события — поэтому `eventTitle` здесь нет, и
- * ради этого случая колонка стала необязательной (миграция 014). Писать туда
- * суррогат вроде «Личное сообщение» значило бы врать контракту: экран
- * уведомлений показывает название события ссылкой, а открывать здесь нечего.
- *
  * Вызывается только при `firstUnread`: пока предыдущее сообщение не прочитано,
  * второе уведомление не появляется. Иначе активная переписка вытеснит из
  * колокольчика приглашения, отмены и комментарии — то есть всё, что человек не
@@ -125,14 +120,42 @@ export async function notifyEventJoined(event: Event, actor: User): Promise<void
  */
 export async function notifyDirectMessage(recipientId: string, actor: User): Promise<void> {
   if (recipientId === actor.id) return;
-  await deliver([
-    {
-      id: randomUUID(),
-      userId: recipientId,
-      type: "direct_message",
-      actorId: actor.id,
-      actorName: actor.name,
-      createdAt: new Date().toISOString(),
-    },
-  ]);
+  await deliver([personalNotification(recipientId, "direct_message", actor)]);
+}
+
+/**
+ * Уведомления о дружбе (SEC-015).
+ *
+ * Заявка приходила молча: узнать о ней можно было, только зайдя в профиль и
+ * увидев блок «Заявки». Колокольчик не загорался, потому что уведомления не
+ * порождалось вовсе, — а именно им приложение сообщает обо всём остальном.
+ *
+ * Уведомление о принятии не менее важно: без него отправивший заявку не узнаёт
+ * об ответе никак и вынужден заходить в чужой профиль и проверять кнопку.
+ */
+export async function notifyFriendRequest(recipientId: string, actor: User): Promise<void> {
+  if (recipientId === actor.id) return;
+  await deliver([personalNotification(recipientId, "friend_request", actor)]);
+}
+
+export async function notifyFriendAccepted(recipientId: string, actor: User): Promise<void> {
+  if (recipientId === actor.id) return;
+  await deliver([personalNotification(recipientId, "friend_accepted", actor)]);
+}
+
+/**
+ * Уведомление без события: у сообщений и дружбы его нет, и `eventTitle` здесь
+ * отсутствует — ради этого случая колонка стала необязательной (миграция 014).
+ * Писать туда суррогат значило бы врать контракту: экран показывает название
+ * ссылкой на событие, а открывать здесь нечего, кроме человека.
+ */
+function personalNotification(userId: string, type: NotificationType, actor: User): Notification {
+  return {
+    id: randomUUID(),
+    userId,
+    type,
+    actorId: actor.id,
+    actorName: actor.name,
+    createdAt: new Date().toISOString(),
+  };
 }

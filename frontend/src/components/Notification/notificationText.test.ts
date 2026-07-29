@@ -62,6 +62,16 @@ describe("текст уведомления", () => {
     expect(formatNotification(message)).toBe("Марк написал вам");
   });
 
+  it("описывает оба типа уведомлений о дружбе", () => {
+    const base_ = { ...base, eventId: undefined, eventTitle: undefined };
+    expect(formatNotification({ ...base_, type: "friend_request" })).toBe(
+      "Марк хочет добавить вас в друзья",
+    );
+    expect(formatNotification({ ...base_, type: "friend_accepted" })).toBe(
+      "Марк принял вашу заявку в друзья",
+    );
+  });
+
   it("подставляет заглушку, если название события потерялось", () => {
     expect(formatNotification({ ...base, eventTitle: undefined })).toBe(
       "Марк записался на ваше событие «без названия»",

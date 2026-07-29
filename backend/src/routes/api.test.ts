@@ -1759,3 +1759,53 @@ test("favorites disappear together with the event and require a session", async 
   assert.equal((await fetch(`${baseUrl}/api/Events/favorites`)).status, 401);
   assert.equal((await fetch(`${baseUrl}/api/Events/2/favorite`, { method: "POST" })).status, 401);
 });
+
+test("заявка в друзья и ответ на неё доходят до колокольчика (SEC-015)", async (context) => {
+  /*
+   * До этого дружба была единственным действием, о котором приложение молчало:
+   * заявку можно было увидеть, только зайдя в профиль и заметив блок «Заявки»,
+   * а отправитель об ответе не узнавал вовсе.
+   */
+  const { baseUrl } = await startTestApp(context);
+  const alice = await loginDemo(baseUrl); // u1
+  const bob = await registerUser(baseUrl, { email: "bob-notify@povod.app" });
+
+  const notificationsOf = async (token: string) => {
+    const response = await fetch(`${baseUrl}/api/Notifications`, authorized(token));
+    assert.equal(response.status, 200);
+    return (await response.json()) as {
+      items: { type: string; actorId?: string; eventTitle?: string }[];
+      unread: number;
+    };
+  };
+
+  await fetch(
+    `${baseUrl}/api/Users/${bob.id}/friends`,
+    authorized(bob.token, { method: "POST", body: JSON.stringify({ friendId: "u1" }) }),
+  );
+
+  const forAlice = await notificationsOf(alice);
+  const request = forAlice.items.find((item) => item.type === "friend_request");
+  assert.ok(request, "адресат заявки обязан получить уведомление");
+  assert.equal(request?.actorId, bob.id);
+  // У дружбы нет события: колонка названия необязательна ради этого случая.
+  assert.equal(request?.eventTitle, undefined);
+  assert.ok(forAlice.unread > 0, "значок на колокольчике обязан загореться");
+
+  // Отправитель заявки себе не пишет.
+  assert.equal(
+    (await notificationsOf(bob.token)).items.some((item) => item.type === "friend_request"),
+    false,
+  );
+
+  await fetch(
+    `${baseUrl}/api/Users/u1/friends/requests/${bob.id}/accept`,
+    authorized(alice, { method: "POST" }),
+  );
+
+  const forBob = await notificationsOf(bob.token);
+  assert.ok(
+    forBob.items.some((item) => item.type === "friend_accepted" && item.actorId === "u1"),
+    "отправитель заявки обязан узнать об ответе",
+  );
+});

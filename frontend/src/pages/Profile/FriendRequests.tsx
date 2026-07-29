@@ -100,6 +100,8 @@ export function FriendRequests({ userId, onAccepted }: FriendRequestsProps) {
     }
     showToast(kind === "incoming" ? "Заявка отклонена" : "Заявка отозвана");
     await load();
+    // Родитель обязан узнать и об этом: связь изменилась, счётчик друзей тоже.
+    onAccepted();
   };
 
   // Пустой блок не рисуем: у большинства заявок нет, и заголовок «Заявки (0)»

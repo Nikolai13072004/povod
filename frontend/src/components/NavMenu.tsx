@@ -22,6 +22,14 @@ const shouldForwardProp = (prop: string) => prop !== "$mode";
 /** Ширина, с которой снизу тянуться мышью уже неудобно. */
 const DESKTOP = "900px";
 
+/*
+ * Фон, граница и тень висят на ВНЕШНЕЙ обёртке, а не на внутреннем `nav`.
+ *
+ * Раньше было наоборот, и `nav` ограничен шириной контента: на экране шире
+ * 1080px белая полоса заканчивалась вместе с ним, а по краям снизу оставались
+ * прямоугольники фона страницы — те самые углы другого цвета. На узком экране
+ * это не видно, поэтому и не замечалось.
+ */
 const NavWrapper = styled("div", { shouldForwardProp })`
   position: fixed;
   bottom: 0;
@@ -31,11 +39,19 @@ const NavWrapper = styled("div", { shouldForwardProp })`
   z-index: 100;
   display: flex;
   justify-content: center;
-  background: transparent;
+  background: var(--povod-surface);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+  border-top: 2px solid var(--povod-border-strong);
+  /* Полоса дома у нижнего края экрана не должна попадать под саму панель. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 
   @media (min-width: ${DESKTOP}) {
     position: static;
     justify-content: flex-start;
+    background: transparent;
+    box-shadow: none;
+    border-top: none;
+    padding-bottom: 0;
   }
 `;
 
@@ -46,17 +62,11 @@ const Nav = styled("nav", { shouldForwardProp })`
   max-width: var(--povod-content-max, 1080px);
   margin: 0 auto;
   height: 60px;
-  padding: 0 10px 20px 10px;
-  background: var(--povod-surface);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
-  border-top: 2px solid var(--povod-border-strong);
+  padding: 0 10px;
 
   @media (min-width: ${DESKTOP}) {
     height: auto;
     padding: 0 16px;
-    background: transparent;
-    box-shadow: none;
-    border-top: none;
     /*
      * Разделителя нет: на широком экране ряд навигации и так отделён отступом,
      * а линия под ним читалась как обрубок таблицы. Активный раздел различим

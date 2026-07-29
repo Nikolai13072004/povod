@@ -93,7 +93,15 @@ export const commentSchema = z
   .openapi("Comment");
 
 export const notificationTypeSchema = z
-  .enum(["event_updated", "event_cancelled", "event_comment", "event_joined", "direct_message"])
+  .enum([
+    "event_updated",
+    "event_cancelled",
+    "event_comment",
+    "event_joined",
+    "direct_message",
+    "friend_request",
+    "friend_accepted",
+  ])
   .openapi("NotificationType");
 
 export const notificationSchema = z

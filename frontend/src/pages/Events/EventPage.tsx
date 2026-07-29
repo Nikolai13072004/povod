@@ -460,7 +460,7 @@ function EventPageComponent() {
             before={<Icon28ShareOutline width={20} height={20} />}
             onClick={handleInvite}
           >
-            Пригласить друзей
+            Поделиться ссылкой
           </Button>
 
           {inviteLink && (

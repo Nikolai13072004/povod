@@ -328,7 +328,9 @@
           "event_cancelled",
           "event_comment",
           "event_joined",
-          "direct_message"
+          "direct_message",
+          "friend_request",
+          "friend_accepted"
         ]
       },
       "Notification": {

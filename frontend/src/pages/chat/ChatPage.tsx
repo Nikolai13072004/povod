@@ -4,6 +4,8 @@ import { observer } from "mobx-react-lite";
 import styled from "@emotion/styled";
 import { Avatar, Group, Search } from "@vkontakte/vkui";
 import { chatStore } from "../../stores/chatStore";
+import { friendsStore } from "../../stores/friendsStore";
+import { sessionStore } from "../../stores/sessionStore";
 import { AsyncContent } from "../../components/AsyncContent/AsyncContent";
 import { DialogListSkeleton } from "../../components/Skeleton";
 import { relativeTime } from "../../components/Notification/notificationText";
@@ -19,6 +21,15 @@ import type { Dialog } from "../../services/api";
  * сервер незачем. Строка поиска живёт в сторе, а не в компоненте, — уход на
  * другую вкладку не должен её терять.
  */
+
+const SectionTitle = styled.div`
+  padding: 16px 16px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--povod-text-secondary);
+`;
 
 const Row = styled.button`
   display: flex;
@@ -99,6 +110,23 @@ export const ChatList = observer(() => {
   const navigate = useNavigate();
   const dialogs = chatStore.visibleDialogs;
   const searching = chatStore.search.trim().length > 0;
+  const myId = sessionStore.user.id;
+
+  /*
+   * Друзья, которым ещё ни разу не писали.
+   *
+   * Список диалогов строится ИЗ СООБЩЕНИЙ, поэтому такой друг в него не
+   * попадает: экран оказывался пустым, хотя написать было кому, и начать
+   * переписку можно было только зайдя в чужой профиль. Подмешивать их в
+   * диалоги нельзя — у диалога обязана быть последняя реплика, а её нет.
+   */
+  const withoutDialog = friendsStore.friends.filter(
+    (friend) => !chatStore.dialogs.some((dialog) => dialog.peer.id === friend.id),
+  );
+  const query = chatStore.search.trim().toLocaleLowerCase("ru");
+  const visibleFriends = query
+    ? withoutDialog.filter((friend) => friend.name.toLocaleLowerCase("ru").includes(query))
+    : withoutDialog;
 
   useEffect(() => {
     /*
@@ -115,6 +143,10 @@ export const ChatList = observer(() => {
     return () => chatStore.stopDialogsPolling();
   }, []);
 
+  useEffect(() => {
+    if (myId) void friendsStore.load(myId, true);
+  }, [myId]);
+
   return (
     <Group mode="plain">
       <Search
@@ -129,7 +161,7 @@ export const ChatList = observer(() => {
         loadingTitle="Загружаем переписки…"
         error={chatStore.dialogsError}
         onRetry={() => void chatStore.loadDialogs(true)}
-        empty={dialogs.length === 0}
+        empty={dialogs.length === 0 && visibleFriends.length === 0}
         emptyTitle={searching ? "Ничего не найдено" : "Переписок пока нет"}
         emptyDescription={
           searching
@@ -154,6 +186,26 @@ export const ChatList = observer(() => {
             onOpen={() => navigate(`/chats/${dialog.peer.id}`)}
           />
         ))}
+
+        {visibleFriends.length > 0 && (
+          <>
+            <SectionTitle>Друзья</SectionTitle>
+            {visibleFriends.map((friend) => (
+              <Row
+                key={friend.id}
+                type="button"
+                onClick={() => navigate(`/chats/${friend.id}`)}
+                aria-label={`Написать: ${friend.name}`}
+              >
+                <Avatar size={48} src={friend.avatar} initials={friend.name.slice(0, 1)} />
+                <Info>
+                  <Name>{friend.name}</Name>
+                  <Preview $unread={false}>Написать первым</Preview>
+                </Info>
+              </Row>
+            ))}
+          </>
+        )}
       </AsyncContent>
     </Group>
   );
