@@ -22,18 +22,13 @@ const AppContainer = styled.div<{ isWhiteBg?: boolean; $hasNav?: boolean }>`
   /* Проверка пропса + !important, чтобы перебить index.css */
   background: ${(props) => (props.isWhiteBg ? "var(--povod-surface)" : "var(--bg-color)")} !important;
   color: var(--text-color);
-  /* Когда снизу висит фиксированная навигация (высота ~80px), резервируем под неё
-     место — иначе конец страницы уезжал под меню и был недоступен. */
-  padding-bottom: ${(props) =>
-    props.$hasNav ? "calc(88px + env(safe-area-inset-bottom, 0px))" : "20px"};
+  /* Когда снизу висит фиксированная навигация, резервируем под неё место —
+     иначе конец страницы уезжал под меню и был недоступен. Величина живёт в
+     токене: её же читает поле ввода в переписке, и второе число здесь
+     разъехалось бы с первым молча. Токен сам обнуляется от 900px. */
+  padding-bottom: ${(props) => (props.$hasNav ? "var(--povod-bottom-nav-offset)" : "20px")};
   /* Без transition на background/color: он анимировался при КАЖДОЙ смене маршрута
      (у страниц разный фон), из-за чего фон заметно «мигал» при переходе. */
-
-  /* На широком экране навигация не висит снизу (UX-007) — резервировать место
-     под неё незачем. */
-  @media (min-width: 900px) {
-    padding-bottom: 20px;
-  }
 `;
 
 const MainContent = styled.div`
@@ -68,7 +63,9 @@ const App = observer(() => {
   const location = useLocation();
   // VKUI был жёстко зафиксирован в светлой схеме — теперь следует выбранной теме (UX-001).
   const { theme } = useTheme();
-  const isChatPage = location.pathname === "/chats";
+  // startsWith, а не строгое равенство: иначе экран переписки `/chats/:id`
+  // молча терял белый фон и токены сцены, настроенные для списка.
+  const isChatPage = location.pathname.startsWith("/chats");
   const isSelectInterestPage = location.pathname === "/SelectInterestPage";
   const isProfilePage = location.pathname === "/Profile";
   const isNotificationsPage = location.pathname === "/notifications";

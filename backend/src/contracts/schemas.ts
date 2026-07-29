@@ -93,7 +93,7 @@ export const commentSchema = z
   .openapi("Comment");
 
 export const notificationTypeSchema = z
-  .enum(["event_updated", "event_cancelled", "event_comment", "event_joined"])
+  .enum(["event_updated", "event_cancelled", "event_comment", "event_joined", "direct_message"])
   .openapi("NotificationType");
 
 export const notificationSchema = z
@@ -105,7 +105,9 @@ export const notificationSchema = z
       .string()
       .optional()
       .openapi({ description: "Отсутствует, если событие удалено или это отмена" }),
-    eventTitle: z.string(),
+    eventTitle: z.string().optional().openapi({
+      description: "Отсутствует у уведомлений без события — например о личном сообщении",
+    }),
     actorId: z.string().optional(),
     actorName: z.string().optional(),
     changes: z.array(z.string()).optional(),
@@ -120,6 +122,60 @@ export const notificationFeedSchema = z
     unread: z.number().int(),
   })
   .openapi("NotificationFeed");
+
+/**
+ * Личное сообщение (PROD-011).
+ *
+ * `readAt` уходит и отправителю — это галочка «прочитано». Решение
+ * продуктовое, а не техническое: отметка нужна для счётчика непрочитанных в
+ * любом случае, но показывать её второй стороне — отдельный выбор, обратной
+ * дороги у которого нет.
+ */
+export const directMessageSchema = z
+  .object({
+    id: z.string(),
+    senderId: z.string(),
+    recipientId: z.string(),
+    text: z.string(),
+    createdAt: isoDateTime(),
+    editedAt: isoDateTime()
+      .optional()
+      .openapi({ description: "Отметка о правке; отсутствует — текст не менялся" }),
+    readAt: isoDateTime()
+      .optional()
+      .openapi({ description: "Когда получатель открыл переписку; отсутствует — не прочитано" }),
+  })
+  .openapi("DirectMessage");
+
+/** Строка списка диалогов: собеседник, последняя реплика и непрочитанные в ней. */
+export const dialogSchema = z
+  .object({
+    peer: userSchema,
+    lastMessage: directMessageSchema,
+    unread: z.number().int().openapi({ description: "Непрочитанные входящие в этом диалоге" }),
+  })
+  .openapi("Dialog");
+
+export const dialogListSchema = z
+  .object({
+    items: z.array(dialogSchema),
+    unread: z.number().int().openapi({ description: "Непрочитанные во всех диалогах" }),
+  })
+  .openapi("DialogList");
+
+/** Страница переписки: свежие сообщения первыми, курсор листает вглубь истории. */
+export const messageThreadSchema = z
+  .object({
+    peer: userSchema,
+    items: z.array(directMessageSchema),
+    nextCursor: z.string().optional(),
+    canSend: z.boolean().openapi({
+      description: "Дружба подтверждена прямо сейчас. Ложь — история видна, отправка запрещена",
+    }),
+  })
+  .openapi("MessageThread");
+
+export const unreadCountSchema = z.object({ unread: z.number().int() }).openapi("UnreadCount");
 
 /** Приглашение без секрета — таким его видит автор события (BE-008). */
 export const invitationSchema = z
@@ -174,3 +230,6 @@ export const friendRequestsSchema = z
 
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 export type Notification = z.infer<typeof notificationSchema>;
+export type DirectMessage = z.infer<typeof directMessageSchema>;
+/** Внутри диалога собеседник — полная модель пользователя; наружу он уходит урезанным. */
+export type Dialog = Omit<z.infer<typeof dialogSchema>, "peer"> & { peer: User };

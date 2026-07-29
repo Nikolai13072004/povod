@@ -109,3 +109,30 @@ export async function notifyEventJoined(event: Event, actor: User): Promise<void
   if (event.authorId === actor.id) return;
   await deliver([buildNotification(event.authorId, "event_joined", event, actor)]);
 }
+
+/**
+ * Новое личное сообщение (PROD-011).
+ *
+ * Единственный тип уведомления без события — поэтому `eventTitle` здесь нет, и
+ * ради этого случая колонка стала необязательной (миграция 014). Писать туда
+ * суррогат вроде «Личное сообщение» значило бы врать контракту: экран
+ * уведомлений показывает название события ссылкой, а открывать здесь нечего.
+ *
+ * Вызывается только при `firstUnread`: пока предыдущее сообщение не прочитано,
+ * второе уведомление не появляется. Иначе активная переписка вытеснит из
+ * колокольчика приглашения, отмены и комментарии — то есть всё, что человек не
+ * увидит больше нигде.
+ */
+export async function notifyDirectMessage(recipientId: string, actor: User): Promise<void> {
+  if (recipientId === actor.id) return;
+  await deliver([
+    {
+      id: randomUUID(),
+      userId: recipientId,
+      type: "direct_message",
+      actorId: actor.id,
+      actorName: actor.name,
+      createdAt: new Date().toISOString(),
+    },
+  ]);
+}

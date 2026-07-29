@@ -7,6 +7,8 @@ import {
 import {
   authSessionSchema,
   commentSchema,
+  dialogListSchema,
+  directMessageSchema,
   errorSchema,
   eventPageSchema,
   eventSchema,
@@ -14,8 +16,10 @@ import {
   friendshipStatusSchema,
   invitationSchema,
   issuedInvitationSchema,
+  messageThreadSchema,
   myEventsSchema,
   notificationFeedSchema,
+  unreadCountSchema,
   userSchema,
 } from "./schemas.js";
 import {
@@ -27,11 +31,14 @@ import {
   invitationCreateSchema,
   loginSchema,
   markNotificationsSchema,
+  messageCreateSchema,
+  messageUpdateSchema,
   passwordResetConfirmSchema,
   passwordResetRequestSchema,
   profileUpdateSchema,
   registerSchema,
 } from "../validation.js";
+import { MAX_DIALOGS } from "../directMessages.js";
 
 /**
  * Сборка OpenAPI 3.1 из тех же схем, по которым работает сервер (ARCH-002).
@@ -443,6 +450,116 @@ registry.registerPath({
     },
     401: errors[401],
   },
+});
+
+// --- личные сообщения --------------------------------------------------------
+
+/**
+ * Все отказы — один и тот же 404. «Нет такого пользователя», «вы не друзья» и
+ * «это чужое сообщение» снаружи неразличимы: иначе перебором можно выяснять,
+ * кто зарегистрирован и с кем переписывается (PROD-011).
+ */
+registry.registerPath({
+  method: "get",
+  path: "/api/Messages",
+  tags: ["Messages"],
+  summary: "Список диалогов",
+  description: `Последняя реплика и непрочитанные по каждому собеседнику. Без курсора: потолок ${MAX_DIALOGS}.`,
+  security,
+  responses: {
+    200: { description: "Диалоги и общее число непрочитанных", ...json(dialogListSchema) },
+    401: errors[401],
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/Messages/unread",
+  tags: ["Messages"],
+  summary: "Число непрочитанных сообщений",
+  description: "Дешёвый запрос для значка на вкладке «Чаты».",
+  security,
+  responses: { 200: { description: "Счётчик", ...json(unreadCountSchema) }, 401: errors[401] },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/Messages/dialog/{userId}",
+  tags: ["Messages"],
+  summary: "Переписка с собеседником",
+  description:
+    "Свежие сообщения первыми, курсор листает вглубь истории. История переживает расторжение дружбы, но `canSend` тогда ложь.",
+  security,
+  request: {
+    params: z.object({ userId: z.string() }),
+    query: z.object({
+      cursor: z
+        .string()
+        .optional()
+        .openapi({ description: "Непрозрачный курсор предыдущей страницы" }),
+      limit: z.coerce.number().int().optional(),
+    }),
+  },
+  responses: {
+    200: { description: "Страница переписки", ...json(messageThreadSchema) },
+    401: errors[401],
+    404: errors[404],
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/Messages/dialog/{userId}/read",
+  tags: ["Messages"],
+  summary: "Отметить переписку прочитанной",
+  description: "Идемпотентно: повторный вызов отмечает 0 сообщений и отвечает тем же 204.",
+  security,
+  request: { params: z.object({ userId: z.string() }) },
+  responses: { 204: { description: "Отмечено" }, 401: errors[401], 404: errors[404] },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/Messages",
+  tags: ["Messages"],
+  summary: "Отправить сообщение",
+  description: "Писать можно только тем, с кем дружба подтверждена.",
+  security,
+  request: { body: json(messageCreateSchema) },
+  responses: {
+    201: { description: "Отправлено", ...json(directMessageSchema) },
+    400: errors[400],
+    401: errors[401],
+    404: errors[404],
+  },
+});
+
+registry.registerPath({
+  method: "put",
+  path: "/api/Messages/{id}",
+  tags: ["Messages"],
+  summary: "Изменить своё сообщение",
+  description:
+    "Правка оставляет отметку `editedAt`. Чужое сообщение неотличимо от несуществующего.",
+  security,
+  request: { params: z.object({ id: z.string() }), body: json(messageUpdateSchema) },
+  responses: {
+    200: { description: "Изменено", ...json(directMessageSchema) },
+    400: errors[400],
+    401: errors[401],
+    404: errors[404],
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/Messages/{id}",
+  tags: ["Messages"],
+  summary: "Удалить своё сообщение",
+  description: "Сообщение исчезает у обоих собеседников.",
+  security,
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 204: { description: "Удалено" }, 401: errors[401], 404: errors[404] },
 });
 
 // --- пользователи ------------------------------------------------------------

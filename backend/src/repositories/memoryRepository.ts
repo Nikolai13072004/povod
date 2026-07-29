@@ -1,19 +1,36 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Comment, Event, EventInvitation, Notification, User } from "../types.js";
+import type {
+  Comment,
+  Dialog,
+  DirectMessage,
+  Event,
+  EventInvitation,
+  Notification,
+  User,
+} from "../types.js";
 import type {
   AuthSession,
   CreateCommentInput,
+  CreateMessageInput,
   EventFilters,
   ExternalIdentity,
   FriendRequests,
   FriendshipOutcome,
   JoinEventResult,
+  MessageThreadFilters,
   PasswordResetToken,
   PovodRepository,
+  SendMessageResult,
 } from "./repository.js";
 import { seedComments, seedEvents, seedUsers } from "../seed.js";
 import { compareFeed, cursorOf, isAfterCursor } from "../feed.js";
+import {
+  compareMessages,
+  cursorOfMessage,
+  isAfterMessageCursor,
+  threadKey,
+} from "../directMessages.js";
 import { eventDateToIso } from "../db/eventDate.js";
 import { logger } from "../logger.js";
 
@@ -27,6 +44,7 @@ interface Snapshot {
   events: Event[];
   comments: Comment[];
   notifications?: Notification[];
+  messages?: DirectMessage[];
   favorites?: Array<[string, string[]]>;
   invitations?: EventInvitation[];
   passwordCredentials?: Array<[string, string]>;
@@ -50,6 +68,8 @@ export class MemoryRepository implements PovodRepository {
   private events: Event[] = clone(seedEvents);
   private comments: Comment[] = clone(seedComments);
   private notifications: Notification[] = [];
+  /** Личные сообщения (PROD-011). Диалог — производная от пары собеседников. */
+  private messages: DirectMessage[] = [];
   /** Избранное: пользователь → идентификаторы событий (PROD-001). */
   private favorites = new Map<string, Set<string>>();
   private invitations: EventInvitation[] = [];
@@ -80,6 +100,7 @@ export class MemoryRepository implements PovodRepository {
       this.events = clone(snapshot.events ?? []);
       this.comments = clone(snapshot.comments ?? []);
       this.notifications = clone(snapshot.notifications ?? []);
+      this.messages = clone(snapshot.messages ?? []);
       this.favorites = new Map(
         (snapshot.favorites ?? []).map(([userId, eventIds]) => [userId, new Set(eventIds)]),
       );
@@ -357,6 +378,9 @@ export class MemoryRepository implements PovodRepository {
       if (notification.actorId === id) notification.actorId = undefined;
     }
     this.favorites.delete(id);
+    // Переписка уходит вместе с аккаунтом у обоих собеседников — ручное
+    // повторение ON DELETE CASCADE из миграции 014.
+    this.messages = this.messages.filter((item) => item.senderId !== id && item.recipientId !== id);
     this.invitations = this.invitations.filter((item) => item.createdBy !== id);
     this.scheduleSave();
     return true;
@@ -465,6 +489,124 @@ export class MemoryRepository implements PovodRepository {
     friend.friends = (friend.friends ?? []).filter((id) => id !== userId);
     this.scheduleSave();
     return hadFriendship || hadRequest;
+  }
+
+  async areFriends(userId: string, peerId: string): Promise<boolean> {
+    if (userId === peerId) return false;
+    const user = this.users.find((item) => item.id === userId);
+    return Boolean(user?.friends?.includes(peerId));
+  }
+
+  async sendDirectMessage(input: CreateMessageInput): Promise<SendMessageResult> {
+    // Все причины отказа сведены в один исход намеренно: различив «нет такого
+    // пользователя» и «вы не друзья», мы дали бы способ перебором выяснять,
+    // существует ли аккаунт.
+    if (!(await this.areFriends(input.senderId, input.recipientId)))
+      return { outcome: "not-allowed" };
+
+    const firstUnread = !this.messages.some(
+      (item) =>
+        item.senderId === input.senderId && item.recipientId === input.recipientId && !item.readAt,
+    );
+    const message: DirectMessage = {
+      id: input.id,
+      senderId: input.senderId,
+      recipientId: input.recipientId,
+      text: input.text,
+      createdAt: input.createdAt,
+    };
+    this.messages.push(message);
+    this.scheduleSave();
+    return { outcome: "sent", message: clone(message), firstUnread };
+  }
+
+  async getDirectMessage(id: string): Promise<DirectMessage | undefined> {
+    const message = this.messages.find((item) => item.id === id);
+    return message ? clone(message) : undefined;
+  }
+
+  async updateDirectMessage(
+    id: string,
+    senderId: string,
+    text: string,
+    editedAt: string,
+  ): Promise<DirectMessage | undefined> {
+    const message = this.messages.find((item) => item.id === id && item.senderId === senderId);
+    if (!message) return undefined;
+    // Правка — это доставка нового текста, то есть та же отправка. Разреши её
+    // без проверки дружбы — и «убрать из друзей» перестанет закрывать канал.
+    if (!(await this.areFriends(senderId, message.recipientId))) return undefined;
+    message.text = text;
+    message.editedAt = editedAt;
+    this.scheduleSave();
+    return clone(message);
+  }
+
+  async deleteDirectMessage(id: string, senderId: string): Promise<boolean> {
+    const before = this.messages.length;
+    this.messages = this.messages.filter((item) => !(item.id === id && item.senderId === senderId));
+    if (this.messages.length === before) return false;
+    this.scheduleSave();
+    return true;
+  }
+
+  async listDirectMessages(
+    userId: string,
+    peerId: string,
+    filters: MessageThreadFilters,
+  ): Promise<DirectMessage[]> {
+    const key = threadKey(userId, peerId);
+    const items = this.messages
+      .filter((item) => threadKey(item.senderId, item.recipientId) === key)
+      .sort((left, right) => compareMessages(cursorOfMessage(left), cursorOfMessage(right)));
+    const page = filters.cursor
+      ? items.filter((item) => isAfterMessageCursor(cursorOfMessage(item), filters.cursor!))
+      : items;
+    return clone(page.slice(0, filters.limit));
+  }
+
+  async listDialogs(userId: string, limit: number): Promise<Dialog[]> {
+    const mine = this.messages.filter(
+      (item) => item.senderId === userId || item.recipientId === userId,
+    );
+    const byPeer = new Map<string, { last: DirectMessage; unread: number }>();
+    for (const message of mine) {
+      const peerId = message.senderId === userId ? message.recipientId : message.senderId;
+      const current = byPeer.get(peerId);
+      const unread = current?.unread ?? 0;
+      const isNewer =
+        !current || compareMessages(cursorOfMessage(message), cursorOfMessage(current.last)) < 0;
+      byPeer.set(peerId, {
+        last: isNewer ? message : current!.last,
+        unread: unread + (message.recipientId === userId && !message.readAt ? 1 : 0),
+      });
+    }
+
+    return [...byPeer.entries()]
+      .map(([peerId, { last, unread }]) => {
+        const peer = this.users.find((item) => item.id === peerId);
+        return peer ? { peer: clone(peer), lastMessage: clone(last), unread } : undefined;
+      })
+      .filter((item): item is Dialog => Boolean(item))
+      .sort((left, right) =>
+        compareMessages(cursorOfMessage(left.lastMessage), cursorOfMessage(right.lastMessage)),
+      )
+      .slice(0, limit);
+  }
+
+  async countUnreadDirectMessages(userId: string): Promise<number> {
+    return this.messages.filter((item) => item.recipientId === userId && !item.readAt).length;
+  }
+
+  async markDirectMessagesRead(userId: string, peerId: string, readAt: string): Promise<number> {
+    // «Своё/чужое» зашито в условие: пометить прочитанными чужие сообщения
+    // нельзя даже подставив идентификатор.
+    const unread = this.messages.filter(
+      (item) => item.recipientId === userId && item.senderId === peerId && !item.readAt,
+    );
+    for (const message of unread) message.readAt = readAt;
+    if (unread.length > 0) this.scheduleSave();
+    return unread.length;
   }
 
   async listComments(eventId: string): Promise<Comment[]> {
@@ -655,6 +797,7 @@ export class MemoryRepository implements PovodRepository {
               events: this.events,
               comments: this.comments,
               notifications: this.notifications,
+              messages: this.messages,
               favorites: [...this.favorites.entries()].map(([userId, ids]) => [userId, [...ids]]),
               invitations: this.invitations,
               passwordCredentials: [...this.passwordCredentials.entries()],

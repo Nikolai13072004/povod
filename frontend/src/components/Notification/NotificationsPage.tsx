@@ -111,9 +111,19 @@ export const NotificationsPage = observer(() => {
     void notificationsStore.load();
   }, []);
 
-  const openEvent = (notification: Notification) => {
+  /** Куда ведёт уведомление; `undefined` — открывать нечего. */
+  const targetOf = (notification: Notification): string | undefined => {
+    // У сообщения нет события: адресом служит собеседник.
+    if (notification.type === "direct_message") {
+      return notification.actorId ? `/chats/${notification.actorId}` : undefined;
+    }
     // Отменённое событие открывать негде — ссылки на него больше не существует.
-    if (notification.eventId) navigate(`/page-1/${notification.eventId}`);
+    return notification.eventId ? `/page-1/${notification.eventId}` : undefined;
+  };
+
+  const open = (notification: Notification) => {
+    const target = targetOf(notification);
+    if (target) navigate(target);
   };
 
   return (
@@ -165,8 +175,8 @@ export const NotificationsPage = observer(() => {
               key={notification.id}
               type="button"
               $unread={!notification.readAt}
-              $clickable={Boolean(notification.eventId)}
-              onClick={() => openEvent(notification)}
+              $clickable={Boolean(targetOf(notification))}
+              onClick={() => open(notification)}
             >
               <Text>{formatNotification(notification)}</Text>
               <Meta dateTime={notification.createdAt}>{relativeTime(notification.createdAt)}</Meta>

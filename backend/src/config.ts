@@ -2,6 +2,9 @@ import { z } from "zod";
 
 const booleanValue = z.enum(["true", "false"]).transform((value) => value === "true");
 
+/** Боевой предел регистраций с одного адреса в час. Ослаблению в production не подлежит. */
+const DEFAULT_REGISTER_LIMIT = 5;
+
 const environmentSchema = z
   .object({
     PORT: z.coerce.number().int().min(1).max(65_535).default(8080),
@@ -72,6 +75,15 @@ const environmentSchema = z
       .refine((value) => value === "" || isMailAddress(value), {
         message: "must be an email address, optionally as 'Name <user@example.com>'",
       }),
+    /**
+     * Сколько регистраций разрешено с одного адреса в час.
+     *
+     * Существует ради синтетических окружений: e2e поднимает пустой бэкенд и
+     * заводит десяток аккаунтов подряд с 127.0.0.1 — для боевого предела это
+     * неотличимо от перебора. Ослабить защиту в production нельзя, это
+     * проверяется ниже; понизить — можно.
+     */
+    AUTH_REGISTER_LIMIT: z.coerce.number().int().min(1).max(1000).default(DEFAULT_REGISTER_LIMIT),
     DEMO_AUTH_ENABLED: booleanValue.optional(),
     DEMO_AUTH_PASSWORD: z.string().min(8).default("povod-demo"),
     ENABLE_EXTERNAL_EVENTS: booleanValue.default("true"),
@@ -172,6 +184,16 @@ const environmentSchema = z
         message: "must be false in production",
       });
     }
+    if (environment.AUTH_REGISTER_LIMIT > DEFAULT_REGISTER_LIMIT) {
+      // Настройка заведена для синтетических окружений. В production её можно
+      // ужесточить, но не ослабить: иначе она превращается в способ случайно
+      // открыть перебор регистраций одной переменной окружения.
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["AUTH_REGISTER_LIMIT"],
+        message: `must not exceed ${DEFAULT_REGISTER_LIMIT} in production`,
+      });
+    }
   });
 
 /** `auto` = «включить Secure там, где точно HTTPS», то есть в production. */
@@ -235,6 +257,7 @@ export interface AppConfig {
   smtpSecure: boolean;
   smtpUser: string;
   smtpPassword: string;
+  authRegisterLimit: number;
   demoAuthEnabled: boolean;
   demoAuthPassword: string;
   externalEvents: boolean;
@@ -275,6 +298,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     smtpSecure: values.SMTP_SECURE,
     smtpUser: values.SMTP_USER,
     smtpPassword: values.SMTP_PASSWORD,
+    authRegisterLimit: values.AUTH_REGISTER_LIMIT,
     demoAuthEnabled: values.DEMO_AUTH_ENABLED ?? values.NODE_ENV !== "production",
     demoAuthPassword: values.DEMO_AUTH_PASSWORD,
     externalEvents: values.ENABLE_EXTERNAL_EVENTS,

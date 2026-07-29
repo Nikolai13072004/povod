@@ -173,6 +173,27 @@ export const commentUpdateSchema = z.object({
     .max(MAX_COMMENT_TEXT, `Комментарий длиннее ${MAX_COMMENT_TEXT} символов`),
 });
 
+/**
+ * Личное сообщение (PROD-011). `trim` и `min(1)` — по той же причине, что у
+ * комментария: без них сообщение из одних пробелов проходит в памяти и падает
+ * на CHECK в PostgreSQL, то есть один и тот же запрос отвечает 201 или 500 в
+ * зависимости от хранилища.
+ */
+export const MAX_MESSAGE_TEXT = 2000;
+
+const messageTextSchema = z
+  .string()
+  .trim()
+  .min(1, "Текст сообщения обязателен")
+  .max(MAX_MESSAGE_TEXT, `Сообщение длиннее ${MAX_MESSAGE_TEXT} символов`);
+
+export const messageCreateSchema = z.object({
+  text: messageTextSchema,
+  recipientId: z.string().min(1, "recipientId обязателен"),
+});
+
+export const messageUpdateSchema = z.object({ text: messageTextSchema });
+
 /** Обновление собственного профиля: все поля необязательны (BE-010). */
 export const profileUpdateSchema = z
   .object({

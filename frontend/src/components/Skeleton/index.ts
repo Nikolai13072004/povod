@@ -4,4 +4,6 @@ export {
   EventListSkeleton,
   MyEventListSkeleton,
   EventDetailsSkeleton,
+  DialogListSkeleton,
+  MessageThreadSkeleton,
 } from "./Skeleton";

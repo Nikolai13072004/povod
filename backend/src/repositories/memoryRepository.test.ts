@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryRepository } from "./memoryRepository.js";
+import { runDirectMessageConformance } from "./directMessages.conformance.js";
 
 test("joining an event is idempotent and participant count is derived", async () => {
   const repository = new MemoryRepository();
@@ -141,4 +142,10 @@ test("deleteExpiredSessions removes expired and revoked sessions, keeps active (
   assert.ok(await repository.getSessionByTokenHash("hash-active"));
   assert.equal(await repository.getSessionByTokenHash("hash-expired"), undefined);
   assert.equal(await repository.getSessionByTokenHash("hash-revoked"), undefined);
+});
+
+runDirectMessageConformance("память", async () => {
+  const repository = new MemoryRepository();
+  await repository.init();
+  return repository;
 });

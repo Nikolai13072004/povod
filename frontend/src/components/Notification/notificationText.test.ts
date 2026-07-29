@@ -49,6 +49,24 @@ describe("текст уведомления", () => {
       "В событии «Пляжный волейбол» изменились детали",
     );
   });
+
+  it("у личного сообщения нет события и оно не притворяется, что есть", () => {
+    // Единственный тип без eventTitle: раньше здесь появилось бы «undefined»
+    // в кавычках, потому что заголовок подставлялся безусловно.
+    const message: Notification = {
+      ...base,
+      type: "direct_message",
+      eventId: undefined,
+      eventTitle: undefined,
+    };
+    expect(formatNotification(message)).toBe("Марк написал вам");
+  });
+
+  it("подставляет заглушку, если название события потерялось", () => {
+    expect(formatNotification({ ...base, eventTitle: undefined })).toBe(
+      "Марк записался на ваше событие «без названия»",
+    );
+  });
 });
 
 describe("относительное время", () => {

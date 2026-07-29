@@ -144,3 +144,25 @@ test("config rejects malformed values", () => {
   assert.throws(() => loadConfig({ DATABASE_SSL: "sometimes" }), /DATABASE_SSL/);
   assert.throws(() => loadConfig({ DATABASE_URL: "not-a-url" }), /DATABASE_URL/);
 });
+
+test("предел регистраций нельзя ослабить в production", () => {
+  const productionEnv = {
+    NODE_ENV: "production",
+    CORS_ORIGIN: "https://povod.example",
+    DEMO_AUTH_ENABLED: "false",
+    MAIL_TRANSPORT: "none",
+    APP_URL: "https://povod.example",
+  };
+
+  // Настройка заведена ради синтетических окружений: e2e заводит десяток
+  // аккаунтов подряд с одного адреса. Оставь её без проверки — и защита от
+  // перебора регистраций снимается одной переменной окружения.
+  assert.throws(
+    () => loadConfig({ ...productionEnv, AUTH_REGISTER_LIMIT: "1000" }),
+    /AUTH_REGISTER_LIMIT/,
+  );
+
+  // Ужесточить можно: запрещено именно ослабление.
+  assert.equal(loadConfig({ ...productionEnv, AUTH_REGISTER_LIMIT: "2" }).authRegisterLimit, 2);
+  assert.equal(loadConfig({}).authRegisterLimit, 5, "боевое значение по умолчанию");
+});

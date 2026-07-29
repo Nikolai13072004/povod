@@ -9,6 +9,7 @@ import { usersRouter } from "./routes/users.js";
 import { commentsRouter } from "./routes/comments.js";
 import { authRouter } from "./routes/auth.js";
 import { notificationsRouter } from "./routes/notifications.js";
+import { messagesRouter } from "./routes/messages.js";
 import { health, live, ready, ping, dbTime } from "./routes/health.js";
 import { csrfProtection } from "./auth/csrf.js";
 import { notFound, errorHandler } from "./middleware.js";
@@ -62,6 +63,7 @@ export function createApp() {
   app.use("/api/Users", usersRouter);
   app.use("/api/Comments", commentsRouter);
   app.use("/api/Notifications", notificationsRouter);
+  app.use("/api/Messages", messagesRouter);
 
   app.get("/", (_req, res) => {
     res.json({

@@ -6,6 +6,7 @@ import { BellIcon } from "../../icons/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import { sessionStore } from "../../stores/sessionStore";
 import { notificationsStore } from "../../stores/notificationsStore";
+import { chatStore } from "../../stores/chatStore";
 import { ContentWidth } from "../Layout/ContentWidth";
 
 const Header = styled.header<{ $mode: "light" | "dark" }>`
@@ -110,20 +111,30 @@ export const THeader = observer(function THeader() {
   const location = useLocation();
   const unread = notificationsStore.unread;
 
-  // Счётчик обновляется при переходах между экранами...
+  // Счётчики обновляются при переходах между экранами...
   useEffect(() => {
-    if (sessionStore.authenticated) void notificationsStore.refreshUnread();
+    if (!sessionStore.authenticated) return;
+    void notificationsStore.refreshUnread();
+    void chatStore.refreshUnread();
   }, [location.pathname, sessionStore.authenticated]);
 
   /*
    * ...и раз в минуту, пока вкладка открыта. Одних переходов мало: человек,
    * сидящий на ленте, о новом уведомлении не узнавал вовсе, пока куда-нибудь
    * не перейдёт.
+   *
+   * Оба опроса — в одном эффекте с одним cleanup: `startPolling` вешает не
+   * только таймер, но и слушатель `visibilitychange`, снимаемый только парной
+   * остановкой. Забытая остановка не падает, а тихо копит таймеры.
    */
   useEffect(() => {
     if (!sessionStore.authenticated) return;
     notificationsStore.startPolling();
-    return () => notificationsStore.stopPolling();
+    chatStore.startUnreadPolling();
+    return () => {
+      notificationsStore.stopPolling();
+      chatStore.stopUnreadPolling();
+    };
   }, [sessionStore.authenticated]);
 
   const handleAvatarClick = () => {
@@ -131,10 +142,14 @@ export const THeader = observer(function THeader() {
     navigate("/Profile");
   };
 
-  const displayTitle =
-    location.pathname.includes("events") || location.pathname.includes("page-3")
-      ? "Мои поводы"
-      : "Главная";
+  const displayTitle = (() => {
+    if (location.pathname.includes("events") || location.pathname.includes("page-3")) {
+      return "Мои поводы";
+    }
+    // Без этой ветки экран переписок представлялся «Главной».
+    if (location.pathname.startsWith("/chats")) return "Чаты";
+    return "Главная";
+  })();
 
   const handleBellClick = () => {
     navigate("/notifications");

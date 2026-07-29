@@ -1,6 +1,8 @@
 import type { Pool, PoolClient } from "pg";
 import type {
   Comment,
+  Dialog,
+  DirectMessage,
   Event,
   EventInvitation,
   Notification,
@@ -10,14 +12,18 @@ import type {
 import type {
   AuthSession,
   CreateCommentInput,
+  CreateMessageInput,
   EventFilters,
   ExternalIdentity,
   FriendRequests,
   FriendshipOutcome,
   JoinEventResult,
+  MessageThreadFilters,
   PasswordResetToken,
   PovodRepository,
+  SendMessageResult,
 } from "./repository.js";
+import { threadKey } from "../directMessages.js";
 import { eventDateToIso } from "../db/eventDate.js";
 import { runMigrations } from "../db/migrations.js";
 import { seedComments, seedEvents, seedUsers } from "../seed.js";
@@ -86,7 +92,7 @@ interface NotificationRow {
   user_id: string;
   type: NotificationType;
   event_id: string | null;
-  event_title: string;
+  event_title: string | null;
   actor_id: string | null;
   actor_name: string | null;
   changes: string[] | null;
@@ -151,6 +157,14 @@ const EVENT_SELECT = `
   ) participants ON true
 `;
 
+/*
+ * `status = 'accepted'` обязателен.
+ *
+ * Без него сюда попадали и неподтверждённые заявки, и `user.friends` означал в
+ * PostgreSQL «друзья и все, кто позвал или кого позвали», а в памяти —
+ * «принятые дружбы». Одно поле, два разных смысла: расхождение появилось в
+ * 013 и не проявлялось, пока на этом поле ничего не решалось (SEC-012).
+ */
 const USER_SELECT = `
   SELECT
     u.id, u.name, u.email, u.avatar_url, u.city, u.interests, u.created_at,
@@ -162,7 +176,7 @@ const USER_SELECT = `
       ORDER BY f.created_at
     ) AS ids
     FROM friendships f
-    WHERE f.user_id = u.id OR f.friend_id = u.id
+    WHERE (f.user_id = u.id OR f.friend_id = u.id) AND f.status = 'accepted'
   ) friends ON true
 `;
 
@@ -268,7 +282,7 @@ function mapNotification(row: NotificationRow): Notification {
     userId: row.user_id,
     type: row.type,
     eventId: row.event_id ?? undefined,
-    eventTitle: row.event_title,
+    eventTitle: row.event_title ?? undefined,
     actorId: row.actor_id ?? undefined,
     actorName: row.actor_name ?? undefined,
     changes: row.changes?.length ? row.changes : undefined,
@@ -279,6 +293,44 @@ function mapNotification(row: NotificationRow): Notification {
 
 function canonicalFriendship(left: string, right: string): [string, string] {
   return left < right ? [left, right] : [right, left];
+}
+
+interface DirectMessageRow {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  text: string;
+  created_at: Date | string;
+  edited_at: Date | string | null;
+  read_at: Date | string | null;
+}
+
+const MESSAGE_SELECT = `
+  SELECT id, sender_id, recipient_id, text, created_at, edited_at, read_at
+  FROM direct_messages
+`;
+
+/**
+ * Строка списка диалогов: последняя реплика и собеседник в одном ответе.
+ * `created_at` у них разные, поэтому пользовательская переименована — иначе
+ * одна колонка молча затёрла бы другую.
+ */
+interface DialogRow extends DirectMessageRow, Omit<UserRow, "id" | "created_at"> {
+  unread: number;
+  peer_id: string;
+  user_created_at: Date | string;
+}
+
+function mapDirectMessage(row: DirectMessageRow): DirectMessage {
+  return {
+    id: row.id,
+    senderId: row.sender_id,
+    recipientId: row.recipient_id,
+    text: row.text,
+    createdAt: toIso(row.created_at),
+    editedAt: row.edited_at ? toIso(row.edited_at) : undefined,
+    readAt: row.read_at ? toIso(row.read_at) : undefined,
+  };
 }
 
 export class PostgresRepository implements PovodRepository {
@@ -894,6 +946,204 @@ export class PostgresRepository implements PovodRepository {
     });
   }
 
+  async areFriends(userId: string, peerId: string): Promise<boolean> {
+    if (userId === peerId) return false;
+    const [left, right] = canonicalFriendship(userId, peerId);
+    const result = await this.pool.query(
+      "SELECT 1 FROM friendships WHERE user_id = $1 AND friend_id = $2 AND status = 'accepted'",
+      [left, right],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async sendDirectMessage(input: CreateMessageInput): Promise<SendMessageResult> {
+    if (input.senderId === input.recipientId) return { outcome: "not-allowed" };
+    const [left, right] = canonicalFriendship(input.senderId, input.recipientId);
+
+    return this.withTransaction(async (client) => {
+      /*
+       * Проверка дружбы и вставка — одна транзакция.
+       *
+       * Разделив их, мы оставили бы окно между двумя `await`, в котором дружбу
+       * успевают расторгнуть: сообщение ушло бы человеку, который только что
+       * закрыл к себе доступ. `FOR SHARE` держит строку связи до конца
+       * транзакции, не мешая другим читателям (BE-004).
+       */
+      const friendship = await client.query(
+        `SELECT 1 FROM friendships
+          WHERE user_id = $1 AND friend_id = $2 AND status = 'accepted'
+          FOR SHARE`,
+        [left, right],
+      );
+      if ((friendship.rowCount ?? 0) === 0) return { outcome: "not-allowed" as const };
+
+      // Уведомление шлётся только о первом непрочитанном: иначе активная
+      // переписка вытеснит из колокольчика приглашения, отмены и комментарии.
+      const pending = await client.query<{ had_unread: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM direct_messages
+            WHERE sender_id = $1 AND recipient_id = $2 AND read_at IS NULL
+         ) AS had_unread`,
+        [input.senderId, input.recipientId],
+      );
+
+      const inserted = await client.query<DirectMessageRow>(
+        `INSERT INTO direct_messages
+           (id, thread_key, sender_id, recipient_id, text, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, sender_id, recipient_id, text, created_at, edited_at, read_at`,
+        [
+          input.id,
+          threadKey(input.senderId, input.recipientId),
+          input.senderId,
+          input.recipientId,
+          input.text,
+          input.createdAt,
+        ],
+      );
+
+      return {
+        outcome: "sent" as const,
+        message: mapDirectMessage(inserted.rows[0]!),
+        firstUnread: !pending.rows[0]?.had_unread,
+      };
+    });
+  }
+
+  async getDirectMessage(id: string): Promise<DirectMessage | undefined> {
+    const result = await this.pool.query<DirectMessageRow>(`${MESSAGE_SELECT} WHERE id = $1`, [id]);
+    const row = result.rows[0];
+    return row ? mapDirectMessage(row) : undefined;
+  }
+
+  async updateDirectMessage(
+    id: string,
+    senderId: string,
+    text: string,
+    editedAt: string,
+  ): Promise<DirectMessage | undefined> {
+    /*
+     * Авторство и дружба — часть условия UPDATE, а не отдельная проверка перед
+     * ним. Проверка снаружи оставила бы окно между двумя запросами, а главное —
+     * её легко забыть: ровно так правка и оказалась лазейкой в обход
+     * расторжения дружбы (BE-004, PROD-011).
+     *
+     * `friendships` хранит пару в каноническом порядке, поэтому сравнение идёт
+     * с least/greatest, а не с двумя вариантами.
+     */
+    const result = await this.pool.query<DirectMessageRow>(
+      `UPDATE direct_messages m
+          SET text = $3, edited_at = $4
+        WHERE m.id = $1
+          AND m.sender_id = $2
+          AND EXISTS (
+            SELECT 1 FROM friendships f
+             WHERE f.user_id = least(m.sender_id, m.recipient_id)
+               AND f.friend_id = greatest(m.sender_id, m.recipient_id)
+               AND f.status = 'accepted'
+          )
+        RETURNING m.id, m.sender_id, m.recipient_id, m.text, m.created_at, m.edited_at, m.read_at`,
+      [id, senderId, text, editedAt],
+    );
+    const row = result.rows[0];
+    return row ? mapDirectMessage(row) : undefined;
+  }
+
+  async deleteDirectMessage(id: string, senderId: string): Promise<boolean> {
+    // Дружба не нужна: убрать собственный текст — действие в пользу приватности.
+    const result = await this.pool.query(
+      "DELETE FROM direct_messages WHERE id = $1 AND sender_id = $2",
+      [id, senderId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async listDirectMessages(
+    userId: string,
+    peerId: string,
+    filters: MessageThreadFilters,
+  ): Promise<DirectMessage[]> {
+    const parameters: unknown[] = [threadKey(userId, peerId)];
+    let keyset = "";
+    if (filters.cursor) {
+      // Кортеж дословно повторяет ORDER BY ниже. Разойдутся — keyset перестанет
+      // читаться из индекса и начнёт терять записи на границе страниц.
+      parameters.push(filters.cursor.createdAt, filters.cursor.id);
+      keyset = " AND (created_at, id) < ($2::timestamptz, $3)";
+    }
+    parameters.push(filters.limit);
+
+    const result = await this.pool.query<DirectMessageRow>(
+      `${MESSAGE_SELECT}
+        WHERE thread_key = $1${keyset}
+        ORDER BY created_at DESC, id DESC
+        LIMIT $${parameters.length}`,
+      parameters,
+    );
+    return result.rows.map(mapDirectMessage);
+  }
+
+  async listDialogs(userId: string, limit: number): Promise<Dialog[]> {
+    /*
+     * Собеседник читается тем же `USER_SELECT`, что и везде. Свой SELECT здесь
+     * означал бы третье место, где перечислены поля пользователя, — так уже
+     * разъехался `mapComment`, где у автора потерялся город.
+     */
+    const result = await this.pool.query<DialogRow>(
+      `WITH mine AS (
+         SELECT m.*, CASE WHEN m.sender_id = $1 THEN m.recipient_id ELSE m.sender_id END AS peer_id
+           FROM direct_messages m
+          WHERE m.sender_id = $1 OR m.recipient_id = $1
+       ), last AS (
+         SELECT DISTINCT ON (peer_id) *
+           FROM mine
+          ORDER BY peer_id, created_at DESC, id DESC
+       ), unread AS (
+         SELECT peer_id, count(*)::int AS unread
+           FROM mine
+          WHERE recipient_id = $1 AND read_at IS NULL
+          GROUP BY peer_id
+       )
+       SELECT last.id, last.sender_id, last.recipient_id, last.text,
+              last.created_at, last.edited_at, last.read_at,
+              COALESCE(unread.unread, 0) AS unread,
+              peer.id AS peer_id, peer.name, peer.email, peer.avatar_url,
+              peer.city, peer.interests, peer.created_at AS user_created_at,
+              peer.friend_ids
+         FROM last
+         JOIN (${USER_SELECT}) peer ON peer.id = last.peer_id
+         LEFT JOIN unread ON unread.peer_id = last.peer_id
+        ORDER BY last.created_at DESC, last.id DESC
+        LIMIT $2`,
+      [userId, limit],
+    );
+
+    return result.rows.map((row) => ({
+      peer: mapUser({ ...row, id: row.peer_id, created_at: row.user_created_at }),
+      lastMessage: mapDirectMessage(row),
+      unread: row.unread,
+    }));
+  }
+
+  async countUnreadDirectMessages(userId: string): Promise<number> {
+    const result = await this.pool.query<{ unread: number }>(
+      "SELECT count(*)::int AS unread FROM direct_messages WHERE recipient_id = $1 AND read_at IS NULL",
+      [userId],
+    );
+    return result.rows[0]?.unread ?? 0;
+  }
+
+  async markDirectMessagesRead(userId: string, peerId: string, readAt: string): Promise<number> {
+    // «Своё/чужое» зашито в условие, а не проверяется отдельным SELECT: пометить
+    // прочитанными чужие сообщения нельзя даже подставив идентификатор.
+    const result = await this.pool.query(
+      `UPDATE direct_messages SET read_at = $3
+        WHERE recipient_id = $1 AND sender_id = $2 AND read_at IS NULL`,
+      [userId, peerId, readAt],
+    );
+    return result.rowCount ?? 0;
+  }
+
   async listComments(eventId: string): Promise<Comment[]> {
     const result = await this.pool.query<CommentRow>(
       `SELECT
@@ -961,7 +1211,9 @@ export class PostgresRepository implements PovodRepository {
         item.userId,
         item.type,
         item.eventId ?? null,
-        item.eventTitle,
+        // У уведомления о личном сообщении события нет — колонка стала
+        // необязательной в миграции 014.
+        item.eventTitle ?? null,
         item.actorId ?? null,
         item.actorName ?? null,
         item.changes ?? [],

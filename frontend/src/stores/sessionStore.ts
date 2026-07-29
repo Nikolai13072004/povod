@@ -17,6 +17,7 @@ import { eventStore } from "./EventStore";
 import { filtersStore } from "./filtersStore";
 import { notificationsStore } from "./notificationsStore";
 import { favoritesStore } from "./favoritesStore";
+import { chatStore } from "./chatStore";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -167,10 +168,7 @@ class SessionStore {
   logout = async (): Promise<void> => {
     if (hasStoredSession()) await authAPI.logout();
     clearLocalSession();
-    eventStore.resetSessionState();
-    filtersStore.resetAll(); // фильтры не должны переезжать к следующему пользователю
-    notificationsStore.reset(); // как и чужие уведомления со счётчиком на колокольчике
-    favoritesStore.reset(); // и чужое избранное
+    this.resetSessionScopedStores();
     runInAction(() => {
       this.user = CURRENT_USER;
       this.authenticated = false;
@@ -200,9 +198,26 @@ class SessionStore {
     return false;
   };
 
+  /**
+   * Забывает всё, что принадлежало прошлому пользователю.
+   *
+   * Одна функция на все три случая — выход, истечение сессии и вход другого
+   * человека — потому что расходятся они молча. Так и вышло: `logout` чистил
+   * пять сторов, а `handleUnauthorized` — только события, и после истечения
+   * сессии на общем устройстве переписка, уведомления и избранное оставались в
+   * памяти вкладки. Следующий вошедший видел их до первой загрузки своих.
+   */
+  private resetSessionScopedStores(): void {
+    eventStore.resetSessionState();
+    filtersStore.resetAll();
+    notificationsStore.reset();
+    favoritesStore.reset();
+    chatStore.reset();
+  }
+
   private applySession(session: AuthSession): void {
     if (this.authenticated && this.user.id !== session.user.id) {
-      eventStore.resetSessionState();
+      this.resetSessionScopedStores();
     }
     /*
      * Сначала сохраняем CSRF-токен из ответа: на кросс-доменном развёртывании
@@ -228,7 +243,7 @@ class SessionStore {
   }
 
   private handleUnauthorized = (): void => {
-    eventStore.resetSessionState();
+    this.resetSessionScopedStores();
     runInAction(() => {
       this.authenticated = false;
       this.error = "Сессия истекла. Войдите снова.";

@@ -195,3 +195,69 @@ export function EventDetailsSkeleton() {
     </DetailsShell>
   );
 }
+
+/** Строка списка диалогов: круглая аватарка, имя, обрывок реплики и время справа. */
+const DialogRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+`;
+
+const DialogInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+export function DialogListSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => (
+        <DialogRow key={index} data-testid="dialog-skeleton">
+          <Skeleton $width="48px" $height="48px" $radius="50%" />
+          <DialogInfo>
+            <Skeleton $height="16px" $width="45%" />
+            <Skeleton $height="13px" $width="70%" />
+          </DialogInfo>
+          <Skeleton $width="36px" $height="12px" />
+        </DialogRow>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Переписка: пузыри с чередующимся выравниванием и разной шириной. Ровные
+ * одинаковые полосы обещали бы список, а не диалог.
+ */
+const ThreadShell = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+`;
+
+const Bubble = styled(Skeleton)<{ $mine: boolean }>`
+  align-self: ${({ $mine }) => ($mine ? "flex-end" : "flex-start")};
+`;
+
+export function MessageThreadSkeleton({ count = 6 }: { count?: number }) {
+  const widths = ["62%", "45%", "78%", "38%", "55%", "70%"];
+  return (
+    <ThreadShell aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => (
+        <Bubble
+          key={index}
+          data-testid="message-skeleton"
+          $mine={index % 2 === 1}
+          $width={widths[index % widths.length]}
+          $height="38px"
+          $radius="16px"
+        />
+      ))}
+    </ThreadShell>
+  );
+}

@@ -23,7 +23,10 @@ import { logger } from "../logger.js";
 
 export const authRouter = Router();
 const loginRateLimit = createAuthRateLimit(10, 10 * 60 * 1000);
-const registerRateLimit = createAuthRateLimit(5, 60 * 60 * 1000);
+// Предел настраивается: синтетические окружения заводят десяток аккаунтов
+// подряд с одного адреса, и для боевого значения это неотличимо от перебора.
+// Ослабить его в production конфигурация не даёт.
+const registerRateLimit = createAuthRateLimit(config.authRegisterLimit, 60 * 60 * 1000);
 const vkRateLimit = createAuthRateLimit(20, 10 * 60 * 1000);
 // Строже входа: перебор адресов здесь бесполезен по ответу, зато рассылка
 // писем на чужие адреса — вполне себе злоупотребление.

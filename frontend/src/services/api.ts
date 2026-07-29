@@ -7,11 +7,13 @@ interface ApiResponse<T> {
   status: number;
 }
 
-export interface AuthSession {
-  token: string;
-  expiresAt: string;
-  user: User;
-}
+/*
+ * Объявлен ниже, вместе с остальными типами контракта: этот интерфейс был
+ * написан руками и успел разойтись со схемой — в нём не хватало `csrfToken`,
+ * хотя сервер его отдаёт и фронт им пользуется. Ровно та болезнь, ради которой
+ * заводился единый контракт (ARCH-002); поймать её было нечем, потому что
+ * типы фронта не проверялись вовсе.
+ */
 
 const SESSION_TOKEN_KEY = "povod.sessionToken";
 const CSRF_TOKEN_KEY = "povod.csrfToken";
@@ -149,6 +151,12 @@ export type Comment = Schemas["Comment"];
 export type NotificationType = Schemas["NotificationType"];
 export type Notification = Schemas["Notification"];
 export type NotificationFeed = Schemas["NotificationFeed"];
+export type AuthSession = Schemas["AuthSession"];
+export type DirectMessage = Schemas["DirectMessage"];
+export type Dialog = Schemas["Dialog"];
+export type DialogList = Schemas["DialogList"];
+/** Страница переписки: свежие сообщения первыми, курсор листает вглубь истории. */
+export type MessageThread = Schemas["MessageThread"];
 /** Страница ленты: `nextCursor` отсутствует — дальше ничего нет (BE-003). */
 export type EventPage = Schemas["EventPage"];
 /** Приглашение без секрета — таким его видит автор события (BE-008). */
@@ -449,6 +457,48 @@ export const notificationsAPI = {
     }),
 };
 
+/**
+ * Личные сообщения (PROD-011).
+ *
+ * Переписка живёт под `dialog/`, а `:id` без префикса — идентификатор
+ * сообщения. Без разделения один и тот же сегмент означал бы то собеседника,
+ * то реплику, и разобраться в маршрутах стало бы невозможно.
+ */
+export const messagesAPI = {
+  /** Диалоги с последней репликой и непрочитанными. Без курсора: потолок 50. */
+  getDialogs: () => fetchApi<DialogList>("api/Messages"),
+
+  /** Дешёвый запрос только ради значка на вкладке. */
+  unreadCount: () => fetchApi<{ unread: number }>("api/Messages/unread"),
+
+  getThread: (peerId: string, params: { cursor?: string; limit?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.cursor) query.set("cursor", params.cursor);
+    if (params.limit) query.set("limit", String(params.limit));
+    const suffix = query.toString() ? `?${query}` : "";
+    return fetchApi<MessageThread>(`api/Messages/dialog/${encodeURIComponent(peerId)}${suffix}`);
+  },
+
+  send: (recipientId: string, text: string) =>
+    fetchApi<DirectMessage>("api/Messages", {
+      method: "POST",
+      body: JSON.stringify({ recipientId, text }),
+    }),
+
+  update: (id: string, text: string) =>
+    fetchApi<DirectMessage>(`api/Messages/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ text }),
+    }),
+
+  remove: (id: string) =>
+    fetchApi<void>(`api/Messages/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  /** Идемпотентно: повторный вызов отмечает 0 сообщений и отвечает тем же 204. */
+  markRead: (peerId: string) =>
+    fetchApi<void>(`api/Messages/dialog/${encodeURIComponent(peerId)}/read`, { method: "POST" }),
+};
+
 export const healthAPI = {
   ping: () => fetchApi<{ message: string; service?: string; timestamp?: string }>("api/ping"),
 
@@ -505,5 +555,6 @@ export const api = {
   users: usersAPI,
   comments: commentsAPI,
   notifications: notificationsAPI,
+  messages: messagesAPI,
   health: healthAPI,
 };

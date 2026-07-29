@@ -6,13 +6,28 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 const mockApi = vi.hoisted(() => ({
   getUser: vi.fn(),
   getByAuthor: vi.fn(),
+  getFriends: vi.fn(),
+  getFriendRequests: vi.fn(),
+  addFriend: vi.fn(),
+  removeFriend: vi.fn(),
 }));
 
 vi.mock("../../services/api", () => ({
-  usersAPI: { getById: mockApi.getUser },
+  usersAPI: {
+    getById: mockApi.getUser,
+    getFriends: mockApi.getFriends,
+    getFriendRequests: mockApi.getFriendRequests,
+    addFriend: mockApi.addFriend,
+    removeFriend: mockApi.removeFriend,
+  },
   eventsAPI: { getByAuthor: mockApi.getByAuthor },
 }));
 
+vi.mock("../../stores/sessionStore", () => ({
+  sessionStore: { user: { id: "me", name: "Я", createdAt: "2026-01-01T00:00:00.000Z" } },
+}));
+
+import { ToastProvider } from "../../components/Toast/ToastProvider";
 import { AuthorProfilePage } from "./AuthorProfilePage";
 
 const author = {
@@ -33,20 +48,31 @@ const authorEvents = [
   },
 ];
 
-function renderPage() {
+function renderPage(path = "/users/u1") {
+  // ToastProvider — часть настоящего дерева: страница показывает toast при
+  // отправке заявки в друзья, и без провайдера useToast бросает исключение.
   render(
-    <MemoryRouter initialEntries={["/users/u1"]}>
-      <Routes>
-        <Route path="/users/:id" element={<AuthorProfilePage />} />
-        <Route path="/page-1/:id" element={<div>страница события</div>} />
-      </Routes>
+    <MemoryRouter initialEntries={[path]}>
+      <ToastProvider>
+        <Routes>
+          <Route path="/users/:id" element={<AuthorProfilePage />} />
+          <Route path="/page-1/:id" element={<div>страница события</div>} />
+          <Route path="/chats/:userId" element={<div>переписка</div>} />
+        </Routes>
+      </ToastProvider>
     </MemoryRouter>,
   );
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mockApi.getUser.mockResolvedValue({ data: author, status: 200 });
   mockApi.getByAuthor.mockResolvedValue({ data: authorEvents, status: 200 });
+  mockApi.getFriends.mockResolvedValue({ data: [], status: 200 });
+  mockApi.getFriendRequests.mockResolvedValue({
+    data: { incoming: [], outgoing: [] },
+    status: 200,
+  });
 });
 
 describe("AuthorProfilePage", () => {
@@ -98,5 +124,47 @@ describe("AuthorProfilePage", () => {
 
     expect(await screen.findByText("Не удалось открыть профиль")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+  });
+});
+
+describe("связь с человеком", () => {
+  it("даёт отправить заявку — до этого сделать это было негде вовсе", async () => {
+    mockApi.addFriend.mockResolvedValue({ data: { status: "pending" }, status: 201 });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Добавить в друзья" }));
+
+    expect(mockApi.addFriend).toHaveBeenCalledWith("me", "u1");
+    expect(await screen.findByRole("button", { name: "Отменить заявку" })).toBeInTheDocument();
+  });
+
+  it("встречная заявка принимается тем же нажатием", async () => {
+    mockApi.getFriendRequests.mockResolvedValue({
+      data: { incoming: [author], outgoing: [] },
+      status: 200,
+    });
+    mockApi.addFriend.mockResolvedValue({ data: { status: "accepted" }, status: 200 });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Принять заявку" }));
+    expect(await screen.findByRole("button", { name: "Написать" })).toBeInTheDocument();
+  });
+
+  it("у друга появляется переход в переписку", async () => {
+    mockApi.getFriends.mockResolvedValue({ data: [author], status: 200 });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Написать" }));
+    expect(await screen.findByText("переписка")).toBeInTheDocument();
+  });
+
+  it("на своём профиле кнопок связи нет", async () => {
+    mockApi.getUser.mockResolvedValue({ data: { ...author, id: "me" }, status: 200 });
+    renderPage("/users/me");
+
+    await screen.findByText("Эльмира Гильманова");
+    expect(screen.queryByRole("button", { name: "Добавить в друзья" })).not.toBeInTheDocument();
+    // И связь не запрашивается вовсе: спрашивать про дружбу с самим собой нечего.
+    expect(mockApi.getFriends).not.toHaveBeenCalled();
   });
 });
