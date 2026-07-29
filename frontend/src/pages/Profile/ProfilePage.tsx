@@ -197,14 +197,34 @@ const StyledChip = styled(Chip)`
   }
 `;
 
-const LogoutButton = styled.div`
+/**
+ * Выход — настоящая кнопка с обводкой.
+ *
+ * Был просто текст в `div`: без рамки он не читался как нажимаемый, а с
+ * клавиатуры до него было не добраться вовсе — `div` не попадает в порядок
+ * обхода и не срабатывает по Enter.
+ */
+const LogoutButton = styled.button`
+  display: block;
+  margin: 24px auto 32px;
+  padding: 12px 32px;
+  border: 1px solid var(--povod-danger);
+  border-radius: 24px;
+  background: transparent;
   color: var(--povod-danger);
+  font: inherit;
   font-weight: 500;
   font-size: 16px;
-  background: transparent;
-  text-align: center;
-  padding: 24px 16px 32px;
   cursor: pointer;
+
+  &:hover {
+    background: var(--povod-danger-on-surface, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--povod-danger);
+    outline-offset: 2px;
+  }
 `;
 
 const BrightSwitchScope = styled.div`
@@ -661,7 +681,9 @@ const UserProfile = () => {
         </Group>
       </ContentWrapper>
 
-      <LogoutButton onClick={handleExit}>Выйти</LogoutButton>
+      <LogoutButton type="button" onClick={handleExit}>
+        Выйти
+      </LogoutButton>
     </PageRoot>
   );
 };

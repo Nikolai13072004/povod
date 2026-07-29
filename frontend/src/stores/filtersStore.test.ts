@@ -100,8 +100,10 @@ describe("myEventsTab (FE-008)", () => {
     filtersStore.resetAll();
   });
 
-  it("defaults to showing all events", () => {
-    expect(filtersStore.myEventsTab).toBe("all");
+  it("defaults to the events the person actually attends", () => {
+    // Вкладки «Все» больше нет: автор события автоматически становится его
+    // участником, поэтому «Все» почти всегда совпадали с «Посещаю».
+    expect(filtersStore.myEventsTab).toBe("attending");
   });
 
   it("switches the active tab and survives page unmounts", () => {
@@ -115,6 +117,6 @@ describe("myEventsTab (FE-008)", () => {
   it("returns to the default tab on logout", () => {
     filtersStore.setMyEventsTab("created");
     filtersStore.resetAll();
-    expect(filtersStore.myEventsTab).toBe("all");
+    expect(filtersStore.myEventsTab).toBe("attending");
   });
 });

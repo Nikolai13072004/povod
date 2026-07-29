@@ -35,12 +35,21 @@ const Avatar = styled.button<{ $avatar?: string }>`
   height: 40px;
   border-radius: 50%;
   background-color: var(--povod-surface-muted);
-  background-image: url(${(props) => props.$avatar || ""});
+  /* Без фото кружок пуст — в него ставится первая буква имени, как в профиле. */
+  background-image: ${(props) => (props.$avatar ? `url(${props.$avatar})` : "none")};
   background-size: cover;
   background-position: center;
   border: none;
   padding: 0;
   cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: var(--povod-text-secondary);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
 
   &:focus-visible {
     outline: 2px solid var(--vkui--color_text_accent, var(--povod-primary));
@@ -142,7 +151,13 @@ export const THeader = observer(function THeader() {
               onClick={handleAvatarClick}
               title={sessionStore.user.name}
               aria-label={`Профиль: ${sessionStore.user.name}`}
-            />
+            >
+              {/* Инициал показывался только в профиле, а в шапке кружок оставался
+                  пустым. `aria-hidden` — имя целиком уже названо в aria-label. */}
+              {!sessionStore.user.avatar && (
+                <span aria-hidden="true">{sessionStore.user.name?.[0] ?? ""}</span>
+              )}
+            </Avatar>
             <PageTitle>{displayTitle}</PageTitle>
           </LeftSection>
 
