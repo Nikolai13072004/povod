@@ -44,6 +44,17 @@ test("забытый пароль не подтверждает, зарегис�
   await expect(page.getByText(/Если такой адрес зарегистрирован/)).toBeVisible();
 });
 
+test("экран восстановления пароля не показывает навигацию приложения", async ({ page }) => {
+  // Ссылки вели туда, куда анониму нельзя: нажатие выбрасывало обратно с
+  // «войдите снова», а шапка добавляла высоту, из-за которой карточка уезжала
+  // вниз и страница начинала прокручиваться.
+  await page.goto("/reset-password");
+  await expect(page.getByRole("heading", { name: "Восстановление пароля" })).toBeVisible();
+
+  await expect(page.getByRole("link", { name: "Главная" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Мои события" })).toHaveCount(0);
+});
+
 test("ссылка восстановления с негодным токеном честно отказывает", async ({ page }) => {
   await page.goto("/reset-password?token=выдуманный");
 
