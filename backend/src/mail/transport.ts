@@ -1,5 +1,6 @@
 import { logger } from "../logger.js";
 import type { MailMessage } from "./message.js";
+import { createBrevoTransport } from "./brevo.js";
 import { createSmtpTransport } from "./smtp.js";
 
 /**
@@ -98,8 +99,9 @@ export function createResendTransport({
 }
 
 export interface MailTransportConfig {
-  mailTransport: "console" | "none" | "resend" | "smtp";
+  mailTransport: "console" | "none" | "resend" | "smtp" | "brevo";
   resendApiKey: string;
+  brevoApiKey: string;
   mailFrom: string;
   smtpHost: string;
   smtpPort: number;
@@ -116,6 +118,12 @@ export function createMailTransport(
     case "resend":
       return createResendTransport({
         apiKey: config.resendApiKey,
+        from: config.mailFrom,
+        ...(fetchImpl ? { fetchImpl } : {}),
+      });
+    case "brevo":
+      return createBrevoTransport({
+        apiKey: config.brevoApiKey,
         from: config.mailFrom,
         ...(fetchImpl ? { fetchImpl } : {}),
       });

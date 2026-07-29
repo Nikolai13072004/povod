@@ -45,8 +45,14 @@ const environmentSchema = z
      * Транспорт писем. `console` печатает ссылку в лог — годится для разработки,
      * но в production означает, что письма никому не уходят.
      */
-    MAIL_TRANSPORT: z.enum(["console", "none", "resend", "smtp"]).default("console"),
+    MAIL_TRANSPORT: z.enum(["console", "none", "resend", "smtp", "brevo"]).default("console"),
     RESEND_API_KEY: z.string().trim().default(""),
+    /*
+     * Brevo — HTTP API вместо SMTP. Нужен там, где хостинг закрывает SMTP-порты
+     * (Render на бесплатном тарифе блокирует 25, 465 и 587), а своего домена
+     * нет: Brevo подтверждает отдельный адрес отправителя, а не домен целиком.
+     */
+    BREVO_API_KEY: z.string().trim().default(""),
     /*
      * SMTP личного ящика — путь для проекта без своего домена. Провайдеры вроде
      * Resend доставляют на произвольные адреса только после подтверждения
@@ -100,6 +106,17 @@ const environmentSchema = z
           path: ["MAIL_FROM"],
           message: "must be set when MAIL_TRANSPORT is 'resend'",
         });
+      }
+    }
+    if (environment.MAIL_TRANSPORT === "brevo") {
+      for (const key of ["BREVO_API_KEY", "MAIL_FROM"] as const) {
+        if (!environment[key]) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: "must be set when MAIL_TRANSPORT is 'brevo'",
+          });
+        }
       }
     }
     if (environment.MAIL_TRANSPORT === "smtp") {
@@ -209,8 +226,9 @@ export interface AppConfig {
   authCookieSecure: boolean;
   authCookieDomain: string;
   appUrl: string;
-  mailTransport: "console" | "none" | "resend" | "smtp";
+  mailTransport: "console" | "none" | "resend" | "smtp" | "brevo";
   resendApiKey: string;
+  brevoApiKey: string;
   mailFrom: string;
   smtpHost: string;
   smtpPort: number;
@@ -250,6 +268,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     appUrl: values.APP_URL,
     mailTransport: values.MAIL_TRANSPORT,
     resendApiKey: values.RESEND_API_KEY,
+    brevoApiKey: values.BREVO_API_KEY,
     mailFrom: values.MAIL_FROM,
     smtpHost: values.SMTP_HOST,
     smtpPort: values.SMTP_PORT,
