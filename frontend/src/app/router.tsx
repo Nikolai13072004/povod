@@ -25,6 +25,7 @@ const EventPage = lazy(() =>
 );
 const SignUpEventsPage = lazy(() => import("../pages/page-3/page-3"));
 const ChatPage = lazy(() => import("../pages/chat/ChatPage"));
+const ChatThreadPage = lazy(() => import("../pages/chat/ChatThreadPage"));
 const CreateEventForm = lazy(() => import("../pages/CreateEvent/CreateEventForm"));
 const NotificationsPage = lazy(() =>
   import("../components/Notification/NotificationsPage").then((m) => ({
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
           { path: "Profile", element: <UserProfile /> },
           { path: "users/:id", element: <AuthorProfilePage /> },
           { path: "chats", element: <ChatPage /> },
+          { path: "chats/:userId", element: <ChatThreadPage /> },
           { path: "notifications", element: <NotificationsPage /> },
         ],
       },

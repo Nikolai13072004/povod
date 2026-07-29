@@ -1,71 +1,170 @@
-import { AppRoot, SplitLayout, SplitCol, Panel, Group, Search } from "@vkontakte/vkui";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { observer } from "mobx-react-lite";
 import styled from "@emotion/styled";
-import "@vkontakte/vkui/dist/vkui.css";
+import { Avatar, Group, Search } from "@vkontakte/vkui";
+import { chatStore } from "../../stores/chatStore";
+import { AsyncContent } from "../../components/AsyncContent/AsyncContent";
+import { DialogListSkeleton } from "../../components/Skeleton";
+import { relativeTime } from "../../components/Notification/notificationText";
+import type { Dialog } from "../../services/api";
 
-const WhitePanel = styled(Panel)`
-  .vkuiGroup {
-    background-color: inherit;
+/**
+ * Список переписок (PROD-011).
+ *
+ * До этого вкладка была заглушкой с текстом «функция скоро будет доступна»: ни
+ * данных, ни списка. Здесь она становится настоящей.
+ *
+ * Поиск фильтрует локально: диалогов не больше пятидесяти, ходить за этим на
+ * сервер незачем. Строка поиска живёт в сторе, а не в компоненте, — уход на
+ * другую вкладку не должен её терять.
+ */
+
+const Row = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+
+  &:hover {
+    background: var(--povod-surface-muted);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--povod-primary);
+    outline-offset: -2px;
   }
 `;
 
-const ChatContainer = styled.div`
-  background-color: var(--povod-surface);
-  min-height: 100vh;
-  min-height: 100dvh;
-`;
-
-const EmptyWrap = styled.div`
+const Info = styled.div`
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 80px 24px;
-  text-align: center;
+  gap: 2px;
 `;
 
-const EmptyEmoji = styled.div`
-  font-size: clamp(40px, 12vw, 64px);
-  line-height: 1;
-`;
-
-const EmptyTitle = styled.div`
-  font-size: 18px;
+const Name = styled.div`
+  font-size: 16px;
   font-weight: 600;
   color: var(--povod-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
-const EmptyText = styled.div`
+const Preview = styled.div<{ $unread: boolean }>`
   font-size: 14px;
-  color: var(--povod-text-secondary);
-  max-width: 280px;
-  line-height: 1.4;
+  color: ${({ $unread }) => ($unread ? "var(--povod-text)" : "var(--povod-text-secondary)")};
+  font-weight: ${({ $unread }) => ($unread ? 600 : 400)};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
-export const ChatList = () => {
+const Side = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+`;
+
+const Time = styled.time`
+  font-size: 12px;
+  color: var(--povod-text-secondary);
+  white-space: nowrap;
+`;
+
+const Badge = styled.span`
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--povod-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+`;
+
+export const ChatList = observer(() => {
+  const navigate = useNavigate();
+  const dialogs = chatStore.visibleDialogs;
+  const searching = chatStore.search.trim().length > 0;
+
+  useEffect(() => {
+    void chatStore.loadDialogs();
+  }, []);
+
   return (
-    <AppRoot>
-      <SplitLayout>
-        <SplitCol>
-          <WhitePanel id="main">
-            <ChatContainer>
-              <Group mode="plain">
-                <Search placeholder="Поиск" />
-                <EmptyWrap>
-                  <EmptyEmoji>💬</EmptyEmoji>
-                  <EmptyTitle>Чатов пока нет</EmptyTitle>
-                  <EmptyText>
-                    Здесь появятся переписки с участниками твоих поводов. Функция скоро будет
-                    доступна.
-                  </EmptyText>
-                </EmptyWrap>
-              </Group>
-            </ChatContainer>
-          </WhitePanel>
-        </SplitCol>
-      </SplitLayout>
-    </AppRoot>
+    <Group mode="plain">
+      <Search
+        value={chatStore.search}
+        onChange={(event) => chatStore.setSearch(event.target.value)}
+        placeholder="Поиск по имени"
+        aria-label="Поиск по перепискам"
+      />
+      <AsyncContent
+        loading={chatStore.dialogsLoading && chatStore.dialogs.length === 0}
+        skeleton={<DialogListSkeleton />}
+        loadingTitle="Загружаем переписки…"
+        error={chatStore.dialogsError}
+        onRetry={() => void chatStore.loadDialogs(true)}
+        empty={dialogs.length === 0}
+        emptyTitle={searching ? "Ничего не найдено" : "Переписок пока нет"}
+        emptyDescription={
+          searching
+            ? "Попробуйте другое имя."
+            : "Писать можно тем, кто принял вашу заявку в друзья. Так переписку не завалит спамом."
+        }
+        emptyActions={
+          searching
+            ? [{ label: "Сбросить поиск", onClick: () => chatStore.setSearch(""), mode: "primary" }]
+            : [
+                { label: "Мои друзья", onClick: () => navigate("/Profile"), mode: "primary" },
+                { label: "Открыть ленту", onClick: () => navigate("/page-1") },
+              ]
+        }
+      >
+        {dialogs.map((dialog) => (
+          <DialogRow
+            key={dialog.peer.id}
+            dialog={dialog}
+            onOpen={() => navigate(`/chats/${dialog.peer.id}`)}
+          />
+        ))}
+      </AsyncContent>
+    </Group>
   );
-};
+});
+
+function DialogRow({ dialog, onOpen }: { dialog: Dialog; onOpen: () => void }) {
+  const { peer, lastMessage, unread } = dialog;
+  // «Вы: » у исходящего — иначе в списке не отличить свою реплику от чужой.
+  const outgoing = lastMessage.senderId !== peer.id;
+  const preview = outgoing ? `Вы: ${lastMessage.text}` : lastMessage.text;
+
+  return (
+    <Row type="button" onClick={onOpen} aria-label={`Переписка с ${peer.name}`}>
+      <Avatar size={48} src={peer.avatar} initials={peer.name.slice(0, 1)} />
+      <Info>
+        <Name>{peer.name}</Name>
+        <Preview $unread={unread > 0}>{preview}</Preview>
+      </Info>
+      <Side>
+        <Time dateTime={lastMessage.createdAt}>{relativeTime(lastMessage.createdAt)}</Time>
+        {unread > 0 && <Badge aria-label={`${unread} непрочитанных`}>{unread}</Badge>}
+      </Side>
+    </Row>
+  );
+}
 
 export default ChatList;

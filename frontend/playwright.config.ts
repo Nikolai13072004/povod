@@ -68,6 +68,11 @@ export default defineConfig({
         ENABLE_EXTERNAL_EVENTS: "false",
         DEMO_AUTH_ENABLED: "true",
         DEMO_AUTH_PASSWORD: "povod-demo",
+        // Набор заводит десяток аккаунтов подряд с 127.0.0.1 — боевой предел
+        // (5 регистраций в час на адрес) для такого неотличим от перебора, и
+        // тесты начинают падать друг об друга. В production это значение
+        // конфигурация отклоняет.
+        AUTH_REGISTER_LIMIT: "1000",
         CORS_ORIGIN: `http://127.0.0.1:${FRONTEND_PORT}`,
       },
     },

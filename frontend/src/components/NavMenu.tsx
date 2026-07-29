@@ -1,7 +1,9 @@
 import { NavLink } from "react-router-dom";
 import styled from "@emotion/styled";
+import { observer } from "mobx-react-lite";
 import "../index.css";
 import { HomeIcon, AddIcon, EventIcon, ChatIcon } from "../icons/icons";
+import { chatStore } from "../stores/chatStore";
 
 /**
  * Навигация приложения (UX-007).
@@ -133,6 +135,34 @@ const Label = styled.span`
   }
 `;
 
+/**
+ * Значок непрочитанных на вкладке «Чаты».
+ *
+ * Иконка занимает место целиком, поэтому счётчик садится ей на угол —
+ * `position: absolute` внутри ссылки, которая для этого стала `relative`.
+ */
+const IconSlot = styled.span`
+  position: relative;
+  display: grid;
+  place-items: center;
+`;
+
+const UnreadBadge = styled.span`
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--povod-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+`;
+
 const LINKS = [
   { to: "/page-1", label: "Главная", Icon: HomeIcon },
   { to: "/add", label: "Создать", Icon: AddIcon },
@@ -140,19 +170,35 @@ const LINKS = [
   { to: "/chats", label: "Чаты", Icon: ChatIcon },
 ];
 
-export default function NavMenu() {
+function NavMenu() {
+  const unread = chatStore.unread;
+
   return (
     <NavWrapper>
       <Nav aria-label="Основные разделы">
         <NavInner>
-          {LINKS.map(({ to, label, Icon }) => (
-            <StyledNavLink key={to} to={to} aria-label={label}>
-              <Icon />
-              <Label>{label}</Label>
-            </StyledNavLink>
-          ))}
+          {LINKS.map(({ to, label, Icon }) => {
+            const showBadge = to === "/chats" && unread > 0;
+            return (
+              <StyledNavLink
+                key={to}
+                to={to}
+                aria-label={showBadge ? `${label}, ${unread} непрочитанных` : label}
+              >
+                <IconSlot>
+                  <Icon />
+                  {showBadge && (
+                    <UnreadBadge aria-hidden="true">{unread > 99 ? "99+" : unread}</UnreadBadge>
+                  )}
+                </IconSlot>
+                <Label>{label}</Label>
+              </StyledNavLink>
+            );
+          })}
         </NavInner>
       </Nav>
     </NavWrapper>
   );
 }
+
+export default observer(NavMenu);

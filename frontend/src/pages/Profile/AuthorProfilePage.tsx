@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "@emotion/styled";
-import { Avatar, Panel, PanelHeader, PanelHeaderBack, Group, Chip } from "@vkontakte/vkui";
+import { Avatar, Button, Panel, PanelHeader, PanelHeaderBack, Group, Chip } from "@vkontakte/vkui";
 import { Icon20PlaceOutline } from "@vkontakte/icons";
 import { AsyncContent } from "../../components/AsyncContent";
 import { eventsAPI, usersAPI, type Event as ApiEvent, type User } from "../../services/api";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
+import { sessionStore } from "../../stores/sessionStore";
+import { useToast } from "../../components/Toast/ToastProvider";
 
 const Header = styled.div`
   display: flex;
@@ -15,6 +17,18 @@ const Header = styled.div`
   padding: 16px;
   text-align: center;
 `;
+
+/** Кнопки в ряд с переносом: на узком экране две подписи не помещаются. */
+const LinkActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 4px;
+`;
+
+/** Состояние связи с человеком: от него зависит единственная кнопка. */
+type LinkState = "none" | "outgoing" | "incoming" | "friends";
 
 const UserName = styled.h1`
   margin: 0;
@@ -94,11 +108,46 @@ export function AuthorProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
+  const showToast = useToast();
+
   const [user, setUser] = useState<User | null>(null);
   const [events, setEvents] = useState<ApiEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [link, setLink] = useState<LinkState>("none");
+  const [linking, setLinking] = useState(false);
+
+  const myId = sessionStore.user.id;
+  const isMe = Boolean(id) && id === myId;
+
+  /**
+   * Состояние связи с этим человеком.
+   *
+   * Определяется не одним запросом: сервер отдаёт список друзей и список
+   * заявок отдельно, а показать надо одну кнопку. Владелец профиля своих
+   * заявок не увидит — они спрашиваются от своего имени.
+   */
+  const loadLink = useCallback(async () => {
+    if (!id || !myId || id === myId) return;
+    const [friends, requests] = await Promise.all([
+      usersAPI.getFriends(myId),
+      usersAPI.getFriendRequests(myId),
+    ]);
+    if (friends.data?.some((friend) => friend.id === id)) {
+      setLink("friends");
+      return;
+    }
+    if (requests.data?.outgoing.some((person) => person.id === id)) {
+      setLink("outgoing");
+      return;
+    }
+    if (requests.data?.incoming.some((person) => person.id === id)) {
+      setLink("incoming");
+      return;
+    }
+    setLink("none");
+  }, [id, myId]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -129,7 +178,39 @@ export function AuthorProfilePage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadLink();
+  }, [load, loadLink]);
+
+  const requestFriendship = async () => {
+    if (!id || !myId) return;
+    setLinking(true);
+    const response = await usersAPI.addFriend(myId, id);
+    setLinking(false);
+    if (!response.data) {
+      showToast(response.error ?? "Не удалось отправить заявку", { type: "error" });
+      return;
+    }
+    // `accepted` — встречная заявка уже висела, и этот вызов её принял.
+    setLink(response.data.status === "accepted" ? "friends" : "outgoing");
+    showToast(
+      response.data.status === "accepted"
+        ? `${user?.name ?? "Пользователь"} теперь у вас в друзьях`
+        : "Заявка отправлена",
+      { type: "success" },
+    );
+  };
+
+  const cancelFriendship = async () => {
+    if (!id || !myId) return;
+    setLinking(true);
+    const response = await usersAPI.removeFriend(myId, id);
+    setLinking(false);
+    if (response.error) {
+      showToast(response.error, { type: "error" });
+      return;
+    }
+    setLink("none");
+  };
 
   return (
     <Panel id="author-profile">
@@ -167,6 +248,39 @@ export function AuthorProfilePage() {
                       </Chip>
                     ))}
                   </Chips>
+                )}
+
+                {/*
+                  Связь начинается отсюда. До этого отправить заявку было
+                  негде вовсе: принять чужую интерфейс умел, а свою послать —
+                  нет, и подружиться через приложение было невозможно.
+                */}
+                {!isMe && myId && (
+                  <LinkActions>
+                    {link === "none" && (
+                      <Button loading={linking} disabled={linking} onClick={requestFriendship}>
+                        Добавить в друзья
+                      </Button>
+                    )}
+                    {link === "outgoing" && (
+                      <Button mode="secondary" disabled={linking} onClick={cancelFriendship}>
+                        Отменить заявку
+                      </Button>
+                    )}
+                    {link === "incoming" && (
+                      <Button loading={linking} disabled={linking} onClick={requestFriendship}>
+                        Принять заявку
+                      </Button>
+                    )}
+                    {link === "friends" && (
+                      <>
+                        <Button onClick={() => navigate(`/chats/${id}`)}>Написать</Button>
+                        <Button mode="secondary" disabled={linking} onClick={cancelFriendship}>
+                          Убрать из друзей
+                        </Button>
+                      </>
+                    )}
+                  </LinkActions>
                 )}
               </Header>
 

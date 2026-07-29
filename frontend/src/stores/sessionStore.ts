@@ -17,6 +17,7 @@ import { eventStore } from "./EventStore";
 import { filtersStore } from "./filtersStore";
 import { notificationsStore } from "./notificationsStore";
 import { favoritesStore } from "./favoritesStore";
+import { chatStore } from "./chatStore";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -171,6 +172,7 @@ class SessionStore {
     filtersStore.resetAll(); // фильтры не должны переезжать к следующему пользователю
     notificationsStore.reset(); // как и чужие уведомления со счётчиком на колокольчике
     favoritesStore.reset(); // и чужое избранное
+    chatStore.reset(); // и тем более чужая переписка
     runInAction(() => {
       this.user = CURRENT_USER;
       this.authenticated = false;
