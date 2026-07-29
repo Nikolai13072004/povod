@@ -6,7 +6,6 @@ import { observer } from "mobx-react-lite";
 import { useNavigate } from "react-router-dom";
 import { sessionStore } from "../stores/sessionStore";
 import { setStoredInterests } from "../storage";
-import { useInterestForm } from "../hooks/useInterestForm";
 import { INTERESTS } from "../data/interests";
 
 const PageContainer = styled.div`
@@ -71,19 +70,6 @@ const InputWrapper = styled.div`
   }
 `;
 
-const RangeContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  .vkuiInput {
-    flex: 1;
-    background: var(--povod-surface-muted);
-    border: 1px solid var(--povod-primary);
-    border-radius: 8px;
-  }
-`;
-
 const Footer = styled.div`
   margin-top: auto;
   padding-top: 20px;
@@ -102,19 +88,6 @@ export const SelectInterestPage = observer(function SelectInterestPage() {
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  //   const [peopleFrom, setPeopleFrom] = useState("2");
-  //   const [peopleTo, setPeopleTo] = useState("100");
-
-  const {
-    peopleFrom,
-    setPeopleFrom,
-    peopleTo,
-    setPeopleTo,
-    handleBlurFrom,
-    handleBlurTo,
-    isValid,
-  } = useInterestForm();
-
   const navigate = useNavigate();
 
   /*
@@ -224,32 +197,6 @@ export const SelectInterestPage = observer(function SelectInterestPage() {
         </Card>
       </Section>
 
-      <Section>
-        <Card>
-          <SectionTitle level="2" style={{ fontSize: 18 }}>
-            Количество человек
-          </SectionTitle>
-          <RangeContainer>
-            <Input
-              type="number"
-              value={peopleFrom}
-              onChange={(e) => setPeopleFrom(e.target.value)}
-              onBlur={handleBlurFrom}
-            />
-            <span style={{ color: "var(--povod-text-secondary)" }}>—</span>
-            <Input
-              type="number"
-              value={peopleTo}
-              onChange={(e) => setPeopleTo(e.target.value)}
-              onBlur={handleBlurTo}
-            />
-          </RangeContainer>
-          {!isValid && (
-            <Text style={{ color: "red", fontSize: 12 }}>Диапазон должен быть от 2 до 100</Text>
-          )}
-        </Card>
-      </Section>
-
       <Footer>
         {saveError && (
           <Text
@@ -263,10 +210,10 @@ export const SelectInterestPage = observer(function SelectInterestPage() {
           size="l"
           stretched
           loading={saving}
-          disabled={!isValid || selected.length === 0 || saving}
+          disabled={selected.length === 0 || saving}
           appearance="accent"
           style={{
-            background: isValid ? "var(--povod-primary)" : "var(--povod-border-strong)",
+            background: selected.length > 0 ? "var(--povod-primary)" : "var(--povod-border-strong)",
             borderRadius: 12,
             height: 52,
           }}
