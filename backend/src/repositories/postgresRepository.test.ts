@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { runDirectMessageConformance } from "./directMessages.conformance.js";
 
 /**
  * Интеграционные тесты PostgreSQL-адаптера (QA-006).
@@ -27,6 +28,7 @@ process.env.ENABLE_EXTERNAL_EVENTS = "false";
 const TABLES = [
   "app_metadata",
   "notifications",
+  "direct_messages",
   "event_favorites",
   "auth_sessions",
   "password_credentials",
@@ -699,3 +701,5 @@ test("profile fields round-trip through SQL, including city (BE-010)", { skip },
   assert.equal(after?.city, "Казань");
   assert.deepEqual(after?.interests, ["IT"]);
 });
+
+runDirectMessageConformance("postgres", freshRepository, { skip });

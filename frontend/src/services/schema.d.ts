@@ -1456,6 +1456,393 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Список диалогов
+         * @description Последняя реплика и непрочитанные по каждому собеседнику. Без курсора: потолок 50.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Диалоги и общее число непрочитанных */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DialogList"];
+                    };
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Отправить сообщение
+         * @description Писать можно только тем, с кем дружба подтверждена.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        text: string;
+                        recipientId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Отправлено */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DirectMessage"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Messages/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Число непрочитанных сообщений
+         * @description Дешёвый запрос для значка на вкладке «Чаты».
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Счётчик */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnreadCount"];
+                    };
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Messages/dialog/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Переписка с собеседником
+         * @description Свежие сообщения первыми, курсор листает вглубь истории. История переживает расторжение дружбы, но `canSend` тогда ложь.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    cursor?: string;
+                    limit?: number | null;
+                };
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Страница переписки */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MessageThread"];
+                    };
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Messages/dialog/{userId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отметить переписку прочитанной
+         * @description Идемпотентно: повторный вызов отмечает 0 сообщений и отвечает тем же 204.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Отмечено */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Изменить своё сообщение
+         * @description Правка оставляет отметку `editedAt`. Чужое сообщение неотличимо от несуществующего.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        text: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Изменено */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DirectMessage"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Удалить своё сообщение
+         * @description Сообщение исчезает у обоих собеседников.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Удалено */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Users": {
         parameters: {
             query?: never;
@@ -2042,14 +2429,15 @@ export interface components {
             eventId: string;
         };
         /** @enum {string} */
-        NotificationType: "event_updated" | "event_cancelled" | "event_comment" | "event_joined";
+        NotificationType: "event_updated" | "event_cancelled" | "event_comment" | "event_joined" | "direct_message";
         Notification: {
             id: string;
             userId: string;
             type: components["schemas"]["NotificationType"];
             /** @description Отсутствует, если событие удалено или это отмена */
             eventId?: string;
-            eventTitle: string;
+            /** @description Отсутствует у уведомлений без события — например о личном сообщении */
+            eventTitle?: string;
             actorId?: string;
             actorName?: string;
             changes?: string[];
@@ -2061,6 +2449,45 @@ export interface components {
         NotificationFeed: {
             items: components["schemas"]["Notification"][];
             unread: number;
+        };
+        DirectMessage: {
+            id: string;
+            senderId: string;
+            recipientId: string;
+            text: string;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Отметка о правке; отсутствует — текст не менялся
+             */
+            editedAt?: string;
+            /**
+             * Format: date-time
+             * @description Когда получатель открыл переписку; отсутствует — не прочитано
+             */
+            readAt?: string;
+        };
+        Dialog: {
+            peer: components["schemas"]["User"];
+            lastMessage: components["schemas"]["DirectMessage"];
+            /** @description Непрочитанные входящие в этом диалоге */
+            unread: number;
+        };
+        DialogList: {
+            items: components["schemas"]["Dialog"][];
+            /** @description Непрочитанные во всех диалогах */
+            unread: number;
+        };
+        UnreadCount: {
+            unread: number;
+        };
+        MessageThread: {
+            peer: components["schemas"]["User"];
+            items: components["schemas"]["DirectMessage"][];
+            nextCursor?: string;
+            /** @description Дружба подтверждена прямо сейчас. Ложь — история видна, отправка запрещена */
+            canSend: boolean;
         };
         FriendshipStatus: {
             /** @enum {string} */

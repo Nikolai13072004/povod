@@ -1,4 +1,12 @@
-import type { Comment, Event, EventInvitation, Notification, User } from "../types.js";
+import type {
+  Comment,
+  Dialog,
+  DirectMessage,
+  Event,
+  EventInvitation,
+  Notification,
+  User,
+} from "../types.js";
 
 /**
  * Исход попытки записаться (BE-007).
@@ -105,6 +113,49 @@ export interface FriendRequests {
   outgoing: User[];
 }
 
+export interface CreateMessageInput {
+  id: string;
+  text: string;
+  senderId: string;
+  recipientId: string;
+  createdAt: string;
+}
+
+/**
+ * Исход отправки личного сообщения (PROD-011).
+ *
+ * «Нет такого пользователя», «сам себе» и «дружба не подтверждена» намеренно
+ * сведены в один исход: разделив их, мы дали бы способ перебором выяснять,
+ * существует ли аккаунт. Роутер физически не может ответить по-разному —
+ * различия до него не доезжает.
+ */
+export type SendMessageResult =
+  | {
+      outcome: "sent";
+      message: DirectMessage;
+      /**
+       * До этого сообщения непрочитанных от того же отправителя не было.
+       * Уведомление шлётся только тогда: иначе активная переписка вытеснит из
+       * колокольчика приглашения, отмены и комментарии.
+       */
+      firstUnread: boolean;
+    }
+  | { outcome: "not-allowed" };
+
+/**
+ * Позиция в переписке. Своя, а не `FeedCursor`: у того ведущее поле —
+ * совпадение с интересами, здесь его нет.
+ */
+export interface MessageCursor {
+  createdAt: string;
+  id: string;
+}
+
+export interface MessageThreadFilters {
+  limit: number;
+  cursor?: MessageCursor;
+}
+
 export interface PovodRepository {
   init(): Promise<void>;
   /** Проверка готовности хранилища (для readiness-пробы). Бросает/возвращает false, если недоступно. */
@@ -164,6 +215,41 @@ export interface PovodRepository {
   /** Правка текста комментария; проставляет отметку `editedAt` (BE-009). */
   updateComment(id: string, text: string, editedAt: string): Promise<Comment | undefined>;
   deleteComment(id: string): Promise<boolean>;
+
+  /**
+   * Подтверждённая дружба (PROD-011).
+   *
+   * Отдельный метод, а не `user.friends`: в PostgreSQL это поле собиралось из
+   * `friendships` без фильтра по статусу и включало неподтверждённые заявки, а
+   * в памяти — нет. Право писать обязано проверяться однозначно, поэтому здесь
+   * `status = 'accepted'` записан явно.
+   */
+  areFriends(userId: string, peerId: string): Promise<boolean>;
+  /**
+   * Отправка личного сообщения: проверка дружбы и запись — один вызов.
+   * Разделив их, мы оставили бы окно между двумя `await`, в котором дружбу
+   * успевают расторгнуть (BE-004, BE-007).
+   */
+  sendDirectMessage(input: CreateMessageInput): Promise<SendMessageResult>;
+  getDirectMessage(id: string): Promise<DirectMessage | undefined>;
+  /** Правка своего сообщения; проставляет отметку `editedAt`. */
+  updateDirectMessage(
+    id: string,
+    text: string,
+    editedAt: string,
+  ): Promise<DirectMessage | undefined>;
+  deleteDirectMessage(id: string): Promise<boolean>;
+  /** Страница переписки, свежие первыми; курсор листает вглубь истории. */
+  listDirectMessages(
+    userId: string,
+    peerId: string,
+    filters: MessageThreadFilters,
+  ): Promise<DirectMessage[]>;
+  /** Диалоги пользователя: последняя реплика и непрочитанные, свежие сверху. */
+  listDialogs(userId: string, limit: number): Promise<Dialog[]>;
+  countUnreadDirectMessages(userId: string): Promise<number>;
+  /** Помечает прочитанными входящие от собеседника; возвращает число отмеченных. */
+  markDirectMessagesRead(userId: string, peerId: string, readAt: string): Promise<number>;
 
   /** Пишет пачку уведомлений одним вызовом: одно действие обычно касается многих. */
   createNotifications(notifications: Notification[]): Promise<void>;

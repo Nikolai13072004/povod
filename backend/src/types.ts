@@ -10,7 +10,15 @@
  * профиля и потому объявлен необязательным.
  */
 
-export type { Comment, Event, Notification, NotificationType, User } from "./contracts/schemas.js";
+export type {
+  Comment,
+  Dialog,
+  DirectMessage,
+  Event,
+  Notification,
+  NotificationType,
+  User,
+} from "./contracts/schemas.js";
 
 /**
  * Приглашение в закрытое событие (BE-008).

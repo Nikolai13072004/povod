@@ -21,7 +21,13 @@ function joinChanges(changes: string[]): string {
 }
 
 export function formatNotification(notification: Notification): string {
-  const title = `«${notification.eventTitle}»`;
+  // Единственный тип без события — личное сообщение. Название здесь не просто
+  // отсутствует, его и не может быть: открывать нечего, кроме переписки.
+  if (notification.type === "direct_message") {
+    return `${actor(notification)} написал вам`;
+  }
+
+  const title = notification.eventTitle ? `«${notification.eventTitle}»` : "«без названия»";
   switch (notification.type) {
     case "event_joined":
       return `${actor(notification)} записался на ваше событие ${title}`;

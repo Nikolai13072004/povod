@@ -327,7 +327,8 @@
           "event_updated",
           "event_cancelled",
           "event_comment",
-          "event_joined"
+          "event_joined",
+          "direct_message"
         ]
       },
       "Notification": {
@@ -347,7 +348,8 @@
             "description": "Отсутствует, если событие удалено или это отмена"
           },
           "eventTitle": {
-            "type": "string"
+            "type": "string",
+            "description": "Отсутствует у уведомлений без события — например о личном сообщении"
           },
           "actorId": {
             "type": "string"
@@ -374,7 +376,6 @@
           "id",
           "userId",
           "type",
-          "eventTitle",
           "createdAt"
         ]
       },
@@ -394,6 +395,120 @@
         "required": [
           "items",
           "unread"
+        ]
+      },
+      "DirectMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "senderId": {
+            "type": "string"
+          },
+          "recipientId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Отметка о правке; отсутствует — текст не менялся"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Когда получатель открыл переписку; отсутствует — не прочитано"
+          }
+        },
+        "required": [
+          "id",
+          "senderId",
+          "recipientId",
+          "text",
+          "createdAt"
+        ]
+      },
+      "Dialog": {
+        "type": "object",
+        "properties": {
+          "peer": {
+            "$ref": "#/components/schemas/User"
+          },
+          "lastMessage": {
+            "$ref": "#/components/schemas/DirectMessage"
+          },
+          "unread": {
+            "type": "integer",
+            "description": "Непрочитанные входящие в этом диалоге"
+          }
+        },
+        "required": [
+          "peer",
+          "lastMessage",
+          "unread"
+        ]
+      },
+      "DialogList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Dialog"
+            }
+          },
+          "unread": {
+            "type": "integer",
+            "description": "Непрочитанные во всех диалогах"
+          }
+        },
+        "required": [
+          "items",
+          "unread"
+        ]
+      },
+      "UnreadCount": {
+        "type": "object",
+        "properties": {
+          "unread": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unread"
+        ]
+      },
+      "MessageThread": {
+        "type": "object",
+        "properties": {
+          "peer": {
+            "$ref": "#/components/schemas/User"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectMessage"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          },
+          "canSend": {
+            "type": "boolean",
+            "description": "Дружба подтверждена прямо сейчас. Ложь — история видна, отправка запрещена"
+          }
+        },
+        "required": [
+          "peer",
+          "items",
+          "canSend"
         ]
       },
       "FriendshipStatus": {
@@ -2112,6 +2227,434 @@
           },
           "401": {
             "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Messages": {
+      "get": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Список диалогов",
+        "description": "Последняя реплика и непрочитанные по каждому собеседнику. Без курсора: потолок 50.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Диалоги и общее число непрочитанных",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DialogList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Отправить сообщение",
+        "description": "Писать можно только тем, с кем дружба подтверждена.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "recipientId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "text",
+                  "recipientId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Отправлено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Messages/unread": {
+      "get": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Число непрочитанных сообщений",
+        "description": "Дешёвый запрос для значка на вкладке «Чаты».",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Счётчик",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCount"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Messages/dialog/{userId}": {
+      "get": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Переписка с собеседником",
+        "description": "Свежие сообщения первыми, курсор листает вглубь истории. История переживает расторжение дружбы, но `canSend` тогда ложь.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Непрозрачный курсор предыдущей страницы"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница переписки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageThread"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Messages/dialog/{userId}/read": {
+      "post": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Отметить переписку прочитанной",
+        "description": "Идемпотентно: повторный вызов отмечает 0 сообщений и отвечает тем же 204.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Отмечено"
+          },
+          "401": {
+            "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Messages/{id}": {
+      "put": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Изменить своё сообщение",
+        "description": "Правка оставляет отметку `editedAt`. Чужое сообщение неотличимо от несуществующего.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Изменено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Удалить своё сообщение",
+        "description": "Сообщение исчезает у обоих собеседников.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Удалено"
+          },
+          "401": {
+            "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
             "content": {
               "application/json": {
                 "schema": {
