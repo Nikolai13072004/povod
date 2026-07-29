@@ -95,11 +95,20 @@ test("smtp transport sends through one reused connection", async () => {
     user: "me@yandex.ru",
     password: "app-password",
     from: "POVOD <me@yandex.ru>",
+    resolveHost: async () => "142.250.185.109",
     createTransport: ((options: Record<string, unknown>) => {
       created += 1;
       // Без явных таймаутов повисший сервер держал бы наш ответ минутами.
       assert.equal(options.connectionTimeout, 10_000);
       assert.equal(options.socketTimeout, 10_000);
+      /*
+       * Подключаемся по адресу, а не по имени: у контейнеров Render нет
+       * исходящего IPv6, а Gmail отдаёт и AAAA — Node шёл по нему и падал с
+       * ENETUNREACH. Имя при этом остаётся в servername, иначе проверка
+       * сертификата не пройдёт: в host теперь цифры.
+       */
+      assert.equal(options.host, "142.250.185.109");
+      assert.deepEqual(options.tls, { servername: "smtp.yandex.ru" });
       return {
         sendMail: async (mail: Record<string, unknown>) => {
           sent.push(mail);
