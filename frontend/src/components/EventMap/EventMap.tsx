@@ -78,7 +78,7 @@ export const EventMap = ({ coords }: EventMapProps) => {
       style={{
         width: "100%",
         height: "clamp(180px, 32vw, 360px)",
-        borderRadius: "12px",
+        borderRadius: "var(--povod-radius-md)",
         overflow: "hidden",
         border: "1px solid var(--povod-border)",
       }}

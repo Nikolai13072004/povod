@@ -35,7 +35,7 @@ const ModalContent = styled.div<{
 }>`
   background: var(--povod-surface) !important;
   color: var(--povod-text) !important;
-  border-radius: 12px;
+  border-radius: var(--povod-radius-md);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
   ${(props) => getSizeStyles(props.size)}
   width: 90%;
@@ -83,7 +83,7 @@ const CloseButton = styled.button<{ $mode: "light" | "dark" }>`
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: 6px;
+  border-radius: var(--povod-radius-xs);
   transition: all 0.2s ease;
 
   &:hover {

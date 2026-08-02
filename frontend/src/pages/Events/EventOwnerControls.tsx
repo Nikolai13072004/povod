@@ -11,7 +11,7 @@ const Panel = styled.div`
   padding: 16px;
   margin-top: 12px;
   background: var(--vkui--color_background_secondary);
-  border-radius: 16px;
+  border-radius: var(--povod-radius-lg);
 `;
 
 const PanelTitle = styled.h3`

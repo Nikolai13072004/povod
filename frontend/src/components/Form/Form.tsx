@@ -68,7 +68,7 @@ const StyledInput = styled.input<{ $mode: "light" | "dark"; error?: boolean }>`
   padding: 10px 12px;
   border: 1px solid
     ${(props) => (props.error ? "var(--povod-danger)" : "var(--povod-border-strong)")};
-  border-radius: 6px;
+  border-radius: var(--povod-radius-sm);
   font-size: 14px;
   font-family: inherit;
   background: var(--povod-surface);
@@ -109,7 +109,7 @@ const StyledTextarea = styled.textarea<{
   padding: 10px 12px;
   border: 1px solid
     ${(props) => (props.error ? "var(--povod-danger)" : "var(--povod-border-strong)")};
-  border-radius: 6px;
+  border-radius: var(--povod-radius-sm);
   font-size: 14px;
   font-family: inherit;
   background: var(--povod-surface);

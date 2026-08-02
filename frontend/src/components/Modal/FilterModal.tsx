@@ -11,7 +11,7 @@ const ContentGrid = styled.div`
 
 const OptionTag = styled.button<{ $active?: boolean }>`
   padding: 10px 16px;
-  border-radius: 12px;
+  border-radius: var(--povod-radius-sm);
   border: 1px solid var(--vkui--color_separator_primary_alpha);
   background: ${(props) =>
     props.$active
@@ -73,7 +73,12 @@ export function FilterModal({
       </ContentGrid>
 
       <div style={{ padding: "0 16px 20px" }}>
-        <Button size="l" stretched onClick={onClose} style={{ borderRadius: 12 }}>
+        <Button
+          size="l"
+          stretched
+          onClick={onClose}
+          style={{ borderRadius: "var(--povod-radius-sm)" }}
+        >
           Применить
         </Button>
       </div>

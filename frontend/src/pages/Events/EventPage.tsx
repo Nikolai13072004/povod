@@ -49,7 +49,7 @@ const CalendarFallback = styled.a`
   &:focus-visible {
     outline: 2px solid var(--povod-primary);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: var(--povod-radius-xs);
   }
 `;
 
@@ -59,7 +59,7 @@ const InviteLinkField = styled.input`
   margin-top: 8px;
   padding: 10px 12px;
   border: 1px solid var(--povod-border-strong);
-  border-radius: 10px;
+  border-radius: var(--povod-radius-sm);
   background: var(--povod-surface-muted);
   color: var(--povod-text);
   font-size: 13px;
@@ -70,7 +70,7 @@ const CommentInput = styled.input`
   min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--vkui--color_separator_primary_alpha);
-  border-radius: 12px;
+  border-radius: var(--povod-radius-sm);
   background: var(--vkui--color_background_secondary);
   color: var(--vkui--color_text_primary);
   font-size: 14px;
@@ -350,7 +350,7 @@ function EventPageComponent() {
             <EventCover
               src={typeof eventData.image === "string" ? eventData.image : undefined}
               title={eventData.title}
-              rounded="12px"
+              rounded="var(--povod-radius-md)"
             />
           </div>
         </div>

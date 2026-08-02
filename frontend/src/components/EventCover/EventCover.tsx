@@ -52,7 +52,7 @@ export function EventCover({
   src,
   title,
   ratio = "16 / 9",
-  rounded = "16px",
+  rounded = "var(--povod-radius-md)",
   className,
 }: EventCoverProps) {
   const [failed, setFailed] = useState(false);

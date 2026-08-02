@@ -23,8 +23,13 @@ body,
 }
 
 /* Переменные VKUI выводим из наших токенов, чтобы его компоненты
-   (Panel, Group, SimpleCell, Button…) следовали выбранной теме. */
+   (Panel, Group, SimpleCell, Button…) следовали выбранной теме.
+   `.vkuiAppRoot__host` и контейнер стилей в списке обязательны: AppRoot
+   переустанавливает переменные на себе, и правило только на :root он бы
+   молча перекрыл — токены доехали бы до корня, но не до компонентов. */
 .vkui--force-custom-colors,
+.vkuiAppRoot__host,
+.vkuiAppRootStyleContainer__host,
 :root {
   --vkui--color_background: var(--povod-bg) !important;
   --vkui--color_background_primary: var(--povod-bg) !important;
@@ -46,4 +51,12 @@ body,
   --vkui--color_separator_primary_alpha: var(--povod-border) !important;
 
   --vkui--color_icon_secondary: var(--povod-text-secondary) !important;
+
+  /* Радиусы VKUI — из той же шкалы, что и остальной интерфейс. Иначе его
+     Button/Search/ModalPage рисуются своим дефолтом (~8px) и выглядят
+     «квадратнее» соседних элементов POVOD. В рантайме компоненты читают
+     варианты с суффиксом `--regular` — переопределять нужно именно их. */
+  --vkui--size_border_radius--regular: var(--povod-radius-sm) !important;
+  --vkui--size_border_radius_paper--regular: var(--povod-radius-lg) !important;
+  --vkui--size_card_border_radius--regular: var(--povod-radius-lg) !important;
 }

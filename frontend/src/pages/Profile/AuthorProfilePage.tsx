@@ -73,7 +73,7 @@ const EventCard = styled.button`
   text-align: left;
   background: var(--vkui--color_background_secondary);
   border: 1px solid var(--vkui--color_separator_primary_alpha);
-  border-radius: 16px;
+  border-radius: var(--povod-radius-lg);
   cursor: pointer;
   font: inherit;
   min-width: 0;

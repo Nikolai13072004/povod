@@ -45,7 +45,7 @@ const ToastCard = styled.div<{ $type: ToastType }>`
   width: 100%;
   box-sizing: border-box;
   padding: 12px 16px;
-  border-radius: 14px;
+  border-radius: var(--povod-radius-md);
   color: var(--povod-on-primary);
   font-size: 14px;
   line-height: 1.4;

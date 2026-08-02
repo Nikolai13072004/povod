@@ -27,7 +27,7 @@ const ModalContent = styled.div<{ $isOpen: boolean }>`
   max-height: 90dvh;
   overflow-y: auto;
   background-color: var(--povod-surface);
-  border-radius: 28px 28px 0 0;
+  border-radius: var(--povod-radius-xl) var(--povod-radius-xl) 0 0;
   padding: 8px 20px 24px;
   transform: translateY(${(props) => (props.$isOpen ? "0" : "100%")});
   transition: transform 0.3s cubic-bezier(0.32, 0.94, 0.6, 1);
@@ -61,7 +61,7 @@ const InputWrapper = styled.div`
 const StyledInput = styled.input`
   width: 100%;
   padding: 14px 16px 14px 44px;
-  border-radius: 14px;
+  border-radius: var(--povod-radius-md);
   border: 1.5px solid var(--povod-primary);
   background: var(--povod-surface);
   font-size: 16px;
@@ -93,7 +93,7 @@ const ApplyButton = styled.button`
   background: var(--povod-primary);
   color: var(--povod-on-primary);
   border: none;
-  border-radius: 14px;
+  border-radius: var(--povod-radius-md);
   padding: 14px;
   font-size: 17px;
   font-weight: 600;
@@ -381,7 +381,7 @@ const ChipContainer = styled.div`
 
 const Chip = styled.button<{ $selected: boolean }>`
   padding: 10px 16px;
-  border-radius: 14px;
+  border-radius: var(--povod-radius-md);
   /*
    * Обводка обязательна: без неё невыбранный чип и фон модалки в тёмной теме
    * почти совпадают, и понять, где кончается кнопка, невозможно. У выбранного

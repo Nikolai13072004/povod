@@ -40,7 +40,7 @@ const ChipButton = styled.button<{ $selected: boolean }>`
   appearance: none;
   border: 1px solid
     ${(props) => (props.$selected ? "var(--povod-primary)" : "var(--povod-border-strong)")};
-  border-radius: 12px;
+  border-radius: var(--povod-radius-sm);
   padding: 8px 16px;
   background: ${(props) => (props.$selected ? "var(--povod-primary)" : "var(--povod-surface)")};
   color: ${(props) => (props.$selected ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
@@ -55,7 +55,7 @@ const ChipButton = styled.button<{ $selected: boolean }>`
 
 const Card = styled.div`
   background: var(--povod-surface);
-  border-radius: 16px;
+  border-radius: var(--povod-radius-lg);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -217,7 +217,7 @@ export const SelectInterestPage = observer(function SelectInterestPage() {
           appearance="accent"
           style={{
             background: selected.length > 0 ? "var(--povod-primary)" : "var(--povod-border-strong)",
-            borderRadius: 12,
+            borderRadius: "var(--povod-radius-sm)",
             height: 52,
           }}
           onClick={() => void handleContinue()}

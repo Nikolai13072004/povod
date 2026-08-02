@@ -45,7 +45,7 @@ const HeroImage = styled.div<{ $zIndex: number; $top?: string; $left?: string; $
   position: absolute;
   width: 70%;
   height: 180px;
-  border-radius: 24px;
+  border-radius: var(--povod-radius-xl);
   background-image: url(${(props) => props.$image});
   background-size: cover;
   background-position: center;
@@ -144,7 +144,7 @@ const AuthInput = styled.input`
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--povod-border-strong);
-  border-radius: 12px;
+  border-radius: var(--povod-radius-sm);
   padding: 12px 14px;
   background: var(--povod-surface);
   color: var(--povod-text);

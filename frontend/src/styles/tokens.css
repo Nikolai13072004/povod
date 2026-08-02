@@ -44,10 +44,17 @@
   --povod-success: #0f7a3c;
   --povod-success-surface: #d6f5e4;
 
-  /* Формы */
-  --povod-radius-sm: 10px;
-  --povod-radius-md: 14px;
-  --povod-radius-lg: 20px;
+  /*
+   * Формы. Единая шкала скруглений — углы заметно круглее прежнего.
+   * xs — бейджи и мелкие теги; sm — поля, чипы, табы; md — кнопки, обложки,
+   * контент модалок; lg — карточки и крупные поверхности; xl — верхние углы
+   * боттом-шитов. Значения подняты, чтобы «прямоугольники» ушли по всему UI.
+   */
+  --povod-radius-xs: 8px;
+  --povod-radius-sm: 12px;
+  --povod-radius-md: 16px;
+  --povod-radius-lg: 22px;
+  --povod-radius-xl: 28px;
   --povod-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.08);
   --povod-focus-ring-width: 2px;
   --povod-focus-ring-offset: 2px;

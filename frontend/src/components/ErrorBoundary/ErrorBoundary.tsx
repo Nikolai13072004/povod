@@ -47,7 +47,7 @@ const Actions = styled.div`
 const ActionButton = styled.button<{ $primary?: boolean }>`
   min-height: 44px;
   padding: 12px 20px;
-  border-radius: 12px;
+  border-radius: var(--povod-radius-md);
   border: 1px solid var(--povod-primary);
   background: ${(props) => (props.$primary ? "var(--povod-primary)" : "transparent")};
   color: ${(props) => (props.$primary ? "var(--povod-on-primary)" : "var(--povod-primary)")};
