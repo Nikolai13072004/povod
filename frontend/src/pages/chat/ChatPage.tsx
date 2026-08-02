@@ -8,8 +8,21 @@ import { friendsStore } from "../../stores/friendsStore";
 import { sessionStore } from "../../stores/sessionStore";
 import { AsyncContent } from "../../components/AsyncContent/AsyncContent";
 import { DialogListSkeleton } from "../../components/Skeleton";
-import { relativeTime } from "../../components/Notification/notificationText";
+import { chatTimeShort } from "../../components/Notification/notificationText";
 import type { Dialog } from "../../services/api";
+
+/**
+ * Цвет аватара-заглушки — детерминированно от id человека.
+ *
+ * Без этого все, у кого нет фото, выглядели одинаковыми серыми кружками, и
+ * список читался только по именам. Градиенты берутся из палитры VKUI (1–6);
+ * один и тот же человек всегда получает один и тот же цвет.
+ */
+function avatarGradient(id: string): 1 | 2 | 3 | 4 | 5 | 6 {
+  let hash = 0;
+  for (const char of id) hash = (hash + char.charCodeAt(0)) % 6;
+  return ((hash % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6;
+}
 
 /**
  * Список переписок (PROD-011).
@@ -32,6 +45,7 @@ const SectionTitle = styled.div`
 `;
 
 const Row = styled.button`
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -42,6 +56,21 @@ const Row = styled.button`
   text-align: left;
   cursor: pointer;
   color: inherit;
+
+  /* Разделитель-инсет: начинается под текстом, а не под аватаром, — так строки
+     не сливаются в покое, но список не выглядит расчерченным в клетку. */
+  &::after {
+    content: "";
+    position: absolute;
+    left: 76px;
+    right: 0;
+    bottom: 0;
+    border-bottom: 1px solid var(--povod-border);
+  }
+
+  &:last-child::after {
+    display: none;
+  }
 
   &:hover {
     background: var(--povod-surface-muted);
@@ -61,9 +90,11 @@ const Info = styled.div`
   gap: 2px;
 `;
 
-const Name = styled.div`
+/* Непрочитанный диалог выделяется целиком: имя жирнее, время цветом. Раньше
+   реагировало только превью, и непрочитанное искалось по одной строке. */
+const Name = styled.div<{ $unread?: boolean }>`
   font-size: 16px;
-  font-weight: 600;
+  font-weight: ${({ $unread }) => ($unread ? 700 : 600)};
   color: var(--povod-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -79,6 +110,15 @@ const Preview = styled.div<{ $unread: boolean }>`
   white-space: nowrap;
 `;
 
+/** Подсказка у друга без переписки — это приглашение, а не серый текст. */
+const StartHint = styled.div`
+  font-size: 14px;
+  color: var(--povod-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
 const Side = styled.div`
   display: flex;
   flex-direction: column;
@@ -87,9 +127,14 @@ const Side = styled.div`
   flex-shrink: 0;
 `;
 
-const Time = styled.time`
+/* Фиксированная минимальная ширина: «14:23» и «Вчера» разной длины, без неё
+   правый край списка пляшет от строки к строке. */
+const Time = styled.time<{ $unread?: boolean }>`
+  min-width: 48px;
+  text-align: right;
   font-size: 12px;
-  color: var(--povod-text-secondary);
+  font-weight: ${({ $unread }) => ($unread ? 600 : 400)};
+  color: ${({ $unread }) => ($unread ? "var(--povod-primary)" : "var(--povod-text-secondary)")};
   white-space: nowrap;
 `;
 
@@ -99,7 +144,8 @@ const Badge = styled.span`
   padding: 0 6px;
   border-radius: 10px;
   background: var(--povod-primary);
-  color: #fff;
+  /* Токен, а не #fff: в тёмной теме on-primary тёмный, и белый терял контраст. */
+  color: var(--povod-on-primary);
   font-size: 12px;
   font-weight: 600;
   display: grid;
@@ -179,6 +225,11 @@ export const ChatList = observer(() => {
               ]
         }
       >
+        {dialogs.length > 0 && visibleFriends.length > 0 && (
+          // Заголовок появляется только рядом с секцией «Друзья»: одинокому
+          // списку подпись не нужна, а две секции без подписей сливаются.
+          <SectionTitle>Переписки</SectionTitle>
+        )}
         {dialogs.map((dialog) => (
           <DialogRow
             key={dialog.peer.id}
@@ -197,10 +248,15 @@ export const ChatList = observer(() => {
                 onClick={() => navigate(`/chats/${friend.id}`)}
                 aria-label={`Написать: ${friend.name}`}
               >
-                <Avatar size={48} src={friend.avatar} initials={friend.name.slice(0, 1)} />
+                <Avatar
+                  size={48}
+                  src={friend.avatar}
+                  initials={friend.name.slice(0, 1)}
+                  gradientColor={avatarGradient(friend.id)}
+                />
                 <Info>
                   <Name>{friend.name}</Name>
-                  <Preview $unread={false}>Написать первым</Preview>
+                  <StartHint>Написать первым</StartHint>
                 </Info>
               </Row>
             ))}
@@ -219,13 +275,20 @@ function DialogRow({ dialog, onOpen }: { dialog: Dialog; onOpen: () => void }) {
 
   return (
     <Row type="button" onClick={onOpen} aria-label={`Переписка с ${peer.name}`}>
-      <Avatar size={48} src={peer.avatar} initials={peer.name.slice(0, 1)} />
+      <Avatar
+        size={48}
+        src={peer.avatar}
+        initials={peer.name.slice(0, 1)}
+        gradientColor={avatarGradient(peer.id)}
+      />
       <Info>
-        <Name>{peer.name}</Name>
+        <Name $unread={unread > 0}>{peer.name}</Name>
         <Preview $unread={unread > 0}>{preview}</Preview>
       </Info>
       <Side>
-        <Time dateTime={lastMessage.createdAt}>{relativeTime(lastMessage.createdAt)}</Time>
+        <Time dateTime={lastMessage.createdAt} $unread={unread > 0}>
+          {chatTimeShort(lastMessage.createdAt)}
+        </Time>
         {unread > 0 && <Badge aria-label={`${unread} непрочитанных`}>{unread}</Badge>}
       </Side>
     </Row>
