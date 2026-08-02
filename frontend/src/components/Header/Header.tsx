@@ -143,13 +143,14 @@ export const THeader = observer(function THeader() {
   };
 
   const displayTitle = (() => {
-    if (location.pathname.includes("events") || location.pathname.includes("page-3")) {
-      return "Мои поводы";
-    }
-    // Без этой ветки экран переписок представлялся «Главной».
-    if (location.pathname.startsWith("/chats")) return "Чаты";
-    // /users добавили позже, и заголовок ему забыли — показывалась «Главная».
-    if (location.pathname.startsWith("/users")) return "Люди";
+    // Заголовок обязан совпадать с подписью активной вкладки. Раньше карта была
+    // неполной: «Создать» падал в «Главную», а «Мои события» показывались как
+    // «Мои поводы» — заголовок и вкладка расходились.
+    const path = location.pathname;
+    if (path.startsWith("/add")) return "Создать";
+    if (path.includes("events") || path.includes("page-3")) return "Мои события";
+    if (path.startsWith("/chats")) return "Чаты";
+    if (path.startsWith("/users")) return "Люди";
     return "Главная";
   })();
 
