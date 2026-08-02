@@ -104,6 +104,14 @@ const App = observer(() => {
   const showAppChrome =
     !isPublicRoute && !isSelectInterestPage && !isProfilePage && !isNotificationsPage;
 
+  /*
+   * Нижнее меню шире, чем верхняя шапка: оно нужно и на профиле, и в
+   * уведомлениях, иначе с этих экранов некуда уйти — навигации там не было
+   * вовсе, только кнопка «назад» в браузере. Верхнюю шапку эти страницы
+   * по-прежнему рисуют свою, поэтому общий заголовок им не добавляем.
+   */
+  const showNav = !isPublicRoute && !isSelectInterestPage;
+
   /**
    * Карточка события рисует собственную шапку (VKUI `PanelHeader` с кнопкой «назад»),
    * которая при прокрутке становится фиксированной. Общая шапка приложения на этом
@@ -156,7 +164,7 @@ const App = observer(() => {
           <ToastProvider>
             <AppContainer
               isWhiteBg={isChatPage}
-              $hasNav={showAppChrome}
+              $hasNav={showNav}
               $lockViewport={isChatThread}
               style={
                 { "--povod-content-max": contentMaxWidth(location.pathname) } as React.CSSProperties
@@ -177,7 +185,7 @@ const App = observer(() => {
                   </Suspense>
                 </ContentWidth>
               </MainContent>
-              {showAppChrome && <NavMenu />}
+              {showNav && <NavMenu />}
             </AppContainer>
             <AppUpdatePrompt />
           </ToastProvider>

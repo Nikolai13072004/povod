@@ -41,7 +41,10 @@ const NavWrapper = styled("div", { shouldForwardProp })`
   justify-content: center;
   background: var(--povod-surface);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
-  border-top: 2px solid var(--povod-border-strong);
+  /* Тоньше и мягче: полоса в 2px «сильного» цвета читалась как жирная чёрная
+     черта над панелью. 1px обычного бордера отделяет панель, не привлекая
+     внимания. */
+  border-top: 1px solid var(--povod-border);
   /* Полоса дома у нижнего края экрана не должна попадать под саму панель. */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 
@@ -61,11 +64,10 @@ const Nav = styled("nav", { shouldForwardProp })`
   width: 100%;
   max-width: var(--povod-content-max, 1080px);
   margin: 0 auto;
-  height: 60px;
-  padding: 0 10px;
+  /* Немного воздуха над и под иконками: раньше они упирались в края панели. */
+  padding: 8px 10px;
 
   @media (min-width: ${DESKTOP}) {
-    height: auto;
     padding: 0 16px;
     /*
      * Разделителя нет: на широком экране ряд навигации и так отделён отступом,

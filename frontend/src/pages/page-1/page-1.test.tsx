@@ -7,6 +7,8 @@ import { ToastProvider } from "../../components/Toast/ToastProvider";
 const mockEventStore = vi.hoisted(() => ({
   events: [] as Array<Record<string, unknown>>,
   isLoading: false,
+  // Скелетон/пустое состояние теперь опираются на `loaded`, а не на isLoading.
+  loaded: false,
   error: null as string | null,
   fetchEvents: vi.fn(),
 }));
@@ -58,6 +60,7 @@ function renderFeed() {
 beforeEach(() => {
   mockEventStore.events = sampleEvents;
   mockEventStore.isLoading = false;
+  mockEventStore.loaded = true;
   mockEventStore.error = null;
 });
 
@@ -81,12 +84,25 @@ describe("FirstPage feed", () => {
   it("shows the loading state while first fetch is in flight", () => {
     mockEventStore.events = [];
     mockEventStore.isLoading = true;
+    mockEventStore.loaded = false;
     renderFeed();
     expect(screen.getByText("Загружаем поводы…")).toBeInTheDocument();
   });
 
+  it("до первой загрузки показывает скелетон, а не «Пока нет поводов»", () => {
+    // На монтировании loaded=false и isLoading ещё false: раньше на кадр
+    // проскакивало пустое состояние.
+    mockEventStore.events = [];
+    mockEventStore.isLoading = false;
+    mockEventStore.loaded = false;
+    renderFeed();
+    expect(screen.getByText("Загружаем поводы…")).toBeInTheDocument();
+    expect(screen.queryByText("Пока нет поводов")).not.toBeInTheDocument();
+  });
+
   it("shows the error state with a retry action", () => {
     mockEventStore.events = [];
+    mockEventStore.loaded = false;
     mockEventStore.error = "Сбой сети";
     renderFeed();
     expect(screen.getByText("Не удалось загрузить ленту")).toBeInTheDocument();

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import styled from "@emotion/styled";
 import { CalendarIcon, LocationIcon } from "../icons/icons";
 import { validateDate, validateLocation, validateTime } from "./validationUtils";
+import { CityDatalist, CITY_DATALIST_ID } from "./CityDatalist/CityDatalist";
 
 const ModalOverlay = styled.div<{ $isOpen: boolean }>`
   position: fixed;
@@ -294,12 +295,14 @@ export const LocationFilter = ({ onSave, isOpen, onClose }: LocationFilterProps)
         <StyledInput
           style={{ borderColor: error ? "red" : "var(--povod-primary)" }}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Город или район"
+          placeholder="Город или адрес"
+          list={CITY_DATALIST_ID}
         />
         <IconInside>
           <LocationIcon />
         </IconInside>
       </InputWrapper>
+      <CityDatalist />
     </FilterBottomSheet>
   );
 };

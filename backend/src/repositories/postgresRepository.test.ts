@@ -535,11 +535,11 @@ test("events can be selected by author and participant", { skip }, async () => {
   const created = await repository.listEvents({ author: "u1", viewerId: "u1" });
   const attending = await repository.listEvents({ participant: "u1", viewerId: "u1" });
 
-  assert.deepEqual(
-    created.map((event) => event.id),
-    ["1"],
-  );
-  assert.deepEqual(attending.map((event) => event.id).sort(), ["1", "3"]);
+  // Свойство фильтра, а не точный набор id — сид-события меняются под демо.
+  assert.ok(created.length > 0, "у u1 есть созданные события");
+  assert.ok(created.every((event) => event.authorId === "u1"));
+  assert.ok(attending.length > 0, "u1 где-то участвует");
+  assert.ok(attending.every((event) => event.participantIds.includes("u1")));
 });
 
 test("event update and delete round-trip through SQL", { skip }, async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
+import { CityDatalist, CITY_DATALIST_ID } from "../components/CityDatalist/CityDatalist";
 import { Button, Title, Text, Input } from "@vkontakte/vkui";
 import { Icon16Place } from "@vkontakte/icons";
 import { observer } from "mobx-react-lite";
@@ -189,10 +190,12 @@ export const SelectInterestPage = observer(function SelectInterestPage() {
               style={{ position: "absolute", left: 12, top: 12, zIndex: 1 }}
             />
             <Input
-              placeholder="Город или район"
+              placeholder="Город или адрес"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
+              list={CITY_DATALIST_ID}
             />
+            <CityDatalist />
           </InputWrapper>
         </Card>
       </Section>

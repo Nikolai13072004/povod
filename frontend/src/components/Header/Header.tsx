@@ -148,6 +148,8 @@ export const THeader = observer(function THeader() {
     }
     // Без этой ветки экран переписок представлялся «Главной».
     if (location.pathname.startsWith("/chats")) return "Чаты";
+    // /users добавили позже, и заголовок ему забыли — показывалась «Главная».
+    if (location.pathname.startsWith("/users")) return "Люди";
     return "Главная";
   })();
 
