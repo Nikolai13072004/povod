@@ -12,6 +12,12 @@ import { ContentWidth } from "../Layout/ContentWidth";
 const Header = styled.header<{ $mode: "light" | "dark" }>`
   padding: 12px 0;
   background: var(--vkui--color_background_primary);
+
+  /* На десктопе верхней шапки нет: её роль (профиль, колокольчик, разделы)
+     берёт на себя боковая панель, и серая полоса сверху уходит (UX-014). */
+  @media (min-width: 900px) {
+    display: none;
+  }
 `;
 
 const PageHeader = styled.div`
