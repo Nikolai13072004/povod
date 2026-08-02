@@ -129,6 +129,7 @@ const NavInner = styled.div`
 `;
 
 const StyledNavLink = styled(NavLink)`
+  position: relative;
   width: 60px;
   height: 60px;
   display: grid;
@@ -153,11 +154,10 @@ const StyledNavLink = styled(NavLink)`
   }
 
   @media (min-width: ${DESKTOP}) {
-    /* Строка на всю ширину панели: иконка + подпись. */
+    /* Строка на всю ширину панели: иконка + подпись + счётчик у правого края. */
     width: 100%;
     height: 46px;
-    grid-auto-flow: column;
-    grid-template-columns: 24px 1fr;
+    grid-template-columns: 24px 1fr auto;
     justify-items: start;
     align-items: center;
     gap: 14px;
@@ -214,6 +214,38 @@ const UnreadBadge = styled.span`
   font-weight: 700;
   line-height: 16px;
   text-align: center;
+`;
+
+/**
+ * Счётчик непрочитанных у пункта «Чаты». На телефоне (нижняя панель) он живёт
+ * уголком на иконке — как раньше. На десктопе иконка стоит в узкой колонке
+ * строки, и точка на ней читалась бы как случайная; поэтому там его прячем и
+ * показываем `RowBadge` — счётчик у правого края строки, привычный по мессенджерам.
+ */
+const IconBadge = styled(UnreadBadge)`
+  @media (min-width: ${DESKTOP}) {
+    display: none;
+  }
+`;
+
+/** Десктопный счётчик: третья колонка строки, прижат к правому краю. */
+const RowBadge = styled.span`
+  display: none;
+
+  @media (min-width: ${DESKTOP}) {
+    display: inline-grid;
+    place-items: center;
+    justify-self: end;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--povod-danger);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+  }
 `;
 
 /** Разделитель между разделами и нижним блоком профиля — только на десктопе. */
@@ -361,10 +393,13 @@ function NavMenu() {
                 <IconSlot>
                   <Icon />
                   {showBadge && (
-                    <UnreadBadge aria-hidden="true">{unread > 99 ? "99+" : unread}</UnreadBadge>
+                    <IconBadge aria-hidden="true">{unread > 99 ? "99+" : unread}</IconBadge>
                   )}
                 </IconSlot>
                 <Label>{label}</Label>
+                {showBadge && (
+                  <RowBadge aria-hidden="true">{unread > 99 ? "99+" : unread}</RowBadge>
+                )}
               </StyledNavLink>
             );
           })}
