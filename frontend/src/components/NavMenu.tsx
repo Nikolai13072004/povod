@@ -66,13 +66,34 @@ const Brand = styled.div`
   display: none;
 
   @media (min-width: ${DESKTOP}) {
-    display: block;
-    padding: 8px 12px 16px;
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    color: var(--povod-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 10px 14px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--povod-border);
   }
+`;
+
+/** Метка логотипа — залитый квадрат с буквой, чтобы бренд не был голым текстом. */
+const BrandMark = styled.span`
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--povod-primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 1;
+`;
+
+const BrandName = styled.span`
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--povod-primary);
 `;
 
 const Nav = styled.nav`
@@ -132,25 +153,34 @@ const StyledNavLink = styled(NavLink)`
   }
 
   @media (min-width: ${DESKTOP}) {
-    /* Строка на всю ширину панели: иконка + подпись, активный — залит. */
+    /* Строка на всю ширину панели: иконка + подпись. */
     width: 100%;
-    height: 44px;
+    height: 46px;
     grid-auto-flow: column;
     grid-template-columns: 24px 1fr;
     justify-items: start;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     padding: 0 14px;
-    border-radius: var(--povod-radius-sm);
+    border-radius: var(--povod-radius-md);
     font-size: 15px;
+    font-weight: 500;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
 
+    /* Наведение — лёгкая подсветка тем же акцентом, что и активный, но слабее. */
     &:hover {
-      background: var(--povod-surface-muted);
+      background: color-mix(in srgb, var(--povod-primary) 8%, transparent);
+      color: var(--povod-text);
     }
 
+    /* Активный раздел выразителен: акцентная заливка, цвет и жирнее шрифт.
+       Плоский серый прямоугольник читался как «неактивно». */
     &.active {
       color: var(--povod-primary);
-      background: var(--povod-surface-muted);
+      font-weight: 600;
+      background: color-mix(in srgb, var(--povod-primary) 14%, transparent);
     }
   }
 `;
@@ -203,8 +233,9 @@ const BottomBlock = styled.div`
   @media (min-width: ${DESKTOP}) {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 8px 0;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 10px;
     border-top: 1px solid var(--povod-border);
   }
 `;
@@ -217,14 +248,15 @@ const ProfileButton = styled.button`
   min-width: 0;
   border: none;
   background: transparent;
-  padding: 6px;
-  border-radius: var(--povod-radius-sm);
+  padding: 8px;
+  border-radius: var(--povod-radius-md);
   cursor: pointer;
   color: var(--povod-text);
   text-align: left;
+  transition: background 0.15s ease;
 
   &:hover {
-    background: var(--povod-surface-muted);
+    background: color-mix(in srgb, var(--povod-primary) 8%, transparent);
   }
 
   &:focus-visible {
@@ -233,8 +265,8 @@ const ProfileButton = styled.button`
 `;
 
 const AvatarCircle = styled.span<{ $avatar?: string }>`
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   flex-shrink: 0;
   background-color: var(--povod-surface-muted);
@@ -243,10 +275,18 @@ const AvatarCircle = styled.span<{ $avatar?: string }>`
   background-position: center;
   display: grid;
   place-items: center;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--povod-text-secondary);
   text-transform: uppercase;
+`;
+
+/** Имя и подпись «Мой профиль» — двухстрочный блок, чтобы имя не висело в воздухе. */
+const ProfileText = styled.span`
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
 `;
 
 const ProfileName = styled.span`
@@ -257,6 +297,11 @@ const ProfileName = styled.span`
   font-weight: 600;
 `;
 
+const ProfileHint = styled.span`
+  font-size: 11px;
+  color: var(--povod-text-secondary);
+`;
+
 const BellButton = styled.button`
   position: relative;
   width: 40px;
@@ -264,14 +309,18 @@ const BellButton = styled.button`
   flex-shrink: 0;
   border: none;
   background: transparent;
-  color: var(--povod-text-accent, var(--povod-primary));
+  color: var(--povod-text-secondary);
   display: grid;
   place-items: center;
   cursor: pointer;
-  border-radius: var(--povod-radius-sm);
+  border-radius: var(--povod-radius-md);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 
   &:hover {
-    background: var(--povod-surface-muted);
+    background: color-mix(in srgb, var(--povod-primary) 8%, transparent);
+    color: var(--povod-primary);
   }
 
   &:focus-visible {
@@ -294,7 +343,10 @@ function NavMenu() {
 
   return (
     <NavWrapper>
-      <Brand>POVOD</Brand>
+      <Brand>
+        <BrandMark aria-hidden="true">P</BrandMark>
+        <BrandName>POVOD</BrandName>
+      </Brand>
 
       <Nav aria-label="Основные разделы">
         <NavInner>
@@ -325,7 +377,10 @@ function NavMenu() {
       <BottomBlock>
         <ProfileButton type="button" onClick={() => navigate("/Profile")} aria-label="Мой профиль">
           <AvatarCircle $avatar={user.avatar}>{user.name?.[0]}</AvatarCircle>
-          <ProfileName>{user.name || "Профиль"}</ProfileName>
+          <ProfileText>
+            <ProfileName>{user.name || "Профиль"}</ProfileName>
+            <ProfileHint>Мой профиль</ProfileHint>
+          </ProfileText>
         </ProfileButton>
         <BellButton
           type="button"
