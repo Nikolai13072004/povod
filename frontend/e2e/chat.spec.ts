@@ -122,7 +122,8 @@ test("своё сообщение правится с отметкой и уда
   await expect(page.getByText("изменён")).toBeVisible();
 
   await page.getByRole("button", { name: "Удалить" }).click();
-  // Проверяем именно пузырь: строка поиска и поле ввода тоже содержат текст.
-  await expect(page.getByText("Сообщений пока нет")).toBeVisible();
+  // Пустое состояние теперь встречает по имени собеседника, а не сухим
+  // «Сообщений пока нет» — проверяем новый текст.
+  await expect(page.getByText(/Это начало переписки/)).toBeVisible();
   await peerPage.close();
 });
