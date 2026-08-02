@@ -60,7 +60,7 @@ export async function createEvent(
   if (overrides.limit) {
     await page.getByLabel("Ограничение числа участников").fill(overrides.limit);
   }
-  await page.getByRole("button", { name: "Отправить повод" }).click();
+  await page.getByRole("button", { name: "Создать повод" }).click();
   await page.waitForURL(/events/);
   return title;
 }

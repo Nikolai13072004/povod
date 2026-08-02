@@ -1,6 +1,9 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import styled from "@emotion/styled";
-import { Button, Spinner, VisuallyHidden } from "@vkontakte/vkui";
+import { Spinner, VisuallyHidden } from "@vkontakte/vkui";
+// Общий Button, а не сырой VKUI: стиль кнопок приложения живёт в одном месте,
+// и CTA пустых состояний выглядит так же, как кнопки на остальных экранах.
+import { Button } from "../Button/Button";
 
 const StateContainer = styled.div<{ $compact: boolean }>`
   display: grid;
@@ -112,7 +115,7 @@ export function AsyncContent({
         <StateTitle>{errorTitle}</StateTitle>
         <StateDescription>{error}</StateDescription>
         {onRetry && (
-          <Button mode="secondary" onClick={onRetry}>
+          <Button variant="secondary" onClick={onRetry}>
             {retryLabel}
           </Button>
         )}
@@ -128,7 +131,11 @@ export function AsyncContent({
         {emptyActions && emptyActions.length > 0 && (
           <EmptyActions>
             {emptyActions.map((action) => (
-              <Button key={action.label} mode={action.mode ?? "secondary"} onClick={action.onClick}>
+              <Button
+                key={action.label}
+                variant={action.mode ?? "secondary"}
+                onClick={action.onClick}
+              >
                 {action.label}
               </Button>
             ))}
