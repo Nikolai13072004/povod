@@ -12,6 +12,7 @@ import {
   Button,
 } from "@vkontakte/vkui";
 import { Icon28CancelOutline, Icon20PlaceOutline, Icon24AddOutline } from "@vkontakte/icons";
+import { CityDatalist, CITY_DATALIST_ID } from "../../components/CityDatalist/CityDatalist";
 import styled from "@emotion/styled";
 import "@vkontakte/vkui/dist/vkui.css";
 import { useNavigate } from "react-router-dom";
@@ -539,6 +540,7 @@ const UserProfile = () => {
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="Ваш город"
+                  list={CITY_DATALIST_ID}
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
@@ -552,6 +554,7 @@ const UserProfile = () => {
                 <Button size="s" mode="secondary" onClick={() => setCityEditing(false)}>
                   Отмена
                 </Button>
+                <CityDatalist />
               </div>
             ) : (
               <CityButton

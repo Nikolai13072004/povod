@@ -140,6 +140,10 @@ const EventCard = styled.div`
   padding: 16px;
   background: var(--vkui--color_background_secondary);
   border-radius: 20px;
+  /* Видимый контур: в тёмной теме фон карточки почти совпадал с фоном
+     страницы, и без рамки карточки сливались в сплошное полотно. Одной тени
+     мало — на тёмном она не читается. */
+  border: 1px solid var(--povod-border);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 `;
 
@@ -278,7 +282,17 @@ function FirstPageComponent() {
 
   const resetFilters = () => filters.reset();
 
-  const isInitialLoading = eventStore.isLoading && eventStore.events.length === 0;
+  /*
+   * Скелетон показывается, пока лента ещё ни разу не загрузилась.
+   *
+   * Раньше условие было `isLoading && events пусто`, но на монтировании
+   * `isLoading` ещё false (запрос уходит в useEffect), events пусто — и на один
+   * кадр показывалось «Пока нет поводов», прежде чем скелетон успевал
+   * появиться. Опираемся на `loaded`: пустое состояние — только после ответа
+   * сервера. `!error`, чтобы при ошибке показать её, а не крутить скелетон
+   * вечно (loaded при ошибке остаётся false).
+   */
+  const isInitialLoading = !eventStore.loaded && !eventStore.error;
 
   return (
     <PageContainer>
@@ -344,7 +358,7 @@ function FirstPageComponent() {
       <AsyncContent
         loading={isInitialLoading}
         error={eventStore.error}
-        empty={!isInitialLoading && filteredEvents.length === 0}
+        empty={eventStore.loaded && filteredEvents.length === 0}
         loadingTitle="Загружаем поводы…"
         errorTitle="Не удалось загрузить ленту"
         emptyTitle={hasActiveFilters ? "По выбранным фильтрам ничего нет" : "Пока нет поводов"}

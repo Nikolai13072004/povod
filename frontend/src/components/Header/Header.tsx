@@ -12,6 +12,12 @@ import { ContentWidth } from "../Layout/ContentWidth";
 const Header = styled.header<{ $mode: "light" | "dark" }>`
   padding: 12px 0;
   background: var(--vkui--color_background_primary);
+
+  /* На десктопе верхней шапки нет: её роль (профиль, колокольчик, разделы)
+     берёт на себя боковая панель, и серая полоса сверху уходит (UX-014). */
+  @media (min-width: 900px) {
+    display: none;
+  }
 `;
 
 const PageHeader = styled.div`
@@ -143,11 +149,14 @@ export const THeader = observer(function THeader() {
   };
 
   const displayTitle = (() => {
-    if (location.pathname.includes("events") || location.pathname.includes("page-3")) {
-      return "Мои поводы";
-    }
-    // Без этой ветки экран переписок представлялся «Главной».
-    if (location.pathname.startsWith("/chats")) return "Чаты";
+    // Заголовок обязан совпадать с подписью активной вкладки. Раньше карта была
+    // неполной: «Создать» падал в «Главную», а «Мои события» показывались как
+    // «Мои поводы» — заголовок и вкладка расходились.
+    const path = location.pathname;
+    if (path.startsWith("/add")) return "Создать";
+    if (path.includes("events") || path.includes("page-3")) return "Мои события";
+    if (path.startsWith("/chats")) return "Чаты";
+    if (path.startsWith("/users")) return "Люди";
     return "Главная";
   })();
 

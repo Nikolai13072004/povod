@@ -39,7 +39,7 @@ export async function login(page: Page, email: string, password: string): Promis
 export async function reachFeed(page: Page): Promise<void> {
   if (page.url().includes("SelectInterestPage")) {
     await page.getByText("Музыка", { exact: true }).click();
-    await page.getByPlaceholder("Город или район").fill("Москва");
+    await page.getByPlaceholder("Город или адрес").fill("Москва");
     await page.getByRole("button", { name: "Продолжить" }).click();
   }
   await page.waitForURL(/page-1/);

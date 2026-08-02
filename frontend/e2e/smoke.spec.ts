@@ -183,30 +183,38 @@ test("свой комментарий можно изменить, и правк
   await expect(page.getByText("изменён").last()).toBeVisible();
 });
 
-test("на широком экране навигация уходит из нижней панели наверх", async ({ page }) => {
+test("на широком экране навигация уходит в боковую панель слева", async ({ page }) => {
   await login(page, "elmira@povod.app", "povod-demo");
   await reachFeed(page);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   const home = page.getByRole("link", { name: "Главная" });
   await expect(home).toBeVisible();
-  // Подписи появляются только на широком экране: внизу для них нет места.
+  // Подписи появляются только на широком экране: в нижней панели для них нет места.
   await expect(page.getByRole("link", { name: "Мои события" })).toBeVisible();
+  // Профиль и колокольчик переезжают в боковую панель — на телефоне они в шапке.
+  await expect(page.getByRole("button", { name: "Мой профиль" })).toBeVisible();
 
   // Через poll, а не однократным замером: смена размера окна перерисовывает
   // страницу асинхронно, и boundingBox сразу после setViewportSize читает ещё
   // старую геометрию.
-  const navAboveFeed = async () => {
+  const navLeftOfFeed = async () => {
     const nav = await page.getByRole("link", { name: "Главная" }).boundingBox();
     const feed = await page.getByPlaceholder("Поиск...").boundingBox();
-    return nav !== null && feed !== null && nav.y < feed.y;
+    return nav !== null && feed !== null && nav.x + nav.width <= feed.x;
   };
 
-  await expect.poll(navAboveFeed).toBe(true);
+  // На широком экране панель — слева от контента.
+  await expect.poll(navLeftOfFeed).toBe(true);
 
-  // На телефоне она возвращается вниз, к большому пальцу.
+  // На телефоне она возвращается вниз, к большому пальцу: не сбоку и не сверху.
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect.poll(navAboveFeed).toBe(false);
+  const navBelowFeed = async () => {
+    const nav = await page.getByRole("link", { name: "Главная" }).boundingBox();
+    const feed = await page.getByPlaceholder("Поиск...").boundingBox();
+    return nav !== null && feed !== null && nav.y > feed.y;
+  };
+  await expect.poll(navBelowFeed).toBe(true);
 });
 
 test("выход из аккаунта закрывает доступ к ленте", async ({ page }) => {

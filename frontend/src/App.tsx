@@ -21,14 +21,16 @@ const AppContainer = styled.div<{
 }>`
   min-height: 100vh;
   min-height: 100dvh;
+  /* border-box, чтобы отступы (снизу под мобильную панель, слева под боковую)
+     входили в ширину/высоту, а не добавлялись к ним и не давали прокрутку. */
+  box-sizing: border-box;
   /*
    * Экран переписки живёт по своим правилам: он обязан занять ровно высоту окна,
    * а не растягивать страницу. Прокрутку внутри ведёт только лента сообщений,
    * поэтому здесь страница фиксируется по высоте и не скроллится целиком — иначе
    * поле ввода уезжает под шапку, которую высота "весь экран" не вычитала.
    */
-  ${(props) =>
-    props.$lockViewport ? "height: 100dvh; overflow: hidden; box-sizing: border-box;" : ""}
+  ${(props) => (props.$lockViewport ? "height: 100dvh; overflow: hidden;" : "")}
   display: flex;
   flex-direction: column;
   /* Проверка пропса + !important, чтобы перебить index.css */
@@ -39,6 +41,13 @@ const AppContainer = styled.div<{
      токене: её же читает поле ввода в переписке, и второе число здесь
      разъехалось бы с первым молча. Токен сам обнуляется от 900px. */
   padding-bottom: ${(props) => (props.$hasNav ? "var(--povod-bottom-nav-offset)" : "20px")};
+
+  /* На десктопе навигация — боковая панель слева (фиксированная), поэтому
+     контент сдвигается вправо на её ширину. Только когда меню вообще есть:
+     на входе и онбординге панели нет, и отступ не нужен. */
+  @media (min-width: 900px) {
+    padding-left: ${(props) => (props.$hasNav ? "var(--povod-sidebar-width)" : "0")};
+  }
   /* Без transition на background/color: он анимировался при КАЖДОЙ смене маршрута
      (у страниц разный фон), из-за чего фон заметно «мигал» при переходе. */
 `;
@@ -51,16 +60,6 @@ const MainContent = styled.div<{ $fill?: boolean }>`
 
   @media (max-width: 768px) {
     padding: 18px 0 20px;
-  }
-
-  /**
-   * Навигация лежит в разметке после контента — так она оказывается внизу на
-   * телефоне. На широком экране контент сдвигается ниже порядком flex, и
-   * навигация встаёт под шапкой. Дерево при этом одно: два разных не пришлось
-   * бы синхронизировать, но активный раздел терялся бы при смене ширины.
-   */
-  @media (min-width: 900px) {
-    order: 1;
   }
 
   /*
@@ -103,6 +102,14 @@ const App = observer(() => {
   const isPublicRoute = location.pathname === "/" || location.pathname === "/reset-password";
   const showAppChrome =
     !isPublicRoute && !isSelectInterestPage && !isProfilePage && !isNotificationsPage;
+
+  /*
+   * Нижнее меню шире, чем верхняя шапка: оно нужно и на профиле, и в
+   * уведомлениях, иначе с этих экранов некуда уйти — навигации там не было
+   * вовсе, только кнопка «назад» в браузере. Верхнюю шапку эти страницы
+   * по-прежнему рисуют свою, поэтому общий заголовок им не добавляем.
+   */
+  const showNav = !isPublicRoute && !isSelectInterestPage;
 
   /**
    * Карточка события рисует собственную шапку (VKUI `PanelHeader` с кнопкой «назад»),
@@ -156,7 +163,7 @@ const App = observer(() => {
           <ToastProvider>
             <AppContainer
               isWhiteBg={isChatPage}
-              $hasNav={showAppChrome}
+              $hasNav={showNav}
               $lockViewport={isChatThread}
               style={
                 { "--povod-content-max": contentMaxWidth(location.pathname) } as React.CSSProperties
@@ -177,7 +184,7 @@ const App = observer(() => {
                   </Suspense>
                 </ContentWidth>
               </MainContent>
-              {showAppChrome && <NavMenu />}
+              {showNav && <NavMenu />}
             </AppContainer>
             <AppUpdatePrompt />
           </ToastProvider>
