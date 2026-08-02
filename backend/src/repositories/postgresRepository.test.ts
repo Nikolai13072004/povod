@@ -277,9 +277,13 @@ test("keyset pagination walks the whole feed exactly once (BE-003)", { skip }, a
     });
   }
 
+  // Сколько всего в базе (сид + только что созданные) — считаем, а не зашиваем:
+  // число сид-событий правят под демо.
+  const total = (await repository.listEvents({ limit: 1000 })).length;
+
   const seen: string[] = [];
   let cursor;
-  for (let page = 0; page < 20; page += 1) {
+  for (let page = 0; page < 100; page += 1) {
     const items = await repository.listEvents({ limit: 2, cursor });
     if (items.length === 0) break;
     seen.push(...items.map((event) => event.id));
@@ -287,7 +291,7 @@ test("keyset pagination walks the whole feed exactly once (BE-003)", { skip }, a
   }
 
   assert.equal(new Set(seen).size, seen.length, "события не должны повторяться");
-  assert.equal(seen.length, 9, "6 созданных + 3 сида");
+  assert.equal(seen.length, total, "курсор обходит все события ровно один раз");
 });
 
 test("interest ordering wins over freshness (BE-003)", { skip }, async () => {
@@ -321,8 +325,15 @@ test("seed data is imported into normalized tables", { skip }, async () => {
     "сид-пользователи должны быть импортированы",
   );
 
-  const events = await repository.listEvents();
-  assert.deepEqual(events.map((event) => event.id).sort(), ["1", "2", "3"]);
+  // Импорт сида проверяем по факту наличия, а не по точному набору id: число
+  // сид-событий меняется под демо. Опорные события 1–3 (на них держатся другие
+  // тесты) обязаны быть на месте.
+  const events = await repository.listEvents({ limit: 1000 });
+  const ids = new Set(events.map((event) => event.id));
+  assert.ok(events.length >= 3, "сид-события импортированы");
+  for (const anchor of ["1", "2", "3"]) {
+    assert.ok(ids.has(anchor), `опорное событие ${anchor} импортировано`);
+  }
 
   const comments = await repository.listComments("1");
   assert.deepEqual(comments.map((comment) => comment.id).sort(), ["c1", "c2"]);
@@ -411,15 +422,18 @@ test(
   async () => {
     const repository = await freshRepository();
 
-    const updated = await repository.updateEvent("1", {
-      endsAt: "2026-06-27T21:00:00.000Z",
-      participantLimit: 12,
-    });
-    assert.equal(updated?.endsAt, "2026-06-27T21:00:00.000Z");
+    // Конец считаем от фактического начала события: дата сида теперь
+    // относительная, а БД проверяет `ends_at >= starts_at` — фиксированный
+    // июнь оказался бы раньше августовского старта и упёрся бы в CHECK.
+    const seed1 = await repository.getEvent("1");
+    const endsAt = new Date(new Date(seed1!.startsAt).getTime() + 3 * 60 * 60 * 1000).toISOString();
+
+    const updated = await repository.updateEvent("1", { endsAt, participantLimit: 12 });
+    assert.equal(updated?.endsAt, endsAt);
     assert.equal(updated?.participantLimit, 12);
 
     const reloaded = await repository.getEvent("1");
-    assert.equal(reloaded?.endsAt, "2026-06-27T21:00:00.000Z");
+    assert.equal(reloaded?.endsAt, endsAt);
     assert.equal(reloaded?.participantLimit, 12);
   },
 );
