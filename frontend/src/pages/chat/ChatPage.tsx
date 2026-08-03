@@ -36,7 +36,7 @@ function avatarGradient(id: string): 1 | 2 | 3 | 4 | 5 | 6 {
  */
 
 const SectionTitle = styled.div`
-  padding: 16px 16px 6px;
+  padding: 8px 16px 4px;
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
@@ -162,6 +162,21 @@ const Badge = styled.span`
   place-items: center;
 `;
 
+/**
+ * Верхняя часть списка переписок на телефоне: поиск на сером фоне с тонкой
+ * линией снизу. Раньше поиск висел на общем фоне, а до диалогов зиял пустой
+ * разрыв — теперь есть чёткая полоска-разделитель, а не пустота. На десктопе
+ * оформление не нужно: там список и так в узкой колонке.
+ */
+const SearchBar = styled.div`
+  @media (max-width: 899px) {
+    background: var(--povod-surface-muted);
+    border-bottom: 1px solid var(--povod-border);
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
+`;
+
 export const ChatList = observer(() => {
   const navigate = useNavigate();
   const dialogs = chatStore.visibleDialogs;
@@ -232,12 +247,14 @@ export const ChatList = observer(() => {
 
   return (
     <Group mode="plain">
-      <Search
-        value={chatStore.search}
-        onChange={(event) => chatStore.setSearch(event.target.value)}
-        placeholder="Поиск по имени"
-        aria-label="Поиск по перепискам"
-      />
+      <SearchBar>
+        <Search
+          value={chatStore.search}
+          onChange={(event) => chatStore.setSearch(event.target.value)}
+          placeholder="Поиск по имени"
+          aria-label="Поиск по перепискам"
+        />
+      </SearchBar>
       <AsyncContent
         loading={chatStore.dialogsLoading && chatStore.dialogs.length === 0}
         skeleton={<DialogListSkeleton />}

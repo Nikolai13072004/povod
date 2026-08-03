@@ -40,6 +40,12 @@ const PageContainer = styled.div`
   padding: 20px 18px 24px;
   min-height: 100%;
   background: var(--vkui--color_background_primary);
+
+  /* На телефоне между шапкой (профиль + колокольчик) и поиском зияла пустота —
+     подтягиваем контент ближе. На десктопе шапки нет, отступ сверху уместен. */
+  @media (max-width: 899px) {
+    padding-top: 2px;
+  }
 `;
 
 const SearchContainer = styled.div`

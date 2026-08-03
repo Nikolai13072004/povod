@@ -10,7 +10,9 @@ import { chatStore } from "../../stores/chatStore";
 import { ContentWidth } from "../Layout/ContentWidth";
 
 const Header = styled.header<{ $mode: "light" | "dark" }>`
-  padding: 12px 0;
+  /* Немного воздуха сверху, чтобы строка не липла к краю экрана, и совсем чуть
+     снизу — раньше между шапкой и контентом зияла пустота. */
+  padding: 14px 0 6px;
   background: var(--vkui--color_background_primary);
 
   /* На десктопе верхней шапки нет: её роль (профиль, колокольчик, разделы)
@@ -38,8 +40,8 @@ const LeftSection = styled.div`
 `;
 
 const Avatar = styled.button<{ $avatar?: string }>`
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background-color: var(--povod-surface-muted);
   /* Без фото кружок пуст — в него ставится первая буква имени, как в профиле. */
