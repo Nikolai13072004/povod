@@ -68,6 +68,63 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
   return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(timestamp);
 }
 
+/** Сколько календарных дней назад была метка: 0 — сегодня, 1 — вчера… */
+function calendarDaysAgo(timestamp: number, now: number): number {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(timestamp);
+  day.setHours(0, 0, 0, 0);
+  // Round, а не floor: переход на летнее время делает «сутки» на час короче.
+  return Math.round((today.getTime() - day.getTime()) / DAY);
+}
+
+/** Точное «14:23» — внутри переписки, где важен момент, а не давность. */
+export function timeShort(iso: string): string {
+  const timestamp = Date.parse(iso);
+  if (Number.isNaN(timestamp)) return "";
+  return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(timestamp);
+}
+
+/**
+ * Короткое время для списка переписок: сегодня — «14:23», вчера — «Вчера»,
+ * до недели — день недели, дальше — дата. «5 часов назад» из `relativeTime`
+ * распирало колонку времени и заставляло правый край списка плясать; здесь
+ * важна компактность, а привычную давность человек считывает и из даты.
+ */
+export function chatTimeShort(iso: string, now: number = Date.now()): string {
+  const timestamp = Date.parse(iso);
+  if (Number.isNaN(timestamp)) return "";
+
+  const daysAgo = calendarDaysAgo(timestamp, now);
+  if (daysAgo <= 0) return timeShort(iso);
+  if (daysAgo === 1) return "Вчера";
+  if (daysAgo < 7) return new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(timestamp);
+  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(timestamp);
+}
+
+/**
+ * Заголовок дня в переписке: «Сегодня», «Вчера», дальше — дата (с годом, если
+ * он уже не текущий). Без этих разделителей длинная переписка сливается в один
+ * бесконечный столбец, а у каждого сообщения остаётся только «14:23» — по нему
+ * не понять, сегодняшнее оно или недельной давности.
+ */
+export function dayLabel(iso: string, now: number = Date.now()): string {
+  const timestamp = Date.parse(iso);
+  if (Number.isNaN(timestamp)) return "";
+
+  const daysAgo = calendarDaysAgo(timestamp, now);
+  if (daysAgo <= 0) return "Сегодня";
+  if (daysAgo === 1) return "Вчера";
+
+  const sameYear = new Date(timestamp).getFullYear() === new Date(now).getFullYear();
+  return new Intl.DateTimeFormat(
+    "ru-RU",
+    sameYear
+      ? { day: "numeric", month: "long" }
+      : { day: "numeric", month: "long", year: "numeric" },
+  ).format(timestamp);
+}
+
 /** Русские числительные: 1 минуту, 2 минуты, 5 минут. */
 function plural(count: number, one: string, few: string, many: string): string {
   const mod100 = count % 100;

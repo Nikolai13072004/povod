@@ -185,6 +185,78 @@ const StyledNavLink = styled(NavLink)`
   }
 `;
 
+/**
+ * Пункт «Создать» — акцентный: это главное действие продукта, а выглядел он
+ * такой же серой вкладкой, как остальные, и терялся среди них.
+ *
+ *  - Телефон: залитый круг с плюсом в своей ячейке панели — без «прыгающего»
+ *    FAB, сетка из четырёх пунктов не ломается.
+ *  - Десктоп: строка залита акцентом целиком, текст — on-primary.
+ *
+ * Состояния — та же гамма, что у кнопок: hover → primary-hover, нажатие и
+ * активный маршрут → primary-active.
+ */
+const CreateNavLink = styled(StyledNavLink)`
+  .create-circle {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--povod-primary);
+    color: var(--povod-on-primary);
+    transition:
+      background 0.15s ease,
+      transform 0.1s ease;
+  }
+
+  &:hover .create-circle {
+    background: var(--povod-primary-hover);
+  }
+
+  &:active .create-circle {
+    background: var(--povod-primary-active);
+    transform: scale(0.95);
+  }
+
+  &.active .create-circle {
+    background: var(--povod-primary-active);
+  }
+
+  @media (min-width: ${DESKTOP}) {
+    background: var(--povod-primary);
+    color: var(--povod-on-primary);
+    font-weight: 600;
+
+    /* Круг растворяется в залитой строке — остаётся только иконка. */
+    .create-circle,
+    &:hover .create-circle,
+    &:active .create-circle,
+    &.active .create-circle {
+      width: 24px;
+      height: 24px;
+      background: transparent;
+      color: inherit;
+      transform: none;
+    }
+
+    &:hover {
+      background: var(--povod-primary-hover);
+      color: var(--povod-on-primary);
+    }
+
+    &.active {
+      background: var(--povod-primary-active);
+      color: var(--povod-on-primary);
+    }
+
+    /* Кольцо фокуса — снаружи заливки, иначе синее на синем не видно. */
+    &:focus-visible {
+      outline-offset: 2px;
+    }
+  }
+`;
+
 /** Подпись видна только на широком экране: в нижней панели для неё нет места. */
 const Label = styled.span`
   display: none;
@@ -383,6 +455,18 @@ function NavMenu() {
       <Nav aria-label="Основные разделы">
         <NavInner>
           {LINKS.map(({ to, label, Icon }) => {
+            // «Создать» — акцентный пункт со своей вёрсткой: круг на телефоне,
+            // залитая строка на десктопе. Позиция в ряду при этом общая.
+            if (to === "/add") {
+              return (
+                <CreateNavLink key={to} to={to} aria-label={label}>
+                  <span className="create-circle">
+                    <Icon />
+                  </span>
+                  <Label>{label}</Label>
+                </CreateNavLink>
+              );
+            }
             const showBadge = to === "/chats" && unread > 0;
             return (
               <StyledNavLink

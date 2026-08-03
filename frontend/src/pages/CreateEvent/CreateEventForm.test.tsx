@@ -38,7 +38,7 @@ beforeEach(() => {
 describe("CreateEventForm", () => {
   it("blocks submit and shows a validation error when required fields are empty", async () => {
     renderForm();
-    await userEvent.click(screen.getByText("Отправить повод"));
+    await userEvent.click(screen.getByRole("button", { name: "Создать повод" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Заполните название, дату и место события.",
@@ -67,7 +67,7 @@ describe("CreateEventForm", () => {
     fireEvent.change(screen.getByLabelText("Время окончания"), { target: { value: "22:00" } });
     await userEvent.type(screen.getByLabelText("Ограничение числа участников"), "5");
 
-    await userEvent.click(screen.getByText("Отправить повод"));
+    await userEvent.click(screen.getByRole("button", { name: "Создать повод" }));
 
     expect(mockEventStore.createEvent).toHaveBeenCalledWith(
       expect.objectContaining({ endsAt: "2026-08-01T19:00:00.000Z", participantLimit: 5 }),
@@ -85,7 +85,7 @@ describe("CreateEventForm", () => {
     // Мок дат отдаёт одинаковый момент для обоих полей — окончание не позже начала.
     fireEvent.change(screen.getByLabelText("Время окончания"), { target: { value: "10:00" } });
 
-    await userEvent.click(screen.getByText("Отправить повод"));
+    await userEvent.click(screen.getByRole("button", { name: "Создать повод" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Событие не может закончиться раньше, чем началось.",
@@ -102,7 +102,7 @@ describe("CreateEventForm", () => {
       target: { value: "2026-08-01" },
     });
 
-    await userEvent.click(screen.getByText("Отправить повод"));
+    await userEvent.click(screen.getByRole("button", { name: "Создать повод" }));
 
     expect(mockEventStore.createEvent).toHaveBeenCalledOnce();
     expect(mockEventStore.createEvent).toHaveBeenCalledWith(

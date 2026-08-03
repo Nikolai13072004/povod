@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatNotification, relativeTime } from "./notificationText";
+import {
+  chatTimeShort,
+  dayLabel,
+  formatNotification,
+  relativeTime,
+  timeShort,
+} from "./notificationText";
 import type { Notification } from "../../services/api";
 
 const base: Notification = {
@@ -101,5 +107,76 @@ describe("относительное время", () => {
 
   it("не ломается на некорректной дате", () => {
     expect(relativeTime("не дата", now)).toBe("");
+  });
+});
+
+/*
+ * Времена чата строятся из ЛОКАЛЬНЫХ компонент даты, а не из ISO-строк с `Z`:
+ * помощники сравнивают календарные дни в местном времени, и тест обязан давать
+ * один результат и в CI (UTC), и на машине разработчика (UTC+3).
+ */
+const at = (year: number, month: number, day: number, hours = 12, minutes = 0): string =>
+  new Date(year, month, day, hours, minutes).toISOString();
+
+// «Сейчас» — 3 августа 2026, 15:00 по местному времени.
+const CHAT_NOW = new Date(2026, 7, 3, 15, 0).getTime();
+
+describe("точное время сообщения", () => {
+  it("даёт часы и минуты с ведущим нулём", () => {
+    expect(timeShort(at(2026, 7, 3, 14, 23))).toBe("14:23");
+    expect(timeShort(at(2026, 7, 3, 9, 5))).toBe("09:05");
+  });
+
+  it("не падает на мусоре", () => {
+    expect(timeShort("не дата")).toBe("");
+  });
+});
+
+describe("короткое время в списке переписок", () => {
+  it("сегодня — просто время", () => {
+    expect(chatTimeShort(at(2026, 7, 3, 14, 23), CHAT_NOW)).toBe("14:23");
+  });
+
+  it("вчера — словом, даже если прошло меньше суток", () => {
+    // 23:50 вчера — по разнице «час назад», но календарно уже другой день.
+    expect(chatTimeShort(at(2026, 7, 2, 23, 50), CHAT_NOW)).toBe("Вчера");
+  });
+
+  it("до недели — день недели", () => {
+    const label = chatTimeShort(at(2026, 7, 1, 10, 0), CHAT_NOW);
+    // Точная аббревиатура зависит от ICU («сб» или «сб.») — проверяем форму.
+    expect(label.toLowerCase()).toMatch(/^[а-яё]{2}\.?$/);
+  });
+
+  it("старше недели — дата", () => {
+    const label = chatTimeShort(at(2026, 6, 20, 10, 0), CHAT_NOW);
+    expect(label).toMatch(/20/);
+    expect(label).toMatch(/июл/);
+  });
+
+  it("не падает на мусоре", () => {
+    expect(chatTimeShort("не дата", CHAT_NOW)).toBe("");
+  });
+});
+
+describe("заголовок дня в переписке", () => {
+  it("сегодня и вчера — словами, по календарю, а не по разнице часов", () => {
+    expect(dayLabel(at(2026, 7, 3, 0, 1), CHAT_NOW)).toBe("Сегодня");
+    expect(dayLabel(at(2026, 7, 2, 23, 59), CHAT_NOW)).toBe("Вчера");
+  });
+
+  it("в этом году — дата без года", () => {
+    const label = dayLabel(at(2026, 6, 27), CHAT_NOW);
+    expect(label).toMatch(/27/);
+    expect(label).toMatch(/июля/);
+    expect(label).not.toMatch(/2026/);
+  });
+
+  it("в прошлом году — дата с годом", () => {
+    expect(dayLabel(at(2025, 11, 31), CHAT_NOW)).toMatch(/2025/);
+  });
+
+  it("не падает на мусоре", () => {
+    expect(dayLabel("не дата", CHAT_NOW)).toBe("");
   });
 });

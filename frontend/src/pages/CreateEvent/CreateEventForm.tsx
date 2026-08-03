@@ -659,7 +659,7 @@ export default function CreateEventForm() {
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
             <Icon28UsersOutline width={24} height={24} />
-            Отправить повод
+            Создать повод
           </span>
         </Button>
       </SubmitSection>
