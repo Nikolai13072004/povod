@@ -12,7 +12,7 @@ import {
   Button,
 } from "@vkontakte/vkui";
 import { Icon28CancelOutline, Icon20PlaceOutline, Icon24AddOutline } from "@vkontakte/icons";
-import { CityDatalist, CITY_DATALIST_ID } from "../../components/CityDatalist/CityDatalist";
+import { CityAutocomplete } from "../../components/CityAutocomplete/CityAutocomplete";
 import styled from "@emotion/styled";
 import "@vkontakte/vkui/dist/vkui.css";
 import { useNavigate } from "react-router-dom";
@@ -534,27 +534,21 @@ const UserProfile = () => {
             )}
             <UserName>{sessionStore.user.name}</UserName>
             {cityEditing ? (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <input
-                  aria-label="Город"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Ваш город"
-                  list={CITY_DATALIST_ID}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: "var(--povod-radius-sm)",
-                    border: "1px solid var(--povod-border-strong)",
-                    minWidth: 0,
-                  }}
-                />
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <CityAutocomplete
+                    value={city}
+                    onChange={setCity}
+                    placeholder="Ваш город"
+                    ariaLabel="Город"
+                  />
+                </div>
                 <Button size="s" mode="primary" onClick={handleSaveCity}>
                   Сохранить
                 </Button>
                 <Button size="s" mode="secondary" onClick={() => setCityEditing(false)}>
                   Отмена
                 </Button>
-                <CityDatalist />
               </div>
             ) : (
               <CityButton

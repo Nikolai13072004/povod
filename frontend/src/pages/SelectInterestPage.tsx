@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
-import { CityDatalist, CITY_DATALIST_ID } from "../components/CityDatalist/CityDatalist";
-import { Button, Title, Text, Input } from "@vkontakte/vkui";
+import { CityAutocomplete } from "../components/CityAutocomplete/CityAutocomplete";
+import { Button, Title, Text } from "@vkontakte/vkui";
 import { Icon16Place } from "@vkontakte/icons";
 import { observer } from "mobx-react-lite";
 import { useNavigate } from "react-router-dom";
@@ -60,15 +60,6 @@ const Card = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
-`;
-
-const InputWrapper = styled.div`
-  position: relative;
-  .vkuiInput__el {
-    padding-left: 36px;
-    background: var(--povod-surface-muted);
-    // border: 1px solid var(--povod-primary);
-  }
 `;
 
 const Footer = styled.div`
@@ -184,19 +175,13 @@ export const SelectInterestPage = observer(function SelectInterestPage() {
           <SectionTitle level="2" style={{ fontSize: 18 }}>
             Место
           </SectionTitle>
-          <InputWrapper>
-            <Icon16Place
-              fill="var(--povod-text-secondary)"
-              style={{ position: "absolute", left: 12, top: 12, zIndex: 1 }}
-            />
-            <Input
-              placeholder="Город или адрес"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              list={CITY_DATALIST_ID}
-            />
-            <CityDatalist />
-          </InputWrapper>
+          <CityAutocomplete
+            value={location}
+            onChange={setLocation}
+            placeholder="Город"
+            ariaLabel="Город"
+            before={<Icon16Place fill="var(--povod-text-secondary)" />}
+          />
         </Card>
       </Section>
 
