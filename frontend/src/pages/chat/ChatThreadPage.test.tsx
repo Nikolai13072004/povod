@@ -195,6 +195,40 @@ describe("переписка", () => {
     expect(screen.getByRole("button", { name: "К перепискам" })).toBeInTheDocument();
   });
 
+  it("делит ленту на дни и подписывает каждый", () => {
+    // Даты строятся от настоящего «сейчас»: dayLabel сравнивает календарные дни.
+    const today = new Date();
+    today.setHours(10, 0, 0, 0);
+    const yesterday = new Date(today.getTime() - 24 * 3_600_000);
+    mockChatStore.state = {
+      ...baseThread(),
+      messages: [
+        message({ id: "new", createdAt: today.toISOString() }),
+        message({ id: "old", createdAt: yesterday.toISOString() }),
+      ],
+    };
+    renderThread();
+
+    expect(screen.getByText("Сегодня")).toBeInTheDocument();
+    expect(screen.getByText("Вчера")).toBeInTheDocument();
+  });
+
+  it("внутри одного дня разделитель ровно один", () => {
+    const base = new Date();
+    base.setHours(10, 0, 0, 0);
+    const later = new Date(base.getTime() + 3_600_000);
+    mockChatStore.state = {
+      ...baseThread(),
+      messages: [
+        message({ id: "m2", createdAt: later.toISOString() }),
+        message({ id: "m1", createdAt: base.toISOString() }),
+      ],
+    };
+    renderThread();
+
+    expect(screen.getAllByText("Сегодня")).toHaveLength(1);
+  });
+
   it("предлагает показать историю, пока есть следующая страница", async () => {
     mockChatStore.state = { ...baseThread(), messages: [message()], nextCursor: "cursor" };
     renderThread();
