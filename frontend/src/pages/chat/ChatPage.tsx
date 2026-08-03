@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import styled from "@emotion/styled";
@@ -9,7 +9,7 @@ import { sessionStore } from "../../stores/sessionStore";
 import { AsyncContent } from "../../components/AsyncContent/AsyncContent";
 import { DialogListSkeleton } from "../../components/Skeleton";
 import { chatTimeShort } from "../../components/Notification/notificationText";
-import type { Dialog } from "../../services/api";
+import { eventsAPI, type Dialog, type Event } from "../../services/api";
 
 /**
  * Цвет аватара-заглушки — детерминированно от id человека.
@@ -159,6 +159,33 @@ export const ChatList = observer(() => {
   const myId = sessionStore.user.id;
 
   /*
+   * Чаты событий (PROD-013): события с включённым чатом, где человек автор или
+   * участник. Источник — «мои события»: отдельного эндпоинта под список чатов
+   * заводить незачем, комната есть у каждого своего события с флагом.
+   */
+  const [eventChats, setEventChats] = useState<Event[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void eventsAPI.getMine().then((response) => {
+      if (!alive || !response.data) return;
+      const seen = new Set<string>();
+      const withChat = [...response.data.created, ...response.data.attending].filter((event) => {
+        if (!event.chatEnabled || seen.has(event.id)) return false;
+        seen.add(event.id);
+        return true;
+      });
+      setEventChats(withChat);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [myId]);
+  const eventQuery = chatStore.search.trim().toLocaleLowerCase("ru");
+  const visibleEventChats = eventQuery
+    ? eventChats.filter((event) => event.title.toLocaleLowerCase("ru").includes(eventQuery))
+    : eventChats;
+
+  /*
    * Друзья, которым ещё ни разу не писали.
    *
    * Список диалогов строится ИЗ СООБЩЕНИЙ, поэтому такой друг в него не
@@ -207,7 +234,9 @@ export const ChatList = observer(() => {
         loadingTitle="Загружаем переписки…"
         error={chatStore.dialogsError}
         onRetry={() => void chatStore.loadDialogs(true)}
-        empty={dialogs.length === 0 && visibleFriends.length === 0}
+        empty={
+          dialogs.length === 0 && visibleFriends.length === 0 && visibleEventChats.length === 0
+        }
         emptyTitle={searching ? "Ничего не найдено" : "Переписок пока нет"}
         emptyDescription={
           searching
@@ -237,6 +266,26 @@ export const ChatList = observer(() => {
             onOpen={() => navigate(`/chats/${dialog.peer.id}`)}
           />
         ))}
+
+        {visibleEventChats.length > 0 && (
+          <>
+            <SectionTitle>Чаты событий</SectionTitle>
+            {visibleEventChats.map((event) => (
+              <Row
+                key={event.id}
+                type="button"
+                onClick={() => navigate(`/chats/event/${event.id}`)}
+                aria-label={`Чат события: ${event.title}`}
+              >
+                <Avatar size={48} src={event.image} initials={event.title.slice(0, 1)} />
+                <Info>
+                  <Name>{event.title}</Name>
+                  <StartHint>Чат участников</StartHint>
+                </Info>
+              </Row>
+            ))}
+          </>
+        )}
 
         {visibleFriends.length > 0 && (
           <>

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryRepository } from "./memoryRepository.js";
 import { runDirectMessageConformance } from "./directMessages.conformance.js";
+import { runEventChatConformance } from "./eventChat.conformance.js";
 
 test("joining an event is idempotent and participant count is derived", async () => {
   const repository = new MemoryRepository();
@@ -153,6 +154,12 @@ test("deleteExpiredSessions removes expired and revoked sessions, keeps active (
 });
 
 runDirectMessageConformance("память", async () => {
+  const repository = new MemoryRepository();
+  await repository.init();
+  return repository;
+});
+
+runEventChatConformance("память", async () => {
   const repository = new MemoryRepository();
   await repository.init();
   return repository;

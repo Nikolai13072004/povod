@@ -18,6 +18,7 @@ import { filtersStore } from "./filtersStore";
 import { notificationsStore } from "./notificationsStore";
 import { favoritesStore } from "./favoritesStore";
 import { chatStore } from "./chatStore";
+import { eventChatStore } from "./eventChatStore";
 import { friendsStore } from "./friendsStore";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -214,6 +215,7 @@ class SessionStore {
     notificationsStore.reset();
     favoritesStore.reset();
     chatStore.reset();
+    eventChatStore.reset();
     friendsStore.reset();
   }
 

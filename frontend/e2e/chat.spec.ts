@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { reachFeed, register, uniqueEmail, uniqueName } from "./helpers";
+import { createEvent, reachFeed, register, uniqueEmail, uniqueName } from "./helpers";
 
 /**
  * Личные сообщения на настоящем стеке (PROD-011).
@@ -130,4 +130,46 @@ test("своё сообщение правится с отметкой и уда
   // «Сообщений пока нет» — проверяем новый текст.
   await expect(page.getByText(/Это начало переписки/)).toBeVisible();
   await peerPage.close();
+});
+
+test("чат события: участник пишет, автор видит; посторонний не входит [PROD-013]", async ({
+  page,
+  context,
+}) => {
+  const author = uniqueName("Организатор");
+  const title = `Встреча с чатом ${Date.now()}`;
+  await register(page, author, uniqueEmail("chat-author"));
+  await reachFeed(page);
+  await createEvent(page, { title, chat: true });
+
+  // Автор находит свой чат события в списке чатов и пишет первым.
+  await page.goto("/chats");
+  await page.getByRole("button", { name: `Чат события: ${title}` }).click();
+  await page.getByLabel("Текст сообщения").fill("сбор у входа в 18:00");
+  await page.getByRole("button", { name: "Отправить" }).click();
+  await expect(page.getByText("сбор у входа в 18:00")).toBeVisible();
+
+  // Второй регистрируется, находит событие в ленте, записывается и открывает чат.
+  const guestPage = await context.browser()!.newPage();
+  await register(guestPage, uniqueName("Гость"), uniqueEmail("chat-guest"));
+  await reachFeed(guestPage);
+  await guestPage.getByText(title).first().click();
+  await guestPage.getByRole("button", { name: "Записаться" }).click();
+  await guestPage.getByRole("button", { name: "Открыть чат события" }).click();
+  // Участник видит реплику автора и отвечает.
+  await expect(guestPage.getByText("сбор у входа в 18:00")).toBeVisible();
+  await guestPage.getByLabel("Текст сообщения").fill("буду вовремя");
+  await guestPage.getByRole("button", { name: "Отправить" }).click();
+  await expect(guestPage.getByText("буду вовремя")).toBeVisible();
+  await guestPage.close();
+
+  // Посторонний знает адрес чата, но комнату не открывает: тот же отказ, что
+  // «нет события». Идентификатор берём из адреса чата автора.
+  const chatUrl = page.url();
+  const strangerPage = await context.browser()!.newPage();
+  await register(strangerPage, uniqueName("Посторонний"), uniqueEmail("chat-stranger"));
+  await reachFeed(strangerPage);
+  await strangerPage.goto(chatUrl);
+  await expect(strangerPage.getByText("Чат недоступен")).toBeVisible();
+  await strangerPage.close();
 });

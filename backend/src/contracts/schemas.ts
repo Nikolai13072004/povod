@@ -60,6 +60,10 @@ export const eventSchema = z
     tags: z.array(z.string()).optional(),
     coords: z.tuple([z.number(), z.number()]).optional(),
     format: z.enum(["public", "private"]).optional(),
+    chatEnabled: z
+      .boolean()
+      .optional()
+      .openapi({ description: "У события есть чат участников (PROD-013)" }),
     createdAt: isoDateTime(),
   })
   .openapi("Event");
@@ -101,6 +105,7 @@ export const notificationTypeSchema = z
     "direct_message",
     "friend_request",
     "friend_accepted",
+    "event_chat",
   ])
   .openapi("NotificationType");
 
@@ -185,6 +190,34 @@ export const messageThreadSchema = z
 
 export const unreadCountSchema = z.object({ unread: z.number().int() }).openapi("UnreadCount");
 
+/**
+ * Сообщение в чате события (PROD-013).
+ *
+ * Имя отправителя лежит в самом сообщении, как `actorName` в уведомлениях:
+ * аккаунт могут удалить, а реплика в общей переписке обязана остаться
+ * подписанной. Заодно страница чата не требует JOIN к пользователям.
+ */
+export const eventMessageSchema = z
+  .object({
+    id: z.string(),
+    eventId: z.string(),
+    senderId: z.string(),
+    senderName: z.string(),
+    text: z.string(),
+    createdAt: isoDateTime(),
+  })
+  .openapi("EventMessage");
+
+/** Страница чата события: свежие первыми, курсор листает вглубь истории. */
+export const eventChatPageSchema = z
+  .object({
+    eventId: z.string(),
+    eventTitle: z.string(),
+    items: z.array(eventMessageSchema),
+    nextCursor: z.string().optional(),
+  })
+  .openapi("EventChatPage");
+
 /** Приглашение без секрета — таким его видит автор события (BE-008). */
 export const invitationSchema = z
   .object({
@@ -239,5 +272,6 @@ export const friendRequestsSchema = z
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 export type Notification = z.infer<typeof notificationSchema>;
 export type DirectMessage = z.infer<typeof directMessageSchema>;
+export type EventMessage = z.infer<typeof eventMessageSchema>;
 /** Внутри диалога собеседник — полная модель пользователя; наружу он уходит урезанным. */
 export type Dialog = Omit<z.infer<typeof dialogSchema>, "peer"> & { peer: User };

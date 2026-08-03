@@ -67,7 +67,8 @@ export function decodeMessageCursor(value: string | undefined): MessageCursor | 
   }
 }
 
-export function cursorOfMessage(message: DirectMessage): MessageCursor {
+/** Пара (createdAt, id) есть у любого сообщения — курсор общий с чатом события. */
+export function cursorOfMessage(message: { createdAt: string; id: string }): MessageCursor {
   return { createdAt: message.createdAt, id: message.id };
 }
 

@@ -85,9 +85,9 @@ const App = observer(() => {
   // startsWith, а не строгое равенство: иначе экран переписки `/chats/:id`
   // молча терял белый фон и токены сцены, настроенные для списка.
   const isChatPage = location.pathname.startsWith("/chats");
-  // Именно переписка `/chats/:id`, а не список: только ей нужна раскладка во
-  // всю высоту окна с пришпиленным полем ввода.
-  const isChatThread = /^\/chats\/[^/]+$/.test(location.pathname);
+  // Именно переписка `/chats/:id` или чат события `/chats/event/:id`, а не
+  // список: только им нужна раскладка во всю высоту окна с пришпиленным полем.
+  const isChatThread = /^\/chats\/([^/]+|event\/[^/]+)$/.test(location.pathname);
   const isSelectInterestPage = location.pathname === "/SelectInterestPage";
   const isProfilePage = location.pathname === "/Profile";
   const isNotificationsPage = location.pathname === "/notifications";
