@@ -37,6 +37,12 @@ const TopBar = styled.div`
   background: var(--povod-surface);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   z-index: 1;
+
+  /* На десктопе — лёгкая шапка без залитого бара (как у страниц). */
+  @media (min-width: 900px) {
+    background: transparent;
+    box-shadow: none;
+  }
 `;
 
 const TitleBox = styled.button`

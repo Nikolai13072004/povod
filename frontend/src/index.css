@@ -60,3 +60,19 @@ body,
   --vkui--size_border_radius_paper--regular: var(--povod-radius-lg) !important;
   --vkui--size_card_border_radius--regular: var(--povod-radius-lg) !important;
 }
+
+/*
+ * Десктоп: шапки страниц (VKUI PanelHeader) не должны быть тяжёлым тёмным баром.
+ *
+ * Рядом с боковой панелью залитый прямоугольник во всю ширину контента, с
+ * заголовком слева и пустотой справа, читается как случайно оставшийся
+ * мобильный chrome: «Профиль» и «Событие» повисали в пустом тёмном баре. Убираем
+ * заливку и тень — остаётся лёгкий заголовок с кнопкой «назад». На телефоне бар
+ * привычен, поэтому правило только для широкого экрана.
+ */
+@media (min-width: 900px) {
+  .vkuiPanelHeader__in {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}

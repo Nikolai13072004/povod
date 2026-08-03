@@ -49,6 +49,13 @@ const PeerBar = styled.div`
   /* Мягкая тень отделяет шапку от ленты, когда под ней прокручиваются пузыри. */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   z-index: 1;
+
+  /* На десктопе тяжёлый залитый бар рядом с боковой панелью лишний — оставляем
+     тонкий разделитель, как у шапок остальных страниц. */
+  @media (min-width: 900px) {
+    background: transparent;
+    box-shadow: none;
+  }
 `;
 
 const PeerName = styled.div`
