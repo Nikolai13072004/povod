@@ -276,14 +276,18 @@ export const ChatThreadPage = observer(() => {
     event.preventDefault();
     const text = draft.trim();
     if (!text) return;
+    // Поле очищаем сразу, а не после ответа сервера. Иначе между появлением
+    // пузыря и очисткой остаётся кадр, где один и тот же текст виден и в ленте, и
+    // в поле ввода: на медленной машине это заметно глазом и ловилось строгим
+    // локатором в e2e. При отказе отправки текст возвращаем, чтобы не пропал.
+    setDraft("");
     const sent = await chatStore.send(userId, text);
-    if (sent) {
-      setDraft("");
-      return;
+    if (!sent) {
+      setDraft(text);
+      showToast(chatStore.thread(userId).sendError ?? "Не удалось отправить сообщение", {
+        type: "error",
+      });
     }
-    showToast(chatStore.thread(userId).sendError ?? "Не удалось отправить сообщение", {
-      type: "error",
-    });
   };
 
   if (thread.notFound) {

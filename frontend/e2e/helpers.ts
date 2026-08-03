@@ -12,6 +12,19 @@ export function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@povod.test`;
 }
 
+/**
+ * Уникальное имя на прогон.
+ *
+ * Бэкенд e2e — in-memory и копит пользователей за время жизни сервера. Тесты,
+ * ищущие человека по видимому имени («Профиль: Алиса», «Переписка с Алиса»),
+ * при повторе или ретрае натыкались бы на несколько одинаковых имён, и строгий
+ * локатор падал бы на неоднозначности. Суффикс делает имя уникальным, сохраняя
+ * узнаваемую основу.
+ */
+export function uniqueName(base: string): string {
+  return `${base}-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+}
+
 export async function register(page: Page, name: string, email: string): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: /Нет аккаунта/ }).click();

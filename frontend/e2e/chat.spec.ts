@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { reachFeed, register, uniqueEmail } from "./helpers";
+import { reachFeed, register, uniqueEmail, uniqueName } from "./helpers";
 
 /**
  * Личные сообщения на настоящем стеке (PROD-011).
@@ -48,8 +48,11 @@ async function currentUserId(page: Page): Promise<string> {
 }
 
 test("друзья переписываются, а посторонний не может написать", async ({ page, context }) => {
+  // Имя уникально: несколько «Алис» в общем in-memory бэкенде сделали бы поиск
+  // «Профиль: Алиса» неоднозначным при ретрае.
+  const alice = uniqueName("Алиса");
   // Первый.
-  await register(page, "Алиса", uniqueEmail("alice"));
+  await register(page, alice, uniqueEmail("alice"));
   await reachFeed(page);
   const aliceId = await currentUserId(page);
 
@@ -64,7 +67,7 @@ test("друзья переписываются, а посторонний не 
   await expect(borisPage.getByText("Переписка недоступна")).toBeVisible();
 
   // Заявка и согласие.
-  await requestFriendship(borisPage, "Алиса");
+  await requestFriendship(borisPage, alice);
   await page.goto(`/users/${borisId}`);
   await page.getByRole("button", { name: "Принять заявку" }).click();
   await expect(page.getByRole("button", { name: "Написать" })).toBeVisible();
@@ -77,8 +80,8 @@ test("друзья переписываются, а посторонний не 
 
   // Собеседник видит сообщение и отвечает.
   await borisPage.goto("/chats");
-  await expect(borisPage.getByRole("button", { name: "Переписка с Алиса" })).toBeVisible();
-  await borisPage.getByRole("button", { name: "Переписка с Алиса" }).click();
+  await expect(borisPage.getByRole("button", { name: `Переписка с ${alice}` })).toBeVisible();
+  await borisPage.getByRole("button", { name: `Переписка с ${alice}` }).click();
   await expect(borisPage.getByText("привет, это Алиса")).toBeVisible();
   await borisPage.getByLabel("Текст сообщения").fill("привет, это Борис");
   await borisPage.getByRole("button", { name: "Отправить" }).click();
@@ -96,7 +99,8 @@ test("друзья переписываются, а посторонний не 
 });
 
 test("своё сообщение правится с отметкой и удаляется", async ({ page, context }) => {
-  await register(page, "Автор", uniqueEmail("author"));
+  const author = uniqueName("Автор");
+  await register(page, author, uniqueEmail("author"));
   await reachFeed(page);
 
   const peerPage = await context.browser()!.newPage();
@@ -104,7 +108,7 @@ test("своё сообщение правится с отметкой и уда
   await reachFeed(peerPage);
   const peerId = await currentUserId(peerPage);
 
-  await requestFriendship(peerPage, "Автор");
+  await requestFriendship(peerPage, author);
   await page.goto(`/users/${peerId}`);
   await page.getByRole("button", { name: "Принять заявку" }).click();
   await page.getByRole("button", { name: "Написать" }).click();
