@@ -130,6 +130,10 @@ const NavInner = styled.div`
 
 const StyledNavLink = styled(NavLink)`
   position: relative;
+  /* border-box обязателен: на десктопе ширина 100% плюс паддинг 14px без него
+     складывались, пункт становился на 28px шире панели, и его акцентная заливка
+     вылезала за правый край панели и за полоску-разделитель под логотипом. */
+  box-sizing: border-box;
   width: 60px;
   height: 60px;
   display: grid;
@@ -182,58 +186,6 @@ const StyledNavLink = styled(NavLink)`
       color: var(--povod-primary);
       font-weight: 600;
       background: color-mix(in srgb, var(--povod-primary) 18%, transparent);
-    }
-  }
-`;
-
-/**
- * Пункт «Создать». На телефоне — залитый круг с плюсом в своей ячейке панели
- * (без «прыгающего» FAB, сетка из четырёх пунктов не ломается): в ряду голых
- * иконок круг читается как кнопка действия, а не как «текущий раздел».
- *
- * На десктопе никакой постоянной заливки НЕТ — пункт ведёт себя как остальные.
- * Первая версия держала строку залитой всегда, и это ломало навигацию: залитая
- * строка в боковой панели читается как «ты сейчас здесь», синим горел «Создать»,
- * а настоящий активный раздел был почти незаметен.
- */
-const CreateNavLink = styled(StyledNavLink)`
-  .create-circle {
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--povod-primary);
-    color: var(--povod-on-primary);
-    transition:
-      background 0.15s ease,
-      transform 0.1s ease;
-  }
-
-  &:hover .create-circle {
-    background: var(--povod-primary-hover);
-  }
-
-  &:active .create-circle {
-    background: var(--povod-primary-active);
-    transform: scale(0.95);
-  }
-
-  &.active .create-circle {
-    background: var(--povod-primary-active);
-  }
-
-  @media (min-width: ${DESKTOP}) {
-    /* Круг — мобильный приём; в строке панели остаётся обычная иконка. */
-    .create-circle,
-    &:hover .create-circle,
-    &:active .create-circle,
-    &.active .create-circle {
-      width: 24px;
-      height: 24px;
-      background: transparent;
-      color: inherit;
-      transform: none;
     }
   }
 `;
@@ -429,25 +381,13 @@ function NavMenu() {
   return (
     <NavWrapper>
       <Brand>
-        <BrandMark aria-hidden="true">P</BrandMark>
-        <BrandName>POVOD</BrandName>
+        <BrandMark aria-hidden="true">П</BrandMark>
+        <BrandName>ПОВОД</BrandName>
       </Brand>
 
       <Nav aria-label="Основные разделы">
         <NavInner>
           {LINKS.map(({ to, label, Icon }) => {
-            // «Создать» — своя вёрстка только ради круга на телефоне; на
-            // десктопе это обычная строка панели, как остальные разделы.
-            if (to === "/add") {
-              return (
-                <CreateNavLink key={to} to={to} aria-label={label}>
-                  <span className="create-circle">
-                    <Icon />
-                  </span>
-                  <Label>{label}</Label>
-                </CreateNavLink>
-              );
-            }
             const showBadge = to === "/chats" && unread > 0;
             return (
               <StyledNavLink

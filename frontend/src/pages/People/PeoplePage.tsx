@@ -124,7 +124,7 @@ export function PeoplePage() {
           emptyDescription={
             normalized
               ? "Попробуйте другое имя или город."
-              : "Здесь появятся другие участники POVOD."
+              : "Здесь появятся другие участники ПОВОД."
           }
           emptyActions={
             normalized

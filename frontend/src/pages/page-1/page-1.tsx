@@ -40,6 +40,12 @@ const PageContainer = styled.div`
   padding: 20px 18px 24px;
   min-height: 100%;
   background: var(--vkui--color_background_primary);
+
+  /* На телефоне между шапкой (профиль + колокольчик) и поиском зияла пустота —
+     подтягиваем контент ближе. На десктопе шапки нет, отступ сверху уместен. */
+  @media (max-width: 899px) {
+    padding-top: 2px;
+  }
 `;
 
 const SearchContainer = styled.div`
@@ -196,7 +202,29 @@ function FirstPageComponent() {
   );
 
   useEffect(() => {
-    eventStore.fetchEvents();
+    // Лента обновляется сама, без F5 (FE-027).
+    //
+    // Каждый заход — свежие данные: `fetchEvents` без force выходит по `loaded`,
+    // и повторный визит показывал старое. Дальше — мягкий авто-опрос и обновление
+    // при возврате на вкладку, чтобы чужое только что созданное событие появлялось
+    // само.
+    void eventStore.fetchEvents(true);
+
+    const refresh = () => {
+      if (document.visibilityState === "visible") void eventStore.fetchEvents(true);
+    };
+    // По таймеру обновляем, только когда человек вверху списка: перечитывание
+    // сбрасывает подгруженные «Показать ещё» страницы, и посреди прокрутки это
+    // был бы рывок. При возврате на вкладку обновляем всегда — там рывка нет.
+    const tick = () => {
+      if (window.scrollY < 200) refresh();
+    };
+    const timer = setInterval(tick, 45_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, []);
 
   // Фильтры в адресной строке (FE-006). Сначала читаем ссылку, и только потом

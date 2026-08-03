@@ -11,7 +11,7 @@ import { createEvent, login, reachFeed, register, uniqueEmail } from "./helpers"
 test("гость не попадает в ленту без входа", async ({ page }) => {
   await page.goto("/page-1");
   // Защищённый маршрут возвращает на экран входа, а не показывает пустую ленту.
-  await expect(page.getByRole("button", { name: "Войти в POVOD" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Войти в ПОВОД" })).toBeVisible();
 });
 
 test("вход демо-пользователя открывает ленту с событиями", async ({ page }) => {
@@ -26,7 +26,7 @@ test("неверный пароль не пускает и объясняет п
   await page.goto("/");
   await page.getByPlaceholder("Email").fill("elmira@povod.app");
   await page.getByPlaceholder("Пароль").fill("wrong-password");
-  await page.getByRole("button", { name: "Войти в POVOD" }).click();
+  await page.getByRole("button", { name: "Войти в ПОВОД" }).click();
 
   await expect(page.getByText(/Invalid email or password|Не удалось войти/)).toBeVisible();
   await expect(page).not.toHaveURL(/page-1/);
@@ -72,7 +72,7 @@ test("сессия переживает перезагрузку страниц�
   // Сессия живёт в HttpOnly-куке (SEC-001): раньше она лежала в sessionStorage
   // и терялась вместе с вкладкой.
   await expect(page.getByPlaceholder("Поиск...")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Войти в POVOD" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Войти в ПОВОД" })).toHaveCount(0);
 });
 
 test("новый пользователь регистрируется, создаёт повод и видит его у себя", async ({ page }) => {
@@ -224,7 +224,7 @@ test("выход из аккаунта закрывает доступ к лен
   await page.goto("/Profile");
   await page.getByText("Выйти", { exact: false }).first().click();
 
-  await expect(page.getByRole("button", { name: "Войти в POVOD" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Войти в ПОВОД" })).toBeVisible();
   await page.goto("/page-1");
-  await expect(page.getByRole("button", { name: "Войти в POVOD" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Войти в ПОВОД" })).toBeVisible();
 });

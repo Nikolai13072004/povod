@@ -39,7 +39,7 @@ export async function login(page: Page, email: string, password: string): Promis
   await page.goto("/");
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Пароль").fill(password);
-  await page.getByRole("button", { name: "Войти в POVOD" }).click();
+  await page.getByRole("button", { name: "Войти в ПОВОД" }).click();
   await expect(page).toHaveURL(/SelectInterestPage|page-1/);
 }
 

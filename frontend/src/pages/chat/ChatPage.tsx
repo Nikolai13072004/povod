@@ -36,7 +36,7 @@ function avatarGradient(id: string): 1 | 2 | 3 | 4 | 5 | 6 {
  */
 
 const SectionTitle = styled.div`
-  padding: 16px 16px 6px;
+  padding: 8px 16px 4px;
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
@@ -110,6 +110,16 @@ const Preview = styled.div<{ $unread: boolean }>`
   white-space: nowrap;
 `;
 
+/* Отметка прочтения у своей последней реплики прямо в списке: ✓ отправлено,
+   ✓✓ прочитано. Так статус виден с обеих сторон — у входящих непрочитанных
+   бейдж справа, у своих исходящих — галочки. Прочитанное ярче, но не цветом:
+   зелёный на этой строке спорит с акцентом бейджа. */
+const ReadTick = styled.span<{ $read: boolean }>`
+  margin-right: 4px;
+  font-size: 12px;
+  color: ${({ $read }) => ($read ? "var(--povod-primary)" : "var(--povod-text-secondary)")};
+`;
+
 /** Подсказка у друга без переписки — это приглашение, а не серый текст. */
 const StartHint = styled.div`
   font-size: 14px;
@@ -150,6 +160,21 @@ const Badge = styled.span`
   font-weight: 600;
   display: grid;
   place-items: center;
+`;
+
+/**
+ * Верхняя часть списка переписок на телефоне: поиск на сером фоне с тонкой
+ * линией снизу. Раньше поиск висел на общем фоне, а до диалогов зиял пустой
+ * разрыв — теперь есть чёткая полоска-разделитель, а не пустота. На десктопе
+ * оформление не нужно: там список и так в узкой колонке.
+ */
+const SearchBar = styled.div`
+  @media (max-width: 899px) {
+    background: var(--povod-surface-muted);
+    border-bottom: 1px solid var(--povod-border);
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
 `;
 
 export const ChatList = observer(() => {
@@ -222,12 +247,14 @@ export const ChatList = observer(() => {
 
   return (
     <Group mode="plain">
-      <Search
-        value={chatStore.search}
-        onChange={(event) => chatStore.setSearch(event.target.value)}
-        placeholder="Поиск по имени"
-        aria-label="Поиск по перепискам"
-      />
+      <SearchBar>
+        <Search
+          value={chatStore.search}
+          onChange={(event) => chatStore.setSearch(event.target.value)}
+          placeholder="Поиск по имени"
+          aria-label="Поиск по перепискам"
+        />
+      </SearchBar>
       <AsyncContent
         loading={chatStore.dialogsLoading && chatStore.dialogs.length === 0}
         skeleton={<DialogListSkeleton />}
@@ -332,7 +359,17 @@ function DialogRow({ dialog, onOpen }: { dialog: Dialog; onOpen: () => void }) {
       />
       <Info>
         <Name $unread={unread > 0}>{peer.name}</Name>
-        <Preview $unread={unread > 0}>{preview}</Preview>
+        <Preview $unread={unread > 0}>
+          {outgoing && (
+            <ReadTick
+              $read={Boolean(lastMessage.readAt)}
+              aria-label={lastMessage.readAt ? "Прочитано" : "Отправлено"}
+            >
+              {lastMessage.readAt ? "✓✓" : "✓"}
+            </ReadTick>
+          )}
+          {preview}
+        </Preview>
       </Info>
       <Side>
         <Time dateTime={lastMessage.createdAt} $unread={unread > 0}>
