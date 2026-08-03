@@ -176,25 +176,25 @@ const StyledNavLink = styled(NavLink)`
     }
 
     /* Активный раздел выразителен: акцентная заливка, цвет и жирнее шрифт.
-       Плоский серый прямоугольник читался как «неактивно». */
+       18%, а не меньше: в тёмной теме слабая заливка читалась как «прозрачно»,
+       и было непонятно, где находишься. */
     &.active {
       color: var(--povod-primary);
       font-weight: 600;
-      background: color-mix(in srgb, var(--povod-primary) 14%, transparent);
+      background: color-mix(in srgb, var(--povod-primary) 18%, transparent);
     }
   }
 `;
 
 /**
- * Пункт «Создать» — акцентный: это главное действие продукта, а выглядел он
- * такой же серой вкладкой, как остальные, и терялся среди них.
+ * Пункт «Создать». На телефоне — залитый круг с плюсом в своей ячейке панели
+ * (без «прыгающего» FAB, сетка из четырёх пунктов не ломается): в ряду голых
+ * иконок круг читается как кнопка действия, а не как «текущий раздел».
  *
- *  - Телефон: залитый круг с плюсом в своей ячейке панели — без «прыгающего»
- *    FAB, сетка из четырёх пунктов не ломается.
- *  - Десктоп: строка залита акцентом целиком, текст — on-primary.
- *
- * Состояния — та же гамма, что у кнопок: hover → primary-hover, нажатие и
- * активный маршрут → primary-active.
+ * На десктопе никакой постоянной заливки НЕТ — пункт ведёт себя как остальные.
+ * Первая версия держала строку залитой всегда, и это ломало навигацию: залитая
+ * строка в боковой панели читается как «ты сейчас здесь», синим горел «Создать»,
+ * а настоящий активный раздел был почти незаметен.
  */
 const CreateNavLink = styled(StyledNavLink)`
   .create-circle {
@@ -224,11 +224,7 @@ const CreateNavLink = styled(StyledNavLink)`
   }
 
   @media (min-width: ${DESKTOP}) {
-    background: var(--povod-primary);
-    color: var(--povod-on-primary);
-    font-weight: 600;
-
-    /* Круг растворяется в залитой строке — остаётся только иконка. */
+    /* Круг — мобильный приём; в строке панели остаётся обычная иконка. */
     .create-circle,
     &:hover .create-circle,
     &:active .create-circle,
@@ -238,21 +234,6 @@ const CreateNavLink = styled(StyledNavLink)`
       background: transparent;
       color: inherit;
       transform: none;
-    }
-
-    &:hover {
-      background: var(--povod-primary-hover);
-      color: var(--povod-on-primary);
-    }
-
-    &.active {
-      background: var(--povod-primary-active);
-      color: var(--povod-on-primary);
-    }
-
-    /* Кольцо фокуса — снаружи заливки, иначе синее на синем не видно. */
-    &:focus-visible {
-      outline-offset: 2px;
     }
   }
 `;
@@ -455,8 +436,8 @@ function NavMenu() {
       <Nav aria-label="Основные разделы">
         <NavInner>
           {LINKS.map(({ to, label, Icon }) => {
-            // «Создать» — акцентный пункт со своей вёрсткой: круг на телефоне,
-            // залитая строка на десктопе. Позиция в ряду при этом общая.
+            // «Создать» — своя вёрстка только ради круга на телефоне; на
+            // десктопе это обычная строка панели, как остальные разделы.
             if (to === "/add") {
               return (
                 <CreateNavLink key={to} to={to} aria-label={label}>
