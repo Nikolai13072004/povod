@@ -111,6 +111,31 @@ export async function notifyEventJoined(event: Event, actor: User): Promise<void
 }
 
 /**
+ * Приглашение заглянуть в чат события — тому, кто только что записался (PROD-013).
+ *
+ * По желанию, но не молча: в чате бывает важное — сбор, изменения, детали, — и
+ * человек, не знающий о комнате, их пропустит. Автору звать некого: свою комнату
+ * он и так видит. Выключенный чат приглашения не порождает — звать некуда.
+ *
+ * Actor'а у этого уведомления нет: оно о самом событии, а не о чьём-то действии.
+ * Ради этого случая `event_title` в схеме давно необязательна (миграция 014), а
+ * `actorId`/`actorName` опциональны в контракте.
+ */
+export async function notifyEventChatAvailable(event: Event, participant: User): Promise<void> {
+  if (!event.chatEnabled || event.authorId === participant.id) return;
+  await deliver([
+    {
+      id: randomUUID(),
+      userId: participant.id,
+      type: "event_chat",
+      eventId: event.id,
+      eventTitle: event.title,
+      createdAt: new Date().toISOString(),
+    },
+  ]);
+}
+
+/**
  * Новое личное сообщение (PROD-011).
  *
  * Вызывается только при `firstUnread`: пока предыдущее сообщение не прочитано,

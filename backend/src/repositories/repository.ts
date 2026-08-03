@@ -4,6 +4,7 @@ import type {
   DirectMessage,
   Event,
   EventInvitation,
+  EventMessage,
   Notification,
   User,
 } from "../types.js";
@@ -156,6 +157,24 @@ export interface MessageThreadFilters {
   cursor?: MessageCursor;
 }
 
+export interface CreateEventMessageInput {
+  id: string;
+  eventId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+}
+
+/**
+ * Исход отправки в чат события (PROD-013).
+ *
+ * «События нет», «чат выключен» и «вы не участник» сведены в один исход
+ * намеренно — по той же причине, что у личных сообщений: разные ответы дают
+ * способ перебором выяснять, что комната существует.
+ */
+export type SendEventMessageResult =
+  { outcome: "sent"; message: EventMessage } | { outcome: "not-allowed" };
+
 export interface PovodRepository {
   init(): Promise<void>;
   /** Проверка готовности хранилища (для readiness-пробы). Бросает/возвращает false, если недоступно. */
@@ -267,6 +286,31 @@ export interface PovodRepository {
   ): Promise<DirectMessage[]>;
   /** Диалоги пользователя: последняя реплика и непрочитанные, свежие сверху. */
   listDialogs(userId: string, limit: number): Promise<Dialog[]>;
+
+  /**
+   * Страница чата события (PROD-013), свежие первыми; курсор — вглубь истории.
+   *
+   * `undefined` — комнаты для этого человека не существует: события нет, чат
+   * выключен или он не участник. Случаи неразличимы снаружи намеренно.
+   */
+  listEventMessages(
+    eventId: string,
+    viewerId: string,
+    filters: MessageThreadFilters,
+  ): Promise<EventMessage[] | undefined>;
+  /**
+   * Отправка в чат события. Право писать (участие + включённый чат)
+   * проверяется ЗДЕСЬ, в одной транзакции со вставкой: между двумя `await`
+   * человека успевают выписать из события (BE-004, тот же принцип, что у
+   * личных сообщений).
+   */
+  sendEventMessage(input: CreateEventMessageInput): Promise<SendEventMessageResult>;
+  /**
+   * Удаление реплики из чата события: автор реплики убирает свою, автор
+   * СОБЫТИЯ — любую (модерация своей комнаты, как удаление комментариев).
+   * Переписать чужой текст нельзя никому — только убрать целиком.
+   */
+  deleteEventMessage(eventId: string, messageId: string, viewerId: string): Promise<boolean>;
   countUnreadDirectMessages(userId: string): Promise<number>;
   /** Помечает прочитанными входящие от собеседника; возвращает число отмеченных. */
   markDirectMessagesRead(userId: string, peerId: string, readAt: string): Promise<number>;

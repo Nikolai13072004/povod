@@ -5,6 +5,7 @@ import type {
   DirectMessage,
   Event,
   EventInvitation,
+  EventMessage,
   Notification,
   NotificationType,
   User,
@@ -12,6 +13,7 @@ import type {
 import type {
   AuthSession,
   CreateCommentInput,
+  CreateEventMessageInput,
   CreateMessageInput,
   EventFilters,
   ExternalIdentity,
@@ -21,6 +23,7 @@ import type {
   MessageThreadFilters,
   PasswordResetToken,
   PovodRepository,
+  SendEventMessageResult,
   SendMessageResult,
 } from "./repository.js";
 import { threadKey } from "../directMessages.js";
@@ -47,6 +50,7 @@ interface EventRow {
   latitude: number | null;
   longitude: number | null;
   visibility: "public" | "private";
+  chat_enabled: boolean;
   created_at: Date | string;
 }
 
@@ -146,7 +150,7 @@ const EVENT_SELECT = `
   SELECT
     e.id, e.title, e.description, e.starts_at, e.ends_at, e.timezone, e.location, e.category,
     e.author_id, author.name AS author_name, e.image_url, e.tags,
-    e.latitude, e.longitude, e.visibility, e.participant_limit, e.created_at,
+    e.latitude, e.longitude, e.visibility, e.chat_enabled, e.participant_limit, e.created_at,
     COALESCE(participants.ids, '{}') AS participant_ids
   FROM events e
   JOIN users author ON author.id = e.author_id
@@ -221,6 +225,9 @@ function mapEvent(row: EventRow): Event {
     coords:
       row.latitude === null || row.longitude === null ? undefined : [row.latitude, row.longitude],
     format: row.visibility,
+    // false наружу не уходит: поле в контракте необязательное, и «нет чата»
+    // выражается отсутствием — как format у памятного адаптера.
+    chatEnabled: row.chat_enabled ? true : undefined,
     createdAt: toIso(row.created_at),
   };
 }
@@ -332,6 +339,45 @@ function mapDirectMessage(row: DirectMessageRow): DirectMessage {
     readAt: row.read_at ? toIso(row.read_at) : undefined,
   };
 }
+
+interface EventMessageRow {
+  id: string;
+  event_id: string;
+  sender_id: string;
+  sender_name: string;
+  text: string;
+  created_at: Date | string;
+}
+
+const EVENT_MESSAGE_SELECT = `
+  SELECT id, event_id, sender_id, sender_name, text, created_at
+  FROM event_messages
+`;
+
+function mapEventMessage(row: EventMessageRow): EventMessage {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    senderId: row.sender_id,
+    senderName: row.sender_name,
+    text: row.text,
+    createdAt: toIso(row.created_at),
+  };
+}
+
+/**
+ * Право находиться в чате события, выраженное SQL (PROD-013): чат включён и
+ * человек — автор события либо его участник. Условие обязано совпадать с
+ * `canUseEventChat` из eventChat.ts — то же правило для памятного адаптера.
+ */
+const EVENT_CHAT_ACCESS = `
+  SELECT 1 FROM events e
+   WHERE e.id = $1 AND e.chat_enabled
+     AND (e.author_id = $2 OR EXISTS (
+       SELECT 1 FROM event_participants ep
+        WHERE ep.event_id = e.id AND ep.user_id = $2
+     ))
+`;
 
 export class PostgresRepository implements PovodRepository {
   constructor(private readonly pool: Pool) {}
@@ -513,8 +559,8 @@ export class PostgresRepository implements PovodRepository {
         `INSERT INTO events (
           id, title, description, starts_at, timezone, location, category, author_id,
           image_url, tags, latitude, longitude, visibility, created_at,
-          ends_at, participant_limit
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          ends_at, participant_limit, chat_enabled
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
         [
           event.id,
           event.title,
@@ -532,6 +578,7 @@ export class PostgresRepository implements PovodRepository {
           event.createdAt,
           event.endsAt ?? null,
           event.participantLimit ?? null,
+          event.chatEnabled ?? false,
         ],
       );
       for (const userId of new Set(event.participantIds)) {
@@ -568,7 +615,7 @@ export class PostgresRepository implements PovodRepository {
         title = $2, description = $3, starts_at = $4, timezone = $5, location = $6,
         category = $7, author_id = $8, image_url = $9, tags = $10,
         latitude = $11, longitude = $12, visibility = $13,
-        ends_at = $14, participant_limit = $15
+        ends_at = $14, participant_limit = $15, chat_enabled = $16
        WHERE id = $1`,
         [
           id,
@@ -586,6 +633,7 @@ export class PostgresRepository implements PovodRepository {
           next.format ?? "public",
           next.endsAt ?? null,
           next.participantLimit ?? null,
+          next.chatEnabled ?? false,
         ],
       );
 
@@ -1144,6 +1192,80 @@ export class PostgresRepository implements PovodRepository {
     return result.rowCount ?? 0;
   }
 
+  async listEventMessages(
+    eventId: string,
+    viewerId: string,
+    filters: MessageThreadFilters,
+  ): Promise<EventMessage[] | undefined> {
+    // «События нет», «чат выключен» и «не участник» неразличимы намеренно:
+    // разные ответы дали бы способ перебором выяснять, что комната существует.
+    const access = await this.pool.query(EVENT_CHAT_ACCESS, [eventId, viewerId]);
+    if ((access.rowCount ?? 0) === 0) return undefined;
+
+    const params: unknown[] = [eventId];
+    let where = "WHERE event_id = $1";
+    if (filters.cursor) {
+      // Кортежное сравнение против ORDER BY created_at DESC, id DESC — тот же
+      // keyset, что у переписки: страница читается прямо из индекса (016).
+      where += ` AND (created_at, id) < ($2::timestamptz, $3)`;
+      params.push(filters.cursor.createdAt, filters.cursor.id);
+    }
+    params.push(filters.limit);
+    const result = await this.pool.query<EventMessageRow>(
+      `${EVENT_MESSAGE_SELECT} ${where}
+       ORDER BY created_at DESC, id DESC
+       LIMIT $${params.length}`,
+      params,
+    );
+    return result.rows.map(mapEventMessage);
+  }
+
+  async sendEventMessage(input: CreateEventMessageInput): Promise<SendEventMessageResult> {
+    return this.withTransaction(async (client) => {
+      /*
+       * Право писать и вставка — одна транзакция. Разделив их, мы оставили бы
+       * окно между двумя `await`, в котором человека успевают выписать из
+       * события или выключить чат (BE-004, тот же принцип, что у личных
+       * сообщений). FOR SHARE держит строку события до конца транзакции.
+       */
+      const access = await client.query(`${EVENT_CHAT_ACCESS} FOR SHARE OF e`, [
+        input.eventId,
+        input.senderId,
+      ]);
+      if ((access.rowCount ?? 0) === 0) return { outcome: "not-allowed" as const };
+
+      // Имя копируется в реплику, как actorName в уведомлениях: аккаунт могут
+      // удалить, а подпись в общей переписке обязана остаться.
+      const sender = await client.query<{ name: string }>(`SELECT name FROM users WHERE id = $1`, [
+        input.senderId,
+      ]);
+      const senderName = sender.rows[0]?.name;
+      if (!senderName) return { outcome: "not-allowed" as const };
+
+      const inserted = await client.query<EventMessageRow>(
+        `INSERT INTO event_messages (id, event_id, sender_id, sender_name, text, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, event_id, sender_id, sender_name, text, created_at`,
+        [input.id, input.eventId, input.senderId, senderName, input.text, input.createdAt],
+      );
+      return { outcome: "sent" as const, message: mapEventMessage(inserted.rows[0]!) };
+    });
+  }
+
+  async deleteEventMessage(eventId: string, messageId: string, viewerId: string): Promise<boolean> {
+    // Свою реплику убирает её автор; автор события модерирует любую — как с
+    // удалением комментариев. Оба условия зашиты в один UPDATE-запрос: чужую
+    // реплику не удалить даже подставив идентификатор.
+    const result = await this.pool.query(
+      `DELETE FROM event_messages m
+        USING events e
+        WHERE m.id = $2 AND m.event_id = $1 AND e.id = m.event_id
+          AND (m.sender_id = $3 OR e.author_id = $3)`,
+      [eventId, messageId, viewerId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async listComments(eventId: string): Promise<Comment[]> {
     const result = await this.pool.query<CommentRow>(
       `SELECT
@@ -1535,8 +1657,8 @@ export class PostgresRepository implements PovodRepository {
       await client.query(
         `INSERT INTO events (
           id, title, description, starts_at, timezone, location, category, author_id,
-          image_url, tags, latitude, longitude, visibility, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          image_url, tags, latitude, longitude, visibility, created_at, chat_enabled
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (id) DO NOTHING`,
         [
           event.id,
@@ -1553,6 +1675,7 @@ export class PostgresRepository implements PovodRepository {
           event.coords?.[1] ?? null,
           event.format ?? "public",
           event.createdAt,
+          event.chatEnabled ?? false,
         ],
       );
       for (const userId of new Set(event.participantIds)) {

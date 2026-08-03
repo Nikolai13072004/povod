@@ -42,6 +42,9 @@ export function formatNotification(notification: Notification): string {
       return `В событии ${title} изменились ${joinChanges(notification.changes ?? [])}`;
     case "event_cancelled":
       return `Событие ${title} отменено`;
+    // Без actor'а: уведомление о самом событии, а не о чьём-то действии (PROD-013).
+    case "event_chat":
+      return `У события ${title} есть чат участников — там бывает важное`;
   }
 }
 

@@ -10,6 +10,8 @@ import {
   dialogListSchema,
   directMessageSchema,
   errorSchema,
+  eventChatPageSchema,
+  eventMessageSchema,
   eventPageSchema,
   eventSchema,
   friendRequestsSchema,
@@ -26,6 +28,7 @@ import {
   commentCreateSchema,
   commentUpdateSchema,
   eventCreateSchema,
+  eventMessageCreateSchema,
   eventUpdateSchema,
   friendAddSchema,
   invitationCreateSchema,
@@ -559,6 +562,64 @@ registry.registerPath({
   description: "Сообщение исчезает у обоих собеседников.",
   security,
   request: { params: z.object({ id: z.string() }) },
+  responses: { 204: { description: "Удалено" }, 401: errors[401], 404: errors[404] },
+});
+
+// --- чат события -------------------------------------------------------------
+
+/**
+ * Групповая переписка участников события (PROD-013). Как и у личных сообщений,
+ * все отказы — один 404: «события нет», «чат выключен» и «вы не участник»
+ * снаружи неразличимы, иначе перебором выяснялось бы, что закрытая комната есть.
+ */
+registry.registerPath({
+  method: "get",
+  path: "/api/Events/{id}/chat",
+  tags: ["EventChat"],
+  summary: "Чат события",
+  description: "Свежие сообщения первыми, курсор листает вглубь. Доступен автору и участникам.",
+  security,
+  request: {
+    params: z.object({ id: z.string() }),
+    query: z.object({
+      cursor: z
+        .string()
+        .optional()
+        .openapi({ description: "Непрозрачный курсор предыдущей страницы" }),
+      limit: z.coerce.number().int().optional(),
+    }),
+  },
+  responses: {
+    200: { description: "Страница чата", ...json(eventChatPageSchema) },
+    401: errors[401],
+    404: errors[404],
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/Events/{id}/chat",
+  tags: ["EventChat"],
+  summary: "Написать в чат события",
+  description: "Писать можно, только если чат включён и вы автор события или его участник.",
+  security,
+  request: { params: z.object({ id: z.string() }), body: json(eventMessageCreateSchema) },
+  responses: {
+    201: { description: "Отправлено", ...json(eventMessageSchema) },
+    400: errors[400],
+    401: errors[401],
+    404: errors[404],
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/Events/{id}/chat/{messageId}",
+  tags: ["EventChat"],
+  summary: "Удалить реплику из чата события",
+  description: "Свою убирает автор реплики, любую — автор события (модерация своей комнаты).",
+  security,
+  request: { params: z.object({ id: z.string(), messageId: z.string() }) },
   responses: { 204: { description: "Удалено" }, 401: errors[401], 404: errors[404] },
 });
 

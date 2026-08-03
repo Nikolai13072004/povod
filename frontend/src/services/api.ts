@@ -157,6 +157,10 @@ export type Dialog = Schemas["Dialog"];
 export type DialogList = Schemas["DialogList"];
 /** Страница переписки: свежие сообщения первыми, курсор листает вглубь истории. */
 export type MessageThread = Schemas["MessageThread"];
+/** Сообщение в чате события: имя автора подписано прямо в реплике (PROD-013). */
+export type EventMessage = Schemas["EventMessage"];
+/** Страница чата события: свежие первыми, курсор — вглубь истории. */
+export type EventChatPage = Schemas["EventChatPage"];
 /** Страница ленты: `nextCursor` отсутствует — дальше ничего нет (BE-003). */
 export type EventPage = Schemas["EventPage"];
 /** Приглашение без секрета — таким его видит автор события (BE-008). */
@@ -499,6 +503,34 @@ export const messagesAPI = {
     fetchApi<void>(`api/Messages/dialog/${encodeURIComponent(peerId)}/read`, { method: "POST" }),
 };
 
+/**
+ * Чат участников события (PROD-013).
+ *
+ * Все отказы приходят как 404 — «нет события», «чат выключен» и «вы не участник»
+ * снаружи неразличимы, ровно как у личных сообщений.
+ */
+export const eventChatAPI = {
+  getChat: (eventId: string, params: { cursor?: string; limit?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.cursor) query.set("cursor", params.cursor);
+    if (params.limit) query.set("limit", String(params.limit));
+    const suffix = query.toString() ? `?${query}` : "";
+    return fetchApi<EventChatPage>(`api/Events/${encodeURIComponent(eventId)}/chat${suffix}`);
+  },
+
+  send: (eventId: string, text: string) =>
+    fetchApi<EventMessage>(`api/Events/${encodeURIComponent(eventId)}/chat`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+
+  remove: (eventId: string, messageId: string) =>
+    fetchApi<void>(
+      `api/Events/${encodeURIComponent(eventId)}/chat/${encodeURIComponent(messageId)}`,
+      { method: "DELETE" },
+    ),
+};
+
 export const healthAPI = {
   ping: () => fetchApi<{ message: string; service?: string; timestamp?: string }>("api/ping"),
 
@@ -556,5 +588,6 @@ export const api = {
   comments: commentsAPI,
   notifications: notificationsAPI,
   messages: messagesAPI,
+  eventChat: eventChatAPI,
   health: healthAPI,
 };

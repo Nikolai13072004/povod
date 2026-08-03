@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import styled from "@emotion/styled";
+import { Switch } from "@vkontakte/vkui";
 import Button from "../../components/Button/Button";
 import {
   Icon28CameraOutline,
@@ -26,6 +27,30 @@ const FormContainer = styled.div`
   /* Светло-голубой фон как на макете */
   background: var(--povod-bg);
   padding-bottom: 100px;
+`;
+
+/** Строка переключателя чата: текст слева, тумблер справа (PROD-013). */
+const ChatToggleRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--povod-surface);
+  border: 1px solid var(--povod-border-strong);
+  border-radius: var(--povod-radius-md);
+`;
+
+const ChatToggleTitle = styled.div`
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--povod-text);
+`;
+
+const ChatToggleHint = styled.div`
+  font-size: 13px;
+  color: var(--povod-text-secondary);
+  margin-top: 2px;
 `;
 
 const Section = styled.section`
@@ -324,6 +349,8 @@ interface FormData {
   photoData: string | null;
   location: string;
   format: "public" | "private";
+  /** Чат участников события (PROD-013). По умолчанию выключен. */
+  chatEnabled: boolean;
 }
 
 export default function CreateEventForm() {
@@ -345,6 +372,7 @@ export default function CreateEventForm() {
     participantLimit: "",
     location: "",
     format: "public",
+    chatEnabled: false,
   });
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -455,6 +483,7 @@ export default function CreateEventForm() {
         formData.photoData ||
         "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&q=80",
       format: formData.format,
+      chatEnabled: formData.chatEnabled,
     });
 
     setSubmitting(false);
@@ -467,19 +496,19 @@ export default function CreateEventForm() {
 
   return (
     <FormContainer>
-      <div
+      {/* Обычный заголовок, а не залитый баннер: залитая плашка выглядела
+          кнопкой, хотя ею не была, — а настоящая кнопка «Создать повод» внизу
+          формы. Два одинаковых «псевдонажимаемых» элемента путали. */}
+      <h1
         style={{
-          background: "var(--povod-primary)",
-          padding: "20px 16px",
-          margin: "-16px -16px 16px -16px",
-          textAlign: "center",
-          color: "white",
-          fontWeight: "bold",
-          borderRadius: "var(--povod-radius-lg)",
+          margin: "4px 0 12px",
+          fontSize: "22px",
+          fontWeight: 700,
+          color: "var(--povod-text)",
         }}
       >
         Создать повод
-      </div>
+      </h1>
 
       {/* Звёздочку в подписях надо расшифровать: сама по себе она ничего не
           сообщает тому, кто видит форму впервые. */}
@@ -644,6 +673,23 @@ export default function CreateEventForm() {
             Публичное
           </PhotoButton>
         </FormatRow>
+      </Section>
+
+      <Section>
+        <Label>Чат участников</Label>
+        <ChatToggleRow>
+          <div>
+            <ChatToggleTitle>Общий чат события</ChatToggleTitle>
+            <ChatToggleHint>
+              Участники смогут договориться перед встречей. Записавшихся позовём в чат.
+            </ChatToggleHint>
+          </div>
+          <Switch
+            checked={formData.chatEnabled}
+            onChange={(e) => setFormData({ ...formData, chatEnabled: e.target.checked })}
+            aria-label="Включить чат участников"
+          />
+        </ChatToggleRow>
       </Section>
 
       <SubmitSection>

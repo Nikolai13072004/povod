@@ -31,6 +31,7 @@ import {
   Icon28UsersOutline,
   Icon24Done,
   Icon28ShareOutline,
+  Icon24MessageOutline,
 } from "@vkontakte/icons";
 import { EventMap } from "../../components/EventMap/EventMap";
 import { AsyncContent } from "../../components/AsyncContent";
@@ -435,6 +436,23 @@ function EventPageComponent() {
                 style={{ background: "var(--povod-danger)", color: "white" }}
               >
                 Отписаться
+              </Button>
+            </>
+          )}
+
+          {/* Чат участников — только если автор его включил и человек в событии
+              (записан или это автор). Иначе кнопка вела бы в 404 (PROD-013). */}
+          {eventData.chatEnabled && (isJoined || isOwner) && (
+            <>
+              <div style={{ height: 8 }} />
+              <Button
+                size="l"
+                stretched
+                mode="secondary"
+                before={<Icon24MessageOutline />}
+                onClick={() => navigate(`/chats/event/${eventData.id}`)}
+              >
+                Открыть чат события
               </Button>
             </>
           )}
