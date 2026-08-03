@@ -77,7 +77,7 @@ const CloseButton = styled.button`
   &:focus-visible {
     outline: 2px solid var(--povod-primary);
     outline-offset: 2px;
-    border-radius: 8px;
+    border-radius: var(--povod-radius-xs);
   }
 `;
 
@@ -243,7 +243,7 @@ const LogoutButton = styled.button`
   margin: 24px auto 32px;
   padding: 12px 32px;
   border: 1px solid var(--povod-danger);
-  border-radius: 24px;
+  border-radius: var(--povod-radius-xl);
   background: transparent;
   color: var(--povod-danger);
   font: inherit;
@@ -291,7 +291,7 @@ const InterestChip = styled.button<{ $selected?: boolean }>`
   justify-content: center;
   border: 1px solid
     ${(props) => (props.$selected ? "var(--povod-primary)" : "var(--povod-border-strong)")};
-  border-radius: 20px;
+  border-radius: var(--povod-radius-lg);
   background: ${(props) => (props.$selected ? "var(--povod-primary)" : "transparent")};
   color: ${(props) => (props.$selected ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
   font-size: 14px;
@@ -543,7 +543,7 @@ const UserProfile = () => {
                   list={CITY_DATALIST_ID}
                   style={{
                     padding: "8px 12px",
-                    borderRadius: 10,
+                    borderRadius: "var(--povod-radius-sm)",
                     border: "1px solid var(--povod-border-strong)",
                     minWidth: 0,
                   }}

@@ -32,7 +32,7 @@ const Section = styled.section`
   background: var(--povod-surface);
   margin-bottom: 12px;
   padding: 20px;
-  border-radius: 20px;
+  border-radius: var(--povod-radius-lg);
   /* Более мягкая тень */
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
 `;
@@ -50,7 +50,7 @@ const Input = styled.input`
   box-sizing: border-box;
   padding: 12px 16px;
   border: 1px solid var(--povod-border-strong); /* Голубая рамка */
-  border-radius: 12px;
+  border-radius: var(--povod-radius-sm);
   font-size: 16px;
   background: var(--povod-surface-muted);
   color: var(--povod-text);
@@ -79,7 +79,7 @@ const PhotoButton = styled.button<{ $isActive?: boolean }>`
   gap: 8px;
   padding: 12px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--povod-radius-sm);
   /* Цвета кнопок из макета */
   background: ${(props) => (props.$isActive ? "var(--povod-text-secondary)" : "var(--povod-surface-muted)")};
   color: ${(props) => (props.$isActive ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
@@ -102,7 +102,7 @@ const CategoryChip = styled.button<{ $active: boolean }>`
   padding: 10px 16px;
   border: 1px solid
     ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-border-strong)")};
-  border-radius: 10px;
+  border-radius: var(--povod-radius-sm);
   background: var(--povod-surface);
   color: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-text-secondary)")};
   font-size: 14px;
@@ -178,7 +178,7 @@ const TextArea = styled.textarea`
   min-height: 124px;
   padding: 14px 16px;
   border: 1px solid var(--vkui--color_separator_primary_alpha);
-  border-radius: 16px;
+  border-radius: var(--povod-radius-sm);
   background: var(--vkui--color_background_canvas);
   color: var(--vkui--color_text_primary);
   resize: vertical;
@@ -475,7 +475,7 @@ export default function CreateEventForm() {
           textAlign: "center",
           color: "white",
           fontWeight: "bold",
-          borderRadius: "20px",
+          borderRadius: "var(--povod-radius-lg)",
         }}
       >
         Создать повод
@@ -541,7 +541,7 @@ export default function CreateEventForm() {
           <div
             style={{
               marginTop: 12,
-              borderRadius: 12,
+              borderRadius: "var(--povod-radius-sm)",
               overflow: "hidden",
               width: "100%",
               aspectRatio: "16 / 9",

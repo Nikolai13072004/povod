@@ -40,7 +40,7 @@ const SearchContainer = styled.div`
   align-items: center;
   padding: 12px 14px;
   background: var(--vkui--color_background_secondary);
-  border-radius: 16px;
+  border-radius: var(--povod-radius-md);
   border: 1px solid var(--vkui--color_separator_primary_alpha);
 `;
 
@@ -65,7 +65,7 @@ const CardGrid = styled.div`
 
 const Card = styled.div`
   background: var(--povod-surface);
-  border-radius: 16px;
+  border-radius: var(--povod-radius-lg);
   padding: 12px;
   display: flex;
   gap: 12px;
@@ -109,7 +109,7 @@ const ActionButton = styled.button`
   background-color: var(--povod-primary);
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--povod-radius-sm);
   padding: 12px;
   width: 100%;
   font-size: 16px;
@@ -154,7 +154,7 @@ const FilterWrapper = styled.button<{ $active?: boolean }>`
   box-sizing: border-box;
   background: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-surface-muted)")};
   border: 1px solid var(--povod-primary);
-  border-radius: 10px;
+  border-radius: var(--povod-radius-sm);
   cursor: pointer;
   font: inherit;
   color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--povod-primary)")};
@@ -183,7 +183,7 @@ const TabButton = styled.button<{ $active: boolean }>`
   padding: 8px 14px;
   border: 1px solid
     ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-border-strong)")};
-  border-radius: 12px;
+  border-radius: var(--povod-radius-sm);
   background: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-surface)")};
   color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--povod-text-secondary)")};
   font-size: 14px;
@@ -457,7 +457,7 @@ function SignUpEventsPage() {
                     src={event.image}
                     title={event.title}
                     ratio="1 / 1"
-                    rounded="12px"
+                    rounded="var(--povod-radius-md)"
                     className="my-events-cover"
                   />
                 </CoverSlot>

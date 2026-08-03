@@ -48,7 +48,7 @@ const SearchContainer = styled.div`
   align-items: center;
   padding: 12px 14px;
   background: var(--vkui--color_background_secondary);
-  border-radius: 16px;
+  border-radius: var(--povod-radius-md);
   border: 1px solid var(--vkui--color_separator_primary_alpha);
 `;
 
@@ -90,7 +90,7 @@ const FilterWrapper = styled.button<{ $active?: boolean }>`
   box-sizing: border-box;
   background: ${(props) => (props.$active ? "var(--povod-primary)" : "var(--povod-surface-muted)")};
   border: 1px solid var(--povod-primary);
-  border-radius: 10px;
+  border-radius: var(--povod-radius-sm);
   cursor: pointer;
   font: inherit;
   color: ${(props) => (props.$active ? "var(--povod-on-primary)" : "var(--povod-primary)")};
@@ -139,7 +139,7 @@ const EventCard = styled.div`
   gap: 12px;
   padding: 16px;
   background: var(--vkui--color_background_secondary);
-  border-radius: 20px;
+  border-radius: var(--povod-radius-lg);
   /* Видимый контур: в тёмной теме фон карточки почти совпадал с фоном
      страницы, и без рамки карточки сливались в сплошное полотно. Одной тени
      мало — на тёмном она не читается. */

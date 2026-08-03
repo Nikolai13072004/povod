@@ -88,7 +88,7 @@ const Bubble = styled.div<{ $mine: boolean }>`
   align-self: ${({ $mine }) => ($mine ? "flex-end" : "flex-start")};
   max-width: min(78%, 520px);
   padding: 8px 12px;
-  border-radius: 16px;
+  border-radius: var(--povod-radius-md);
   background: ${({ $mine }) => ($mine ? "var(--povod-primary)" : "var(--povod-surface-muted)")};
   color: ${({ $mine }) => ($mine ? "#fff" : "var(--povod-text)")};
   overflow-wrap: anywhere;
