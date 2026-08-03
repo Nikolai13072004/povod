@@ -287,7 +287,7 @@ export const MyLoginForm = observer(() => {
                 loading={sessionStore.isLoading}
                 disabled={sessionStore.isLoading}
               >
-                {mode === "login" ? "Войти в POVOD" : "Создать аккаунт"}
+                {mode === "login" ? "Войти в ПОВОД" : "Создать аккаунт"}
               </EnterButton>
               <AuthModeButton
                 type="button"

@@ -130,6 +130,9 @@ export const NotificationsPage = observer(() => {
   };
 
   const open = (notification: Notification) => {
+    // Клик — это прочтение: гасим уведомление и уменьшаем счётчик, не дожидаясь
+    // «Прочитать все». Работает и у уведомлений без перехода (заявка отклонена).
+    void notificationsStore.markOneRead(notification.id);
     const target = targetOf(notification);
     if (target) navigate(target);
   };

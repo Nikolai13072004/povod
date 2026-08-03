@@ -104,6 +104,34 @@ class NotificationsStore {
     }
   };
 
+  /**
+   * Гасит одно уведомление — по клику на него.
+   *
+   * Раньше клик только переходил по ссылке, а само уведомление оставалось
+   * непрочитанным: значок на колокольчике не уменьшался, и человеку приходилось
+   * жать «Прочитать все». Теперь открытие уведомления и есть его прочтение.
+   */
+  markOneRead = async (id: string): Promise<void> => {
+    const target = this.items.find((item) => item.id === id);
+    if (!target || target.readAt) return; // уже прочитано — делать нечего
+
+    // Оптимистично: пользователь только что на него нажал.
+    const readAt = new Date().toISOString();
+    runInAction(() => {
+      this.items = this.items.map((item) => (item.id === id ? { ...item, readAt } : item));
+      this.unread = Math.max(0, this.unread - 1);
+    });
+
+    const response = await notificationsAPI.markRead([id]);
+    if (response.data) {
+      runInAction(() => {
+        this.unread = response.data!.unread;
+      });
+    } else {
+      await this.refreshUnread();
+    }
+  };
+
   /** Выход из аккаунта: следующему пользователю чужие уведомления не нужны. */
   reset = (): void => {
     runInAction(() => {

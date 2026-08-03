@@ -130,6 +130,10 @@ const NavInner = styled.div`
 
 const StyledNavLink = styled(NavLink)`
   position: relative;
+  /* border-box обязателен: на десктопе ширина 100% плюс паддинг 14px без него
+     складывались, пункт становился на 28px шире панели, и его акцентная заливка
+     вылезала за правый край панели и за полоску-разделитель под логотипом. */
+  box-sizing: border-box;
   width: 60px;
   height: 60px;
   display: grid;
@@ -429,8 +433,8 @@ function NavMenu() {
   return (
     <NavWrapper>
       <Brand>
-        <BrandMark aria-hidden="true">P</BrandMark>
-        <BrandName>POVOD</BrandName>
+        <BrandMark aria-hidden="true">П</BrandMark>
+        <BrandName>ПОВОД</BrandName>
       </Brand>
 
       <Nav aria-label="Основные разделы">

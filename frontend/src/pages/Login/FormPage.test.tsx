@@ -43,9 +43,9 @@ beforeEach(() => {
 describe("MyLoginForm", () => {
   it("submits demo credentials via sessionStore.login", async () => {
     renderForm();
-    expect(screen.getByRole("button", { name: "Войти в POVOD" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Войти в ПОВОД" })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Войти в POVOD" }));
+    await userEvent.click(screen.getByRole("button", { name: "Войти в ПОВОД" }));
     expect(mockSession.login).toHaveBeenCalledWith("elmira@povod.app", "povod-demo");
   });
 

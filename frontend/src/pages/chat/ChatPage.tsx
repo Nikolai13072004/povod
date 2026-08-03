@@ -110,6 +110,16 @@ const Preview = styled.div<{ $unread: boolean }>`
   white-space: nowrap;
 `;
 
+/* Отметка прочтения у своей последней реплики прямо в списке: ✓ отправлено,
+   ✓✓ прочитано. Так статус виден с обеих сторон — у входящих непрочитанных
+   бейдж справа, у своих исходящих — галочки. Прочитанное ярче, но не цветом:
+   зелёный на этой строке спорит с акцентом бейджа. */
+const ReadTick = styled.span<{ $read: boolean }>`
+  margin-right: 4px;
+  font-size: 12px;
+  color: ${({ $read }) => ($read ? "var(--povod-primary)" : "var(--povod-text-secondary)")};
+`;
+
 /** Подсказка у друга без переписки — это приглашение, а не серый текст. */
 const StartHint = styled.div`
   font-size: 14px;
@@ -332,7 +342,17 @@ function DialogRow({ dialog, onOpen }: { dialog: Dialog; onOpen: () => void }) {
       />
       <Info>
         <Name $unread={unread > 0}>{peer.name}</Name>
-        <Preview $unread={unread > 0}>{preview}</Preview>
+        <Preview $unread={unread > 0}>
+          {outgoing && (
+            <ReadTick
+              $read={Boolean(lastMessage.readAt)}
+              aria-label={lastMessage.readAt ? "Прочитано" : "Отправлено"}
+            >
+              {lastMessage.readAt ? "✓✓" : "✓"}
+            </ReadTick>
+          )}
+          {preview}
+        </Preview>
       </Info>
       <Side>
         <Time dateTime={lastMessage.createdAt} $unread={unread > 0}>
