@@ -15,6 +15,7 @@ export type {
   Dialog,
   DirectMessage,
   Event,
+  EventMessage,
   Notification,
   NotificationType,
   User,

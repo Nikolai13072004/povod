@@ -121,6 +121,10 @@ export const NotificationsPage = observer(() => {
     if (notification.type === "friend_request" || notification.type === "friend_accepted") {
       return notification.actorId ? `/users/${notification.actorId}` : undefined;
     }
+    // Приглашение в чат ведёт прямо в чат события, а не на его страницу (PROD-013).
+    if (notification.type === "event_chat") {
+      return notification.eventId ? `/chats/event/${notification.eventId}` : undefined;
+    }
     // Отменённое событие открывать негде — ссылки на него больше не существует.
     return notification.eventId ? `/page-1/${notification.eventId}` : undefined;
   };

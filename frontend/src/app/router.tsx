@@ -26,6 +26,7 @@ const EventPage = lazy(() =>
 const SignUpEventsPage = lazy(() => import("../pages/page-3/page-3"));
 const ChatPage = lazy(() => import("../pages/chat/ChatPage"));
 const ChatThreadPage = lazy(() => import("../pages/chat/ChatThreadPage"));
+const EventChatPage = lazy(() => import("../pages/chat/EventChatPage"));
 const PeoplePage = lazy(() => import("../pages/People/PeoplePage"));
 const CreateEventForm = lazy(() => import("../pages/CreateEvent/CreateEventForm"));
 const NotificationsPage = lazy(() =>
@@ -57,6 +58,9 @@ export const router = createBrowserRouter([
           { path: "users", element: <PeoplePage /> },
           { path: "users/:id", element: <AuthorProfilePage /> },
           { path: "chats", element: <ChatPage /> },
+          // Чат события объявлен ДО `chats/:userId`: статический сегмент «event»
+          // делает маршрут специфичнее, и переписка его не перехватывает.
+          { path: "chats/event/:eventId", element: <EventChatPage /> },
           { path: "chats/:userId", element: <ChatThreadPage /> },
           { path: "notifications", element: <NotificationsPage /> },
         ],

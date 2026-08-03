@@ -6,12 +6,14 @@ import type {
   DirectMessage,
   Event,
   EventInvitation,
+  EventMessage,
   Notification,
   User,
 } from "../types.js";
 import type {
   AuthSession,
   CreateCommentInput,
+  CreateEventMessageInput,
   CreateMessageInput,
   EventFilters,
   ExternalIdentity,
@@ -21,6 +23,7 @@ import type {
   MessageThreadFilters,
   PasswordResetToken,
   PovodRepository,
+  SendEventMessageResult,
   SendMessageResult,
 } from "./repository.js";
 import { seedComments, seedEvents, seedUsers } from "../seed.js";
@@ -31,6 +34,7 @@ import {
   isAfterMessageCursor,
   threadKey,
 } from "../directMessages.js";
+import { canUseEventChat } from "../eventChat.js";
 import { eventDateToIso } from "../db/eventDate.js";
 import { logger } from "../logger.js";
 
@@ -45,6 +49,7 @@ interface Snapshot {
   comments: Comment[];
   notifications?: Notification[];
   messages?: DirectMessage[];
+  eventMessages?: EventMessage[];
   favorites?: Array<[string, string[]]>;
   invitations?: EventInvitation[];
   passwordCredentials?: Array<[string, string]>;
@@ -53,6 +58,17 @@ interface Snapshot {
 }
 
 const clone = <T>(value: T): T => structuredClone(value);
+
+/**
+ * Канонический вид события: «нет чата» — это ОТСУТСТВИЕ поля, а не `chatEnabled:
+ * false`. PostgreSQL-адаптер отдаёт ровно так (`mapEvent` стрипит false), и без
+ * этого два хранилища разошлись бы на форме ответа — та самая молчаливая
+ * рассинхронизация, ради которой существует конформанс-набор.
+ */
+function normalizeStoredEvent(event: Event): Event {
+  if (!event.chatEnabled) delete event.chatEnabled;
+  return event;
+}
 
 /** Регистр и «ё» не должны мешать поиску: «Ёлка» обязана находиться по «елка». */
 function normalizeSearch(value: string): string {
@@ -70,6 +86,8 @@ export class MemoryRepository implements PovodRepository {
   private notifications: Notification[] = [];
   /** Личные сообщения (PROD-011). Диалог — производная от пары собеседников. */
   private messages: DirectMessage[] = [];
+  /** Чаты событий (PROD-013). Право в комнате — производная от участия. */
+  private eventMessages: EventMessage[] = [];
   /** Избранное: пользователь → идентификаторы событий (PROD-001). */
   private favorites = new Map<string, Set<string>>();
   private invitations: EventInvitation[] = [];
@@ -101,6 +119,7 @@ export class MemoryRepository implements PovodRepository {
       this.comments = clone(snapshot.comments ?? []);
       this.notifications = clone(snapshot.notifications ?? []);
       this.messages = clone(snapshot.messages ?? []);
+      this.eventMessages = clone(snapshot.eventMessages ?? []);
       this.favorites = new Map(
         (snapshot.favorites ?? []).map(([userId, eventIds]) => [userId, new Set(eventIds)]),
       );
@@ -205,9 +224,10 @@ export class MemoryRepository implements PovodRepository {
   }
 
   async createEvent(event: Event): Promise<Event> {
-    this.events.unshift(clone(event));
+    const stored = normalizeStoredEvent(clone(event));
+    this.events.unshift(stored);
     this.scheduleSave();
-    return clone(event);
+    return clone(stored);
   }
 
   async updateEvent(id: string, patch: Partial<Event>): Promise<Event | undefined> {
@@ -215,6 +235,7 @@ export class MemoryRepository implements PovodRepository {
     if (!event) return undefined;
     Object.assign(event, clone(patch), { id: event.id });
     event.participants = event.participantIds.length;
+    normalizeStoredEvent(event);
     this.scheduleSave();
     return clone(event);
   }
@@ -235,6 +256,9 @@ export class MemoryRepository implements PovodRepository {
     for (const owned of this.favorites.values()) owned.delete(id);
     // Приглашения тоже: вести в удалённое событие им уже некуда (миграция 009).
     this.invitations = this.invitations.filter((item) => item.eventId !== id);
+    // Чат уходит вместе с событием — ON DELETE CASCADE из миграции 016:
+    // доступ к комнате выводится из участия, а участвовать больше не в чем.
+    this.eventMessages = this.eventMessages.filter((item) => item.eventId !== id);
     this.scheduleSave();
     return true;
   }
@@ -381,6 +405,8 @@ export class MemoryRepository implements PovodRepository {
     // Переписка уходит вместе с аккаунтом у обоих собеседников — ручное
     // повторение ON DELETE CASCADE из миграции 014.
     this.messages = this.messages.filter((item) => item.senderId !== id && item.recipientId !== id);
+    // Реплики в чатах событий — тоже (CASCADE по sender_id, миграция 016).
+    this.eventMessages = this.eventMessages.filter((item) => item.senderId !== id);
     this.invitations = this.invitations.filter((item) => item.createdBy !== id);
     this.scheduleSave();
     return true;
@@ -609,6 +635,64 @@ export class MemoryRepository implements PovodRepository {
     return unread.length;
   }
 
+  async listEventMessages(
+    eventId: string,
+    viewerId: string,
+    filters: MessageThreadFilters,
+  ): Promise<EventMessage[] | undefined> {
+    const event = this.events.find((item) => item.id === eventId);
+    // «События нет», «чат выключен» и «не участник» неразличимы намеренно:
+    // разные ответы дали бы способ перебором выяснять, что комната существует.
+    if (!event || !canUseEventChat(event, viewerId)) return undefined;
+
+    const items = this.eventMessages
+      .filter((item) => item.eventId === eventId)
+      .sort((left, right) => compareMessages(cursorOfMessage(left), cursorOfMessage(right)));
+    const page = filters.cursor
+      ? items.filter((item) => isAfterMessageCursor(cursorOfMessage(item), filters.cursor!))
+      : items;
+    return clone(page.slice(0, filters.limit));
+  }
+
+  async sendEventMessage(input: CreateEventMessageInput): Promise<SendEventMessageResult> {
+    // Проверка права и запись идут подряд без await между ними: в одном
+    // процессе Node это и есть атомарность — как у joinEvent. В PostgreSQL то
+    // же обеспечивает транзакция с блокировкой строки события.
+    const event = this.events.find((item) => item.id === input.eventId);
+    if (!event || !canUseEventChat(event, input.senderId)) return { outcome: "not-allowed" };
+    const sender = this.users.find((item) => item.id === input.senderId);
+    if (!sender) return { outcome: "not-allowed" };
+
+    const message: EventMessage = {
+      id: input.id,
+      eventId: input.eventId,
+      senderId: input.senderId,
+      // Имя копируется в реплику, как actorName в уведомлениях: аккаунт могут
+      // удалить, а подпись в общей переписке обязана остаться.
+      senderName: sender.name,
+      text: input.text,
+      createdAt: input.createdAt,
+    };
+    this.eventMessages.push(message);
+    this.scheduleSave();
+    return { outcome: "sent", message: clone(message) };
+  }
+
+  async deleteEventMessage(eventId: string, messageId: string, viewerId: string): Promise<boolean> {
+    const event = this.events.find((item) => item.id === eventId);
+    if (!event) return false;
+    const message = this.eventMessages.find(
+      (item) => item.id === messageId && item.eventId === eventId,
+    );
+    if (!message) return false;
+    // Свою реплику убирает автор реплики; автор события модерирует любую —
+    // как с удалением комментариев. Переписать чужой текст нельзя никому.
+    if (message.senderId !== viewerId && event.authorId !== viewerId) return false;
+    this.eventMessages = this.eventMessages.filter((item) => item.id !== messageId);
+    this.scheduleSave();
+    return true;
+  }
+
   async listComments(eventId: string): Promise<Comment[]> {
     return clone(this.comments.filter((comment) => comment.eventId === eventId));
   }
@@ -798,6 +882,7 @@ export class MemoryRepository implements PovodRepository {
               comments: this.comments,
               notifications: this.notifications,
               messages: this.messages,
+              eventMessages: this.eventMessages,
               favorites: [...this.favorites.entries()].map(([userId, ids]) => [userId, [...ids]]),
               invitations: this.invitations,
               passwordCredentials: [...this.passwordCredentials.entries()],
