@@ -26,6 +26,8 @@ export interface IEvent {
   authorId?: string;
   tags?: string[];
   format?: "public" | "private";
+  /** У события есть чат участников (PROD-013). */
+  chatEnabled?: boolean;
   createdAt?: string;
 }
 
@@ -50,6 +52,7 @@ function normalize(e: ApiEvent): IEvent {
     authorId: e.authorId,
     tags: e.tags,
     format: e.format,
+    chatEnabled: e.chatEnabled,
     createdAt: e.createdAt,
   };
 }
@@ -258,6 +261,7 @@ class EventStore {
     image?: string | null;
     coords?: [number, number];
     format?: "public" | "private";
+    chatEnabled?: boolean;
   }): Promise<IEvent | null> => {
     runInAction(() => {
       this.actionError = null;
@@ -278,6 +282,8 @@ class EventStore {
         image: payload.image ?? undefined,
         coords: payload.coords,
         format: payload.format,
+        // Только когда включён: «нет чата» — это отсутствие поля, как на сервере.
+        chatEnabled: payload.chatEnabled ? true : undefined,
       };
       const res = await eventsAPI.create(body);
       if (res.error || !res.data) throw new Error(res.error ?? "Ошибка создания события");

@@ -412,6 +412,7 @@ export interface paths {
                         /** Format: date-time */
                         endsAt?: string;
                         participantLimit?: number;
+                        chatEnabled?: boolean;
                     };
                 };
             };
@@ -619,6 +620,7 @@ export interface paths {
                         /** Format: date-time */
                         endsAt?: string;
                         participantLimit?: number;
+                        chatEnabled?: boolean;
                     };
                 };
             };
@@ -1843,6 +1845,184 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Events/{id}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Чат события
+         * @description Свежие сообщения первыми, курсор листает вглубь. Доступен автору и участникам.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    cursor?: string;
+                    limit?: number | null;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Страница чата */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EventChatPage"];
+                    };
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Написать в чат события
+         * @description Писать можно, только если чат включён и вы автор события или его участник.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        text: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Отправлено */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EventMessage"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Events/{id}/chat/{messageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Удалить реплику из чата события
+         * @description Свою убирает автор реплики, любую — автор события (модерация своей комнаты).
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    messageId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Удалено */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Нужна сессия */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Не найдено */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Users": {
         parameters: {
             query?: never;
@@ -2390,6 +2570,8 @@ export interface components {
             ];
             /** @enum {string} */
             format?: "public" | "private";
+            /** @description У события есть чат участников (PROD-013) */
+            chatEnabled?: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -2429,7 +2611,7 @@ export interface components {
             eventId: string;
         };
         /** @enum {string} */
-        NotificationType: "event_updated" | "event_cancelled" | "event_comment" | "event_joined" | "direct_message" | "friend_request" | "friend_accepted";
+        NotificationType: "event_updated" | "event_cancelled" | "event_comment" | "event_joined" | "direct_message" | "friend_request" | "friend_accepted" | "event_chat";
         Notification: {
             id: string;
             userId: string;
@@ -2488,6 +2670,21 @@ export interface components {
             nextCursor?: string;
             /** @description Дружба подтверждена прямо сейчас. Ложь — история видна, отправка запрещена */
             canSend: boolean;
+        };
+        EventMessage: {
+            id: string;
+            eventId: string;
+            senderId: string;
+            senderName: string;
+            text: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        EventChatPage: {
+            eventId: string;
+            eventTitle: string;
+            items: components["schemas"]["EventMessage"][];
+            nextCursor?: string;
         };
         FriendshipStatus: {
             /** @enum {string} */

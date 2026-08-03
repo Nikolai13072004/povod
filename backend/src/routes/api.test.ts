@@ -1814,3 +1814,100 @@ test("заявка в друзья и ответ на неё доходят до
     "отправитель заявки обязан узнать об ответе",
   );
 });
+
+test("event chat: participants talk, outsiders get the same 404 (PROD-013)", async (context) => {
+  const { baseUrl } = await startTestApp(context);
+  const owner = await loginDemo(baseUrl); // u1
+
+  // Событие с включённым чатом.
+  const createRes = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(owner, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Встреча с чатом",
+        description: "болтаем перед встречей",
+        startsAt: "2027-05-01T18:00:00.000Z",
+        timezone: "Europe/Moscow",
+        location: "Кафе",
+        chatEnabled: true,
+      }),
+    }),
+  );
+  assert.equal(createRes.status, 201);
+  const event = (await createRes.json()) as { id: string; chatEnabled?: boolean };
+  assert.equal(event.chatEnabled, true);
+
+  // Участник присоединяется и пишет.
+  const member = await registerUser(baseUrl, { name: "Борис", email: "boris-chat@povod.app" });
+  const joinRes = await fetch(
+    `${baseUrl}/api/Events/${event.id}/join`,
+    authorized(member.token, { method: "POST" }),
+  );
+  assert.equal(joinRes.status, 200);
+
+  const postRes = await fetch(
+    `${baseUrl}/api/Events/${event.id}/chat`,
+    authorized(member.token, {
+      method: "POST",
+      body: JSON.stringify({ text: "привет, участники" }),
+    }),
+  );
+  assert.equal(postRes.status, 201);
+  const message = (await postRes.json()) as { senderName: string; text: string };
+  assert.equal(message.text, "привет, участники");
+  // Имя подписывается в самой реплике, а не собирается JOIN'ом при чтении.
+  assert.equal(message.senderName, "Борис");
+
+  // Автор события видит реплику и название комнаты.
+  const ownerView = await fetch(`${baseUrl}/api/Events/${event.id}/chat`, authorized(owner));
+  assert.equal(ownerView.status, 200);
+  const page = (await ownerView.json()) as { eventTitle: string; items: Array<{ text: string }> };
+  assert.equal(page.eventTitle, "Встреча с чатом");
+  assert.deepEqual(
+    page.items.map((item) => item.text),
+    ["привет, участники"],
+  );
+
+  // Записавшегося позвали в чат уведомлением (PROD-013).
+  const memberNotifs = await fetch(`${baseUrl}/api/Notifications`, authorized(member.token));
+  const notifs = (await memberNotifs.json()) as {
+    items: Array<{ type: string; eventId?: string }>;
+  };
+  assert.ok(
+    notifs.items.some((item) => item.type === "event_chat" && item.eventId === event.id),
+    "записавшегося зовут в чат события",
+  );
+
+  // Посторонний получает тот же 404, что и «нет события»: комнату не выдаёт.
+  const outsider = await registerUser(baseUrl, { name: "Чужак", email: "stranger-chat@povod.app" });
+  const outsiderGet = await fetch(
+    `${baseUrl}/api/Events/${event.id}/chat`,
+    authorized(outsider.token),
+  );
+  assert.equal(outsiderGet.status, 404);
+  const outsiderPost = await fetch(
+    `${baseUrl}/api/Events/${event.id}/chat`,
+    authorized(outsider.token, { method: "POST", body: JSON.stringify({ text: "впустите" }) }),
+  );
+  assert.equal(outsiderPost.status, 404);
+
+  // Событие без чата — 404 даже автору: полуоткрытой комнаты не бывает.
+  const quietRes = await fetch(
+    `${baseUrl}/api/Events`,
+    authorized(owner, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Без чата",
+        description: "тихое событие",
+        startsAt: "2027-05-02T18:00:00.000Z",
+        timezone: "Europe/Moscow",
+        location: "Дом",
+      }),
+    }),
+  );
+  const quiet = (await quietRes.json()) as { id: string; chatEnabled?: boolean };
+  assert.equal(quiet.chatEnabled, undefined);
+  const quietChat = await fetch(`${baseUrl}/api/Events/${quiet.id}/chat`, authorized(owner));
+  assert.equal(quietChat.status, 404);
+});

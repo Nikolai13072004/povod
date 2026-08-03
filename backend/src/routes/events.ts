@@ -6,11 +6,21 @@ import { config } from "../config.js";
 import { getExternalEvents, findExternalEvent, EXTERNAL_ID_PREFIX } from "../kudago.js";
 import type { Event } from "../types.js";
 import { getAuthUser, optionalAuth, requireAuth, type AuthLocals } from "../auth/middleware.js";
-import { notifyEventCancelled, notifyEventJoined, notifyEventUpdated } from "../notifications.js";
+import {
+  notifyEventCancelled,
+  notifyEventChatAvailable,
+  notifyEventJoined,
+  notifyEventUpdated,
+} from "../notifications.js";
 import { issueInvitation, presentInvitation, resolveInvitation } from "../invitations.js";
 import { cursorOf, decodeCursor, encodeCursor, normalizeFeedLimit } from "../feed.js";
+import { eventChatRouter } from "./eventChat.js";
 
 export const eventsRouter = Router();
+
+// Чат события (PROD-013) живёт под /:id/chat. Отдельный роутер с mergeParams:
+// маршрут двухсегментный, поэтому «/:id» и «/:id/join» его не перехватывают.
+eventsRouter.use("/:id/chat", eventChatRouter);
 
 /**
  * Потолок для списочных ответов без курсора.
@@ -239,6 +249,7 @@ eventsRouter.post(
       tags: data.tags,
       coords: data.coords,
       format: data.format ?? "public",
+      chatEnabled: data.chatEnabled ?? false,
       createdAt: new Date().toISOString(),
     };
     res.status(201).json(await getRepository().createEvent(event));
@@ -354,6 +365,8 @@ eventsRouter.post(
         return;
       case "joined":
         await notifyEventJoined(result.event, user);
+        // Записавшегося зовём в чат события, если он включён (PROD-013).
+        await notifyEventChatAvailable(result.event, user);
         res.json(result.event);
     }
   }),

@@ -62,7 +62,7 @@ export async function reachFeed(page: Page): Promise<void> {
 /** Создаёт событие через форму и возвращает его название. */
 export async function createEvent(
   page: Page,
-  overrides: { title?: string; limit?: string } = {},
+  overrides: { title?: string; limit?: string; chat?: boolean } = {},
 ): Promise<string> {
   const title = overrides.title ?? `Тестовый повод ${Date.now()}`;
   await page.goto("/add");
@@ -72,6 +72,10 @@ export async function createEvent(
   await page.getByLabel("Время начала").fill("18:00");
   if (overrides.limit) {
     await page.getByLabel("Ограничение числа участников").fill(overrides.limit);
+  }
+  // Чат участников — переключатель в форме (PROD-013).
+  if (overrides.chat) {
+    await page.getByLabel("Включить чат участников").check();
   }
   await page.getByRole("button", { name: "Создать повод" }).click();
   await page.waitForURL(/events/);

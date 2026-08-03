@@ -92,6 +92,8 @@ const eventFieldsSchema = z.object({
    * нулей — событий на миллион человек в приложении для встреч не бывает.
    */
   participantLimit: z.number().int().min(1).max(100_000).optional(),
+  /** Чат участников (PROD-013). Включает автор; по умолчанию выключен. */
+  chatEnabled: z.boolean().optional(),
 });
 
 /** Событие не может закончиться раньше, чем началось: это опечатка, а не данные. */
@@ -193,6 +195,9 @@ export const messageCreateSchema = z.object({
 });
 
 export const messageUpdateSchema = z.object({ text: messageTextSchema });
+
+/** Сообщение в чат события (PROD-013): ограничения текста те же, что в личке. */
+export const eventMessageCreateSchema = z.object({ text: messageTextSchema });
 
 /** Обновление собственного профиля: все поля необязательны (BE-010). */
 export const profileUpdateSchema = z
