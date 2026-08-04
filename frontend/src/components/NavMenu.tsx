@@ -416,7 +416,9 @@ function NavMenu() {
       {/* Профиль и колокольчик у края панели — на телефоне они в верхней шапке. */}
       <BottomBlock>
         <ProfileButton type="button" onClick={() => navigate("/Profile")} aria-label="Мой профиль">
-          <AvatarCircle $avatar={user.avatar}>{user.name?.[0]}</AvatarCircle>
+          {/* Буква — только без фото: с аватаркой она рисовалась ПОВЕРХ снимка
+              (background-image + текст по центру), и её было видно на фото. */}
+          <AvatarCircle $avatar={user.avatar}>{!user.avatar && user.name?.[0]}</AvatarCircle>
           <ProfileText>
             <ProfileName>{user.name || "Профиль"}</ProfileName>
             <ProfileHint>Мой профиль</ProfileHint>
