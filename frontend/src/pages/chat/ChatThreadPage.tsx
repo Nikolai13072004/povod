@@ -7,6 +7,7 @@ import { Icon24Send, Icon28ChevronBack } from "@vkontakte/icons";
 import { chatStore } from "../../stores/chatStore";
 import { sessionStore } from "../../stores/sessionStore";
 import { notificationsStore } from "../../stores/notificationsStore";
+import { avatarInitials } from "../../lib/avatarInitials";
 import { AsyncContent } from "../../components/AsyncContent/AsyncContent";
 import { MessageThreadSkeleton } from "../../components/Skeleton";
 import { dayLabel, timeShort } from "../../components/Notification/notificationText";
@@ -237,12 +238,12 @@ const SendButton = styled(Button)`
   align-self: flex-end;
   flex-shrink: 0;
 
-  /* Бумажный самолётик нарисован со смещённой вправо «массой»: в геометрическом
-     центре он выглядит сдвинутым. Двигаем глиф чуть влево, чтобы он смотрелся по
-     центру кружка. */
-  svg {
-    position: relative;
-    left: -1px;
+  /* Корень фикса центровки: VKUI держит в контенте кнопки боковые padding 16px
+     (рассчитаны на текст), и в круге-одиночке они смещали иконку вправо на ~5px.
+     Обнуляем (важностью — иначе правило VKUI по классу размера перебивает), и
+     24px-глиф встаёт ровно в геометрический центр кружка. */
+  .vkuiButton__content {
+    padding: 0 !important;
   }
 `;
 
@@ -337,7 +338,11 @@ export const ChatThreadPage = observer(() => {
         </BackButton>
         {thread.peer && (
           <>
-            <Avatar size={36} src={thread.peer.avatar} initials={thread.peer.name.slice(0, 1)} />
+            <Avatar
+              size={36}
+              src={thread.peer.avatar}
+              initials={avatarInitials(thread.peer.avatar, thread.peer.name)}
+            />
             <PeerName>{thread.peer.name}</PeerName>
           </>
         )}

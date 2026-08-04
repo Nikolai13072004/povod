@@ -17,6 +17,7 @@ import styled from "@emotion/styled";
 import "@vkontakte/vkui/dist/vkui.css";
 import { useNavigate } from "react-router-dom";
 import { usersAPI } from "../../services/api";
+import { avatarInitials } from "../../lib/avatarInitials";
 import { sessionStore } from "../../stores/sessionStore";
 import { observer } from "mobx-react-lite";
 import bridge from "@vkontakte/vk-bridge";
@@ -508,7 +509,7 @@ const UserProfile = () => {
               <Avatar
                 size={96}
                 src={sessionStore.user.avatar}
-                initials={sessionStore.user.name?.[0]}
+                initials={avatarInitials(sessionStore.user.avatar, sessionStore.user.name)}
               />
               <AvatarButton
                 type="button"
@@ -664,7 +665,7 @@ const UserProfile = () => {
                 onClick={() => navigate(`/users/${f.id}`)}
                 aria-label={`Профиль: ${f.name}`}
               >
-                <Avatar size={56} src={f.avatar} initials={f.name?.[0]} />
+                <Avatar size={56} src={f.avatar} initials={avatarInitials(f.avatar, f.name)} />
                 <FriendName>{f.name}</FriendName>
               </FriendCard>
             ))}

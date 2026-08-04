@@ -9,6 +9,7 @@ import { sessionStore } from "../../stores/sessionStore";
 import { AsyncContent } from "../../components/AsyncContent/AsyncContent";
 import { DialogListSkeleton } from "../../components/Skeleton";
 import { chatTimeShort } from "../../components/Notification/notificationText";
+import { avatarInitials } from "../../lib/avatarInitials";
 import { eventsAPI, type Dialog, type Event } from "../../services/api";
 
 /**
@@ -303,7 +304,11 @@ export const ChatList = observer(() => {
                 onClick={() => navigate(`/chats/event/${event.id}`)}
                 aria-label={`Чат события: ${event.title}`}
               >
-                <Avatar size={48} src={event.image} initials={event.title.slice(0, 1)} />
+                <Avatar
+                  size={48}
+                  src={event.image}
+                  initials={avatarInitials(event.image, event.title)}
+                />
                 <Info>
                   <Name>{event.title}</Name>
                   <StartHint>Чат участников</StartHint>
@@ -326,7 +331,7 @@ export const ChatList = observer(() => {
                 <Avatar
                   size={48}
                   src={friend.avatar}
-                  initials={friend.name.slice(0, 1)}
+                  initials={avatarInitials(friend.avatar, friend.name)}
                   gradientColor={avatarGradient(friend.id)}
                 />
                 <Info>
@@ -353,7 +358,7 @@ function DialogRow({ dialog, onOpen }: { dialog: Dialog; onOpen: () => void }) {
       <Avatar
         size={48}
         src={peer.avatar}
-        initials={peer.name.slice(0, 1)}
+        initials={avatarInitials(peer.avatar, peer.name)}
         gradientColor={avatarGradient(peer.id)}
       />
       <Info>
