@@ -15,7 +15,8 @@ import topLogo from "../../assets/images/logo.png";
 const PageContainer = styled.div`
   display: flex;
   flex-direction: column;
-  padding: 20px 18px 24px;
+  /* Верх чуть просторнее — шапка не липнет к краю экрана. */
+  padding: 30px 18px 24px;
   min-height: 94dvh;
   background: var(--povod-bg);
   box-sizing: border-box;
@@ -64,7 +65,8 @@ const TextCard = styled.div`
   gap: 12px;
   text-align: center;
   margin-top: 10px;
-  flex-grow: 1;
+  /* Без flex-grow: раньше он растягивал блок и оставлял большую пустоту между
+     формой и подписью-футером внизу. Теперь форма идёт сразу под заголовком. */
 `;
 
 const PageTitle = styled.h1`
