@@ -153,6 +153,66 @@ test("deleteExpiredSessions removes expired and revoked sessions, keeps active (
   assert.equal(await repository.getSessionByTokenHash("hash-revoked"), undefined);
 });
 
+test("notifications resolve by actor and type, and clear all (UX-019)", async () => {
+  const repository = new MemoryRepository();
+  await repository.init();
+  await repository.createNotifications([
+    {
+      id: "dm2",
+      userId: "u1",
+      type: "direct_message",
+      actorId: "u2",
+      actorName: "Марк",
+      createdAt: "2026-07-01T10:00:00.000Z",
+    },
+    {
+      id: "dm3",
+      userId: "u1",
+      type: "direct_message",
+      actorId: "u3",
+      actorName: "Тимур",
+      createdAt: "2026-07-02T10:00:00.000Z",
+    },
+    {
+      id: "fr2",
+      userId: "u1",
+      type: "friend_request",
+      actorId: "u2",
+      actorName: "Марк",
+      createdAt: "2026-07-03T10:00:00.000Z",
+    },
+    {
+      id: "dm2-other",
+      userId: "u3",
+      type: "direct_message",
+      actorId: "u2",
+      actorName: "Марк",
+      createdAt: "2026-07-04T10:00:00.000Z",
+    },
+  ]);
+  const readAt = "2026-07-05T10:00:00.000Z";
+
+  assert.equal(
+    await repository.markNotificationsReadByActor("u1", "u2", ["direct_message"], readAt),
+    1,
+  );
+  assert.equal(await repository.countUnreadNotifications("u1"), 2);
+  assert.equal(
+    await repository.markNotificationsReadByActor("u1", "u2", ["direct_message"], readAt),
+    0,
+  );
+  assert.equal(
+    await repository.markNotificationsReadByActor("u1", "u2", ["friend_request"], readAt),
+    1,
+  );
+  assert.equal(await repository.countUnreadNotifications("u1"), 1);
+  assert.equal(await repository.countUnreadNotifications("u3"), 1);
+
+  assert.equal(await repository.deleteNotifications("u1"), 3);
+  assert.deepEqual(await repository.listNotifications("u1", 50), []);
+  assert.equal((await repository.listNotifications("u3", 50)).length, 1);
+});
+
 runDirectMessageConformance("память", async () => {
   const repository = new MemoryRepository();
   await repository.init();

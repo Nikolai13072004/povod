@@ -4,7 +4,7 @@ import { asyncHandler, HttpError } from "../middleware.js";
 import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware.js";
 import { createAuthRateLimit } from "../auth/rateLimit.js";
 import { presentPublicUser } from "../presenters.js";
-import { notifyDirectMessage } from "../notifications.js";
+import { notifyDirectMessage, resolveDirectMessageNotifications } from "../notifications.js";
 import { messageCreateSchema, messageUpdateSchema } from "../validation.js";
 import {
   MAX_DIALOGS,
@@ -147,6 +147,9 @@ messagesRouter.post(
     // Условие зашито в запрос: чужие сообщения прочитанными не пометить даже
     // подставив идентификатор.
     await getRepository().markDirectMessagesRead(user.id, peerId, new Date().toISOString());
+    // Дело закрыто и в колокольчике: уведомления о сообщениях этого собеседника
+    // гаснут вместе с прочтением, а не висят до «Прочитать все» (UX-019).
+    await resolveDirectMessageNotifications(user.id, peerId);
     res.status(204).send();
   }),
 );

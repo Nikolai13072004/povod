@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { usersAPI, type User } from "../services/api";
+import { notificationsStore } from "./notificationsStore";
 
 /**
  * Связи с людьми: друзья и заявки (SEC-012, SEC-015).
@@ -108,6 +109,8 @@ class FriendsStore {
     const response = await usersAPI.removeFriend(userId, peerId);
     if (response.error) return false;
     await this.load(userId, true);
+    // Отклонение заявки гасит её уведомление на сервере — обновляем значок сразу.
+    void notificationsStore.refreshUnread();
     return true;
   };
 
@@ -115,6 +118,8 @@ class FriendsStore {
     const response = await usersAPI.acceptFriendRequest(userId, requesterId);
     if (response.error) return false;
     await this.load(userId, true);
+    // Принятая заявка — выполненное дело: её уведомление в колокольчике гаснет.
+    void notificationsStore.refreshUnread();
     return true;
   };
 

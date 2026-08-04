@@ -455,6 +455,17 @@ registry.registerPath({
   },
 });
 
+registry.registerPath({
+  method: "delete",
+  path: "/api/Notifications",
+  tags: ["Notifications"],
+  summary: "Очистить все уведомления",
+  description:
+    "Удаляет все уведомления пользователя. В отличие от «прочитать всё», убирает записи насовсем.",
+  security,
+  responses: { 204: { description: "Удалено" }, 401: errors[401] },
+});
+
 // --- личные сообщения --------------------------------------------------------
 
 /**

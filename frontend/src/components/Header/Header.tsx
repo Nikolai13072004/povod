@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import styled from "@emotion/styled";
 import { observer } from "mobx-react-lite";
 import { useTheme } from "../../context/ThemeContext";
@@ -6,7 +5,6 @@ import { BellIcon } from "../../icons/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import { sessionStore } from "../../stores/sessionStore";
 import { notificationsStore } from "../../stores/notificationsStore";
-import { chatStore } from "../../stores/chatStore";
 import { ContentWidth } from "../Layout/ContentWidth";
 
 const Header = styled.header<{ $mode: "light" | "dark" }>`
@@ -119,31 +117,9 @@ export const THeader = observer(function THeader() {
   const location = useLocation();
   const unread = notificationsStore.unread;
 
-  // Счётчики обновляются при переходах между экранами...
-  useEffect(() => {
-    if (!sessionStore.authenticated) return;
-    void notificationsStore.refreshUnread();
-    void chatStore.refreshUnread();
-  }, [location.pathname, sessionStore.authenticated]);
-
-  /*
-   * ...и раз в минуту, пока вкладка открыта. Одних переходов мало: человек,
-   * сидящий на ленте, о новом уведомлении не узнавал вовсе, пока куда-нибудь
-   * не перейдёт.
-   *
-   * Оба опроса — в одном эффекте с одним cleanup: `startPolling` вешает не
-   * только таймер, но и слушатель `visibilitychange`, снимаемый только парной
-   * остановкой. Забытая остановка не падает, а тихо копит таймеры.
-   */
-  useEffect(() => {
-    if (!sessionStore.authenticated) return;
-    notificationsStore.startPolling();
-    chatStore.startUnreadPolling();
-    return () => {
-      notificationsStore.stopPolling();
-      chatStore.stopUnreadPolling();
-    };
-  }, [sessionStore.authenticated]);
+  // Опрос счётчиков и обновление на навигации живут в App (всегда смонтирован):
+  // шапка размонтируется на части экранов, и здесь опрос замирал бы (UX-019).
+  // Шапка только показывает число из стора.
 
   const handleAvatarClick = () => {
     localStorage.setItem("isAuth", "true");

@@ -169,6 +169,46 @@ export async function notifyFriendAccepted(recipientId: string, actor: User): Pr
 }
 
 /**
+ * Гашение уведомления по факту выполненного действия (UX-019).
+ *
+ * Уведомление — это «есть незакрытое дело». Когда дело закрыто в другом месте
+ * приложения (сообщение прочитано в самой переписке, заявка принята или
+ * отклонена в профиле), уведомление о нём обязано погаснуть само — иначе
+ * колокольчик держит непрочитанным то, что уже сделано, и человек ищет призрак.
+ *
+ * Как и `deliver`, это побочный эффект: его ошибка не должна ронять основное
+ * действие (пометку прочтения, ответ на заявку), ради которого пришёл человек.
+ */
+async function resolve(userId: string, actorId: string, types: NotificationType[]): Promise<void> {
+  try {
+    await getRepository().markNotificationsReadByActor(
+      userId,
+      actorId,
+      types,
+      new Date().toISOString(),
+    );
+  } catch (error) {
+    logger.error("[notifications] не удалось погасить уведомления:", error);
+  }
+}
+
+/** Прочитал переписку — гасим уведомления о личных сообщениях от собеседника. */
+export async function resolveDirectMessageNotifications(
+  userId: string,
+  peerId: string,
+): Promise<void> {
+  await resolve(userId, peerId, ["direct_message"]);
+}
+
+/** Ответил на заявку (принял или отклонил) — гасим уведомление о ней. */
+export async function resolveFriendRequestNotification(
+  userId: string,
+  requesterId: string,
+): Promise<void> {
+  await resolve(userId, requesterId, ["friend_request"]);
+}
+
+/**
  * Уведомление без события: у сообщений и дружбы его нет, и `eventTitle` здесь
  * отсутствует — ради этого случая колонка стала необязательной (миграция 014).
  * Писать туда суррогат значило бы врать контракту: экран показывает название

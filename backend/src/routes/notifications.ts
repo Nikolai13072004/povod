@@ -48,3 +48,18 @@ notificationsRouter.post(
     res.json({ unread: await repository.countUnreadNotifications(user.id) });
   }),
 );
+
+/**
+ * «Очистить всё» — удаление всех уведомлений пользователя. Отдельно от «прочитать
+ * всё»: то лишь гасит значок, а это убирает записи насовсем. Область всегда
+ * ограничена `user_id` сессии — чужие уведомления не тронуть.
+ */
+notificationsRouter.delete(
+  "/",
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    const user = getAuthUser(res.locals as AuthLocals);
+    await getRepository().deleteNotifications(user.id);
+    res.status(204).send();
+  }),
+);

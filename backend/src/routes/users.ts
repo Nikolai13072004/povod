@@ -4,7 +4,11 @@ import { asyncHandler, HttpError } from "../middleware.js";
 import { friendAddSchema, profileUpdateSchema } from "../validation.js";
 import { getAuthUser, requireAuth, type AuthLocals } from "../auth/middleware.js";
 import { presentPublicUser } from "../presenters.js";
-import { notifyFriendAccepted, notifyFriendRequest } from "../notifications.js";
+import {
+  notifyFriendAccepted,
+  notifyFriendRequest,
+  resolveFriendRequestNotification,
+} from "../notifications.js";
 
 export const usersRouter = Router();
 
@@ -113,6 +117,8 @@ usersRouter.post(
     // Иначе отправивший заявку не узнаёт об ответе никак и вынужден заходить в
     // чужой профиль и проверять кнопку.
     await notifyFriendAccepted(req.params.requesterId, user);
+    // Заявка обработана — её уведомление в колокольчике гаснет само (UX-019).
+    await resolveFriendRequestNotification(user.id, req.params.requesterId);
     res.status(204).send();
   }),
 );
@@ -162,6 +168,9 @@ usersRouter.delete(
     // и отозвать свою. Снаружи это одно и то же — убрать связь.
     const removed = await getRepository().removeFriend(user.id, req.params.friendId);
     if (removed === undefined) throw new HttpError(404, "Friend not found");
+    // Если это было отклонение чужой заявки — гасим её уведомление (UX-019).
+    // На расторжении дружбы и отзыве своей заявки такого уведомления нет — 0.
+    await resolveFriendRequestNotification(user.id, req.params.friendId);
     res.status(204).send();
   }),
 );

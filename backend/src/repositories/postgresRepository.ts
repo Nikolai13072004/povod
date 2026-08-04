@@ -1386,6 +1386,29 @@ export class PostgresRepository implements PovodRepository {
     return result.rowCount ?? 0;
   }
 
+  async markNotificationsReadByActor(
+    userId: string,
+    actorId: string,
+    types: NotificationType[],
+    readAt: string,
+  ): Promise<number> {
+    const result = await this.pool.query(
+      `UPDATE notifications
+          SET read_at = $4
+        WHERE user_id = $1
+          AND read_at IS NULL
+          AND actor_id = $2
+          AND type = ANY($3)`,
+      [userId, actorId, types, readAt],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  async deleteNotifications(userId: string): Promise<number> {
+    const result = await this.pool.query("DELETE FROM notifications WHERE user_id = $1", [userId]);
+    return result.rowCount ?? 0;
+  }
+
   async getPasswordHash(userId: string): Promise<string | undefined> {
     const result = await this.pool.query<{ password_hash: string }>(
       "SELECT password_hash FROM password_credentials WHERE user_id = $1",

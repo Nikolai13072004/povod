@@ -6,6 +6,7 @@ import type {
   EventInvitation,
   EventMessage,
   Notification,
+  NotificationType,
   User,
 } from "../types.js";
 
@@ -321,6 +322,19 @@ export interface PovodRepository {
   countUnreadNotifications(userId: string): Promise<number>;
   /** Отмечает прочитанными указанные уведомления пользователя (все, если `ids` не задан). */
   markNotificationsRead(userId: string, readAt: string, ids?: string[]): Promise<number>;
+  /**
+   * Гасит непрочитанные уведомления к `userId` от конкретного актора заданных
+   * типов — когда действие, о котором они сообщали, уже выполнено (прочитал
+   * сообщение, ответил на заявку). Возвращает число отмеченных.
+   */
+  markNotificationsReadByActor(
+    userId: string,
+    actorId: string,
+    types: NotificationType[],
+    readAt: string,
+  ): Promise<number>;
+  /** Удаляет все уведомления пользователя («очистить всё»). Возвращает число удалённых. */
+  deleteNotifications(userId: string): Promise<number>;
 
   getPasswordHash(userId: string): Promise<string | undefined>;
   setPasswordHash(userId: string, passwordHash: string): Promise<void>;

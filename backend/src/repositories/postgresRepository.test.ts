@@ -166,6 +166,73 @@ test("notifications: batch insert, feed order and unread counting", { skip }, as
   assert.equal(await repository.countUnreadNotifications("u1"), 0);
 });
 
+test("notifications resolve by actor and type, and clear all (UX-019)", { skip }, async () => {
+  const repository = await freshRepository();
+  await repository.createNotifications([
+    // Личное сообщение от u2 и от u3, заявка в друзья от u2 — все к u1.
+    {
+      id: "dm2",
+      userId: "u1",
+      type: "direct_message",
+      actorId: "u2",
+      actorName: "Марк",
+      createdAt: "2026-07-01T10:00:00.000Z",
+    },
+    {
+      id: "dm3",
+      userId: "u1",
+      type: "direct_message",
+      actorId: "u3",
+      actorName: "Тимур",
+      createdAt: "2026-07-02T10:00:00.000Z",
+    },
+    {
+      id: "fr2",
+      userId: "u1",
+      type: "friend_request",
+      actorId: "u2",
+      actorName: "Марк",
+      createdAt: "2026-07-03T10:00:00.000Z",
+    },
+    // Чужое, но с тем же актором: гасить у u1 нельзя.
+    {
+      id: "dm2-other",
+      userId: "u3",
+      type: "direct_message",
+      actorId: "u2",
+      actorName: "Марк",
+      createdAt: "2026-07-04T10:00:00.000Z",
+    },
+  ]);
+  const readAt = "2026-07-05T10:00:00.000Z";
+
+  // Прочтение переписки с u2 гасит только сообщение от u2: заявка от u2 (другой
+  // тип) и сообщение от u3 (другой актор) остаются.
+  assert.equal(
+    await repository.markNotificationsReadByActor("u1", "u2", ["direct_message"], readAt),
+    1,
+  );
+  assert.equal(await repository.countUnreadNotifications("u1"), 2);
+  // Повтор идемпотентен.
+  assert.equal(
+    await repository.markNotificationsReadByActor("u1", "u2", ["direct_message"], readAt),
+    0,
+  );
+  // Ответ на заявку от u2 гасит её уведомление.
+  assert.equal(
+    await repository.markNotificationsReadByActor("u1", "u2", ["friend_request"], readAt),
+    1,
+  );
+  assert.equal(await repository.countUnreadNotifications("u1"), 1);
+  // Чужое уведомление того же актора не тронуто.
+  assert.equal(await repository.countUnreadNotifications("u3"), 1);
+
+  // «Очистить всё» убирает только уведомления u1; чужие остаются.
+  assert.equal(await repository.deleteNotifications("u1"), 3);
+  assert.deepEqual(await repository.listNotifications("u1", 50), []);
+  assert.equal((await repository.listNotifications("u3", 50)).length, 1);
+});
+
 test("notifications survive the deletion of what they refer to", { skip }, async () => {
   const repository = await freshRepository();
   await repository.createNotifications([

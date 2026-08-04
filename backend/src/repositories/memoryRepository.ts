@@ -8,6 +8,7 @@ import type {
   EventInvitation,
   EventMessage,
   Notification,
+  NotificationType,
   User,
 } from "../types.js";
 import type {
@@ -764,6 +765,32 @@ export class MemoryRepository implements PovodRepository {
     }
     if (updated > 0) this.scheduleSave();
     return updated;
+  }
+
+  async markNotificationsReadByActor(
+    userId: string,
+    actorId: string,
+    types: NotificationType[],
+    readAt: string,
+  ): Promise<number> {
+    const wanted = new Set(types);
+    let updated = 0;
+    for (const item of this.notifications) {
+      if (item.userId !== userId || item.readAt) continue;
+      if (item.actorId !== actorId || !wanted.has(item.type)) continue;
+      item.readAt = readAt;
+      updated += 1;
+    }
+    if (updated > 0) this.scheduleSave();
+    return updated;
+  }
+
+  async deleteNotifications(userId: string): Promise<number> {
+    const before = this.notifications.length;
+    this.notifications = this.notifications.filter((item) => item.userId !== userId);
+    const removed = before - this.notifications.length;
+    if (removed > 0) this.scheduleSave();
+    return removed;
   }
 
   async getPasswordHash(userId: string): Promise<string | undefined> {

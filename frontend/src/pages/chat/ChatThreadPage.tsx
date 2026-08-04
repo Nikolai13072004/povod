@@ -6,6 +6,7 @@ import { Avatar, Button, Group, Spinner } from "@vkontakte/vkui";
 import { Icon24Send, Icon28ChevronBack } from "@vkontakte/icons";
 import { chatStore } from "../../stores/chatStore";
 import { sessionStore } from "../../stores/sessionStore";
+import { notificationsStore } from "../../stores/notificationsStore";
 import { AsyncContent } from "../../components/AsyncContent/AsyncContent";
 import { MessageThreadSkeleton } from "../../components/Skeleton";
 import { dayLabel, timeShort } from "../../components/Notification/notificationText";
@@ -235,6 +236,14 @@ const SendButton = styled(Button)`
   border-radius: 50%;
   align-self: flex-end;
   flex-shrink: 0;
+
+  /* Бумажный самолётик нарисован со смещённой вправо «массой»: в геометрическом
+     центре он выглядит сдвинутым. Двигаем глиф чуть влево, чтобы он смотрелся по
+     центру кружка. */
+  svg {
+    position: relative;
+    left: -1px;
+  }
 `;
 
 const Closed = styled.div`
@@ -271,7 +280,12 @@ export const ChatThreadPage = observer(() => {
 
   useEffect(() => {
     if (!userId) return;
-    void chatStore.loadThread(userId).then(() => void chatStore.markRead(userId));
+    void chatStore.loadThread(userId).then(async () => {
+      await chatStore.markRead(userId);
+      // Сервер погасил уведомления о сообщениях этого собеседника — обновляем
+      // колокольчик сразу, не дожидаясь опроса (UX-019).
+      void notificationsStore.refreshUnread();
+    });
     chatStore.startThreadPolling(userId);
     // Cleanup обязателен и при смене собеседника: `startThreadPolling` вешает не
     // только таймер, но и слушатель `visibilitychange`, и без снятия их

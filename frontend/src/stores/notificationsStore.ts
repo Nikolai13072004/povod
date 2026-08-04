@@ -54,13 +54,22 @@ class NotificationsStore {
 
   private visibilityHandler?: () => void;
 
-  /** Счётчик для значка. Тихий: ошибку не показываем — значок не стоит паники. */
+  /**
+   * Счётчик для значка. Тихий во всех смыслах: ошибку не показываем, и сам вызов
+   * не роняет вызвавшего. Его дёргают походя (после действий с дружбой, при входе
+   * в чат) через `void`, и провал best-effort обновления значка не должен всплыть
+   * необработанным отказом промиса там, где его никто не ждал.
+   */
   refreshUnread = async (): Promise<void> => {
-    const response = await notificationsAPI.unreadCount();
-    if (response.data) {
-      runInAction(() => {
-        this.unread = response.data!.unread;
-      });
+    try {
+      const response = await notificationsAPI.unreadCount();
+      if (response.data) {
+        runInAction(() => {
+          this.unread = response.data!.unread;
+        });
+      }
+    } catch {
+      // Сеть или мок в тесте могут бросить — значок не повод падать.
     }
   };
 
@@ -130,6 +139,22 @@ class NotificationsStore {
     } else {
       await this.refreshUnread();
     }
+  };
+
+  /**
+   * «Очистить всё» — удаляет уведомления насовсем, а не просто гасит значок.
+   *
+   * Оптимистично: список опустошается сразу. При отказе перечитываем, чтобы
+   * экран не остался пустым, когда на сервере записи на месте.
+   */
+  clearAll = async (): Promise<void> => {
+    if (this.items.length === 0 && this.unread === 0) return;
+    runInAction(() => {
+      this.items = [];
+      this.unread = 0;
+    });
+    const response = await notificationsAPI.clearAll();
+    if (response.error) await this.load();
   };
 
   /** Выход из аккаунта: следующему пользователю чужие уведомления не нужны. */
