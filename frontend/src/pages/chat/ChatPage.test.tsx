@@ -11,10 +11,18 @@ const mockChatStore = vi.hoisted(() => ({
   dialogsLoading: false,
   dialogsError: null as string | null,
   search: "",
+  unread: 0,
   loadDialogs: vi.fn(),
   setSearch: vi.fn(),
   startDialogsPolling: vi.fn(),
   stopDialogsPolling: vi.fn(),
+  // Полный мок: при ошибке загрузки друзей в jsdom срабатывает 401-путь, и
+  // sessionStore.reset() дёргает chatStore.reset(). Без него — «reset is not a
+  // function» шумит нераспознанным отказом промиса, хотя тесты и проходят.
+  refreshUnread: vi.fn(),
+  startUnreadPolling: vi.fn(),
+  stopUnreadPolling: vi.fn(),
+  reset: vi.fn(),
 }));
 
 vi.mock("../../stores/chatStore", () => ({ chatStore: mockChatStore }));

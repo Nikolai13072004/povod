@@ -5,6 +5,7 @@ import { Avatar, Button, Panel, PanelHeader, PanelHeaderBack, Group, Chip } from
 import { Icon20PlaceOutline } from "@vkontakte/icons";
 import { AsyncContent } from "../../components/AsyncContent";
 import { eventsAPI, usersAPI, type Event as ApiEvent, type User } from "../../services/api";
+import { avatarInitials } from "../../lib/avatarInitials";
 import { formatEventDate, formatEventTime } from "../../utils/eventDate";
 import { observer } from "mobx-react-lite";
 import { sessionStore } from "../../stores/sessionStore";
@@ -216,7 +217,11 @@ function AuthorProfilePageView() {
           {user && (
             <>
               <Header>
-                <Avatar size={88} src={user.avatar} initials={user.name?.[0]} />
+                <Avatar
+                  size={88}
+                  src={user.avatar}
+                  initials={avatarInitials(user.avatar, user.name)}
+                />
                 <UserName>{user.name}</UserName>
                 {user.city && (
                   <CityRow>

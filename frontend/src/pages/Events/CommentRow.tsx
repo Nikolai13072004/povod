@@ -2,6 +2,7 @@ import { useState } from "react";
 import styled from "@emotion/styled";
 import { Avatar, Button, Text } from "@vkontakte/vkui";
 import { commentsAPI, type Comment } from "../../services/api";
+import { avatarInitials } from "../../lib/avatarInitials";
 import { useToast } from "../../components/Toast/ToastProvider";
 
 /**
@@ -141,7 +142,11 @@ export function CommentRow({ comment, canEdit, canDelete, onSaved, onDeleted }: 
 
   return (
     <Row>
-      <Avatar size={36} src={comment.author?.avatar} initials={comment.author?.name?.[0]} />
+      <Avatar
+        size={36}
+        src={comment.author?.avatar}
+        initials={avatarInitials(comment.author?.avatar, comment.author?.name)}
+      />
       <Body>
         <AuthorName>{comment.author?.name ?? "Гость"}</AuthorName>
 

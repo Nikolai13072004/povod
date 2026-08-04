@@ -5,6 +5,7 @@ import { Avatar, Group, Panel, PanelHeader, PanelHeaderBack, Search } from "@vko
 import { AsyncContent } from "../../components/AsyncContent";
 import { DialogListSkeleton } from "../../components/Skeleton";
 import { usersAPI, type User } from "../../services/api";
+import { avatarInitials } from "../../lib/avatarInitials";
 import { sessionStore } from "../../stores/sessionStore";
 
 /**
@@ -139,7 +140,11 @@ export function PeoplePage() {
               onClick={() => navigate(`/users/${person.id}`)}
               aria-label={`Профиль: ${person.name}`}
             >
-              <Avatar size={48} src={person.avatar} initials={person.name?.[0]} />
+              <Avatar
+                size={48}
+                src={person.avatar}
+                initials={avatarInitials(person.avatar, person.name)}
+              />
               <Info>
                 <Name>{person.name}</Name>
                 {(person.city || person.interests?.length) && (

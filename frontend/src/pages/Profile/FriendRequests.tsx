@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import { Avatar, Button } from "@vkontakte/vkui";
 import { usersAPI, type User } from "../../services/api";
+import { avatarInitials } from "../../lib/avatarInitials";
 import { useToast } from "../../components/Toast/ToastProvider";
 
 /**
@@ -115,7 +116,11 @@ export function FriendRequests({ userId, onAccepted }: FriendRequestsProps) {
           <Heading>Заявки в друзья ({incoming.length})</Heading>
           {incoming.map((user) => (
             <Row key={user.id}>
-              <Avatar size={40} src={user.avatar} initials={user.name?.[0]} />
+              <Avatar
+                size={40}
+                src={user.avatar}
+                initials={avatarInitials(user.avatar, user.name)}
+              />
               <Name>{user.name}</Name>
               <Actions>
                 <Button
@@ -146,7 +151,11 @@ export function FriendRequests({ userId, onAccepted }: FriendRequestsProps) {
           <Heading style={{ marginTop: incoming.length > 0 ? 16 : 0 }}>Вы отправили</Heading>
           {outgoing.map((user) => (
             <Row key={user.id}>
-              <Avatar size={40} src={user.avatar} initials={user.name?.[0]} />
+              <Avatar
+                size={40}
+                src={user.avatar}
+                initials={avatarInitials(user.avatar, user.name)}
+              />
               <Name>{user.name}</Name>
               <Muted>ждёт ответа</Muted>
               <Actions>
