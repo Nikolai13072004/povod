@@ -5,6 +5,8 @@ import { THeader } from "./components/Header/Header";
 import { observer } from "mobx-react-lite";
 import { rootStore } from "./stores/rootStore";
 import { sessionStore } from "./stores/sessionStore";
+import { notificationsStore } from "./stores/notificationsStore";
+import { chatStore } from "./stores/chatStore";
 import { Suspense, useEffect } from "react";
 import { ConfigProvider, AdaptivityProvider, AppRoot, Spinner } from "@vkontakte/vkui";
 import "@vkontakte/vkui/dist/vkui.css";
@@ -80,6 +82,9 @@ function contentMaxWidth(pathname: string): string {
 
 const App = observer(() => {
   const location = useLocation();
+  // Читаем прямо в render, чтобы observer перерисовал App при входе/выходе —
+  // иначе эффекты живости счётчиков ниже не перезапустились бы на смену сессии.
+  const authenticated = sessionStore.authenticated;
   // VKUI был жёстко зафиксирован в светлой схеме — теперь следует выбранной теме (UX-001).
   const { theme } = useTheme();
   // startsWith, а не строгое равенство: иначе экран переписки `/chats/:id`
@@ -124,6 +129,32 @@ const App = observer(() => {
     rootStore.loadBackendStatus();
     sessionStore.init();
   }, []);
+
+  /*
+   * Живость счётчиков — в App, а не в шапке (UX-019).
+   *
+   * Опрос значков раньше жил в THeader, но шапка размонтируется на профиле, в
+   * уведомлениях и на странице события — и там счётчики чата и колокольчика
+   * замирали до перехода. Отсюда, из всегда смонтированного корня, они
+   * обновляются на любом экране: постоянный опрос при видимой вкладке...
+   */
+  useEffect(() => {
+    if (!authenticated) return;
+    notificationsStore.startPolling();
+    chatStore.startUnreadPolling();
+    return () => {
+      notificationsStore.stopPolling();
+      chatStore.stopUnreadPolling();
+    };
+  }, [authenticated]);
+
+  // ...и мгновенно на каждой навигации: перешёл в чат — красный значок чата
+  // спадает сразу, а не «иногда» и не через минуту.
+  useEffect(() => {
+    if (!authenticated) return;
+    void notificationsStore.refreshUnread();
+    void chatStore.refreshUnread();
+  }, [location.pathname, authenticated]);
 
   /*
    * VKUI рисует свои панели по собственной палитре, а не по нашей. В тёмной

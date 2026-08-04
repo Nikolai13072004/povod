@@ -2192,6 +2192,36 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Очистить все уведомления",
+        "description": "Удаляет все уведомления пользователя. В отличие от «прочитать всё», убирает записи насовсем.",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Удалено"
+          },
+          "401": {
+            "description": "Нужна сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/Notifications/unread": {

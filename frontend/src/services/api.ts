@@ -459,6 +459,9 @@ export const notificationsAPI = {
       method: "POST",
       body: JSON.stringify(ids ? { ids } : {}),
     }),
+
+  /** Удаляет все уведомления пользователя. В отличие от markRead — убирает насовсем. */
+  clearAll: () => fetchApi<void>("api/Notifications", { method: "DELETE" }),
 };
 
 /**
